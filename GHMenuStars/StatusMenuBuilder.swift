@@ -9,7 +9,7 @@ struct StatusMenuBuilder {
     func build(target: StatusItemController) -> NSMenu {
         let menu = NSMenu()
         if let repo = repoStore.trackedRepos.first {
-            menu.addItem(titleItem(repo.displayName))
+            menu.addItem(titleItem(repo.displayName, imageName: "star.circle.fill"))
             let stars = RepoDeltaFormatter.metricLine(
                 label: "★",
                 value: repo.lastStars,
@@ -24,11 +24,13 @@ struct StatusMenuBuilder {
             menu.addItem(titleItem(downloads))
             menu.addItem(titleItem("Checked \(RelativeDateTimeFormatter.menu.string(for: repo.lastCheckedAt) ?? "never")"))
             if let state = repoStore.rateLimitState, state.isLimited {
-                menu.addItem(titleItem("GitHub rate limit active. Next retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
+                menu.addItem(NSMenuItem.separator())
+                menu.addItem(titleItem("Rate limit active", imageName: "exclamationmark.triangle"))
+                menu.addItem(titleItem("Retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
             }
         } else {
-            menu.addItem(titleItem("No repository tracked"))
-            menu.addItem(titleItem("Add a public GitHub repository in Settings."))
+            menu.addItem(titleItem("No repository tracked", imageName: "star.slash"))
+            menu.addItem(titleItem("Add a public repository in Settings."))
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -42,8 +44,11 @@ struct StatusMenuBuilder {
         return menu
     }
 
-    private func titleItem(_ title: String) -> NSMenuItem {
+    private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        if let imageName {
+            item.image = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
+        }
         item.isEnabled = false
         return item
     }
@@ -54,4 +59,3 @@ struct StatusMenuBuilder {
         return item
     }
 }
-

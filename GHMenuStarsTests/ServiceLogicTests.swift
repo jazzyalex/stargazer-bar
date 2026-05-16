@@ -69,4 +69,35 @@ final class ServiceLogicTests: XCTestCase {
         ]))
         XCTAssertFalse(AppDelegate.isHostedUnitTest(environment: [:]))
     }
+
+    func testGitHubOAuthConfigurationUsesEnvironmentAndIgnoresPlaceholders() {
+        var settings = AppSettings()
+        settings.gitHubOAuthClientID = "$(GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID)"
+        XCTAssertNil(GitHubOAuthConfiguration.clientID(settings: settings, environment: [:], infoDictionaryClientID: nil))
+
+        XCTAssertEqual(
+            GitHubOAuthConfiguration.clientID(settings: settings, environment: [
+                "GH_MENU_STARS_GITHUB_CLIENT_ID": "abc123"
+            ], infoDictionaryClientID: nil),
+            "abc123"
+        )
+
+        XCTAssertEqual(
+            GitHubOAuthConfiguration.clientID(settings: settings, environment: [
+                "GH_MENU_STARS_GITHUB_CLIENT_ID": "env-client"
+            ], infoDictionaryClientID: "bundle-client"),
+            "env-client"
+        )
+
+        XCTAssertEqual(
+            GitHubOAuthConfiguration.clientID(settings: settings, environment: [:], infoDictionaryClientID: "bundle-client"),
+            "bundle-client"
+        )
+
+        settings.gitHubOAuthClientID = "saved-client"
+        XCTAssertEqual(
+            GitHubOAuthConfiguration.clientID(settings: settings, environment: [:], infoDictionaryClientID: nil),
+            "saved-client"
+        )
+    }
 }

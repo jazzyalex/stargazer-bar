@@ -35,5 +35,8 @@ struct KeychainTokenStore {
         }
         return String(data: data, encoding: .utf8)
     }
-}
 
+    func hasToken() -> Bool {
+        (try? loadToken()) != nil
+    }
+}

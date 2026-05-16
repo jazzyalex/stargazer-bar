@@ -22,6 +22,7 @@
 	<string>13.0</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Alex M</string>
+	<key>GHMenuStarsGitHubOAuthClientID</key>
+	<string>$(GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID)</string>
 </dict>
 </plist>
-

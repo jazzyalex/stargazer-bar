@@ -1,0 +1,3 @@
+// Copy this file to Config/Local.xcconfig and set the client id from a
+// registered GitHub OAuth app. Config/Local.xcconfig is git-ignored.
+GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID = your_github_oauth_client_id

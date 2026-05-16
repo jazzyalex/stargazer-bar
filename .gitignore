@@ -13,4 +13,4 @@ build/
 *.ipa
 *.pkg
 *.dmg
-
+Config/Local.xcconfig

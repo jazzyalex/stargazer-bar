@@ -1,0 +1,3 @@
+GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID =
+
+#include? "Local.xcconfig"

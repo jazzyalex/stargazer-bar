@@ -1,48 +1,74 @@
+import AppKit
 import SwiftUI
+
+private enum GitHubAuthViewState: Equatable {
+    case disconnected
+    case requestingCode
+    case waitingForAuthorization
+    case connected
+    case failed(String)
+
+    var isBusy: Bool {
+        switch self {
+        case .requestingCode, .waitingForAuthorization:
+            return true
+        case .disconnected, .connected, .failed:
+            return false
+        }
+    }
+}
 
 struct SettingsView: View {
     static let contentWidth: CGFloat = 520
-    static let contentHeight: CGFloat = 610
+    static let contentHeight: CGFloat = 680
 
     @ObservedObject var repoStore: TrackedRepoStore
     @ObservedObject var settingsStore: SettingsStore
     let gitHubClient: GitHubClient
 
     @State private var repoText = ""
-    @State private var validationMessage: String?
+    @State private var validationMessage: SettingsMessage?
     @State private var isValidating = false
-    @State private var authMessage: String?
+    @State private var authState: GitHubAuthViewState = .disconnected
     @State private var deviceCode: DeviceCodeResponse?
     @State private var publicRepos: [GitHubRepoSummary] = []
     @State private var isLoadingRepos = false
+    @State private var hasLoadedPublicRepos = false
+    @State private var repoFilter = ""
 
     var body: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 16) {
+                header
+
                 GroupBox("Repository") {
                     VStack(alignment: .leading, spacing: 10) {
-                        TextField("owner/repo or https://github.com/owner/repo", text: $repoText)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit { validateManualRepo() }
+                        if let tracked = repoStore.trackedRepos.first {
+                            CurrentRepoSummary(repo: tracked, delta: repoStore.lastDelta)
+                        } else {
+                            EmptyRepositoryView()
+                        }
 
-                        HStack {
-                            Button(isValidating ? "Checking…" : "Track Public Repo") {
+                        HStack(spacing: 8) {
+                            TextField("owner/repo or https://github.com/owner/repo", text: $repoText)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit { validateManualRepo() }
+
+                            Button {
                                 validateManualRepo()
+                            } label: {
+                                if isValidating {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Text("Track")
+                                }
                             }
                             .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                            if let tracked = repoStore.trackedRepos.first {
-                                Text("Tracking \(tracked.displayName)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
                         }
 
                         if let validationMessage {
-                            Text(validationMessage)
-                                .font(.caption)
-                                .foregroundStyle(validationMessage.hasPrefix("Tracking") ? .green : .secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            SettingsMessageView(message: validationMessage)
                         }
                     }
                     .padding(8)
@@ -61,7 +87,9 @@ struct SettingsView: View {
                         .pickerStyle(.segmented)
 
                         if let state = repoStore.rateLimitState, state.isLimited {
-                            Text("GitHub rate limit active. The app will retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later").")
+                            SettingsMessageView(message: .warning("GitHub rate limit active. The app will retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
+                        } else {
+                            Text(refreshSummary)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -89,47 +117,63 @@ struct SettingsView: View {
 
                 GroupBox("GitHub Account") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Public repositories you can access.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        TextField("GitHub OAuth app client_id", text: Binding(
-                            get: { settingsStore.settings.gitHubOAuthClientID },
-                            set: { newValue in settingsStore.update { $0.gitHubOAuthClientID = newValue } }
-                        ))
-                        .textFieldStyle(.roundedBorder)
+                        HStack {
+                            Label("Public repositories you can access.", systemImage: "person.crop.circle.badge.checkmark")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            authStateBadge
+                        }
 
                         HStack {
-                            Button("Connect GitHub") {
+                            Button(authButtonTitle) {
                                 startDeviceFlow()
                             }
-                            .disabled(settingsStore.settings.gitHubOAuthClientID.isEmpty)
+                            .disabled(authState.isBusy)
 
-                            Button(isLoadingRepos ? "Loading…" : "Load Public Repos") {
+                            Button {
                                 loadPublicRepos()
+                            } label: {
+                                if isLoadingRepos {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Text("Load Public Repos")
+                                }
                             }
-                            .disabled(isLoadingRepos)
+                            .disabled(isLoadingRepos || authState != .connected)
                         }
 
                         if let deviceCode {
-                            Text("Open \(deviceCode.verificationURI) and enter \(deviceCode.userCode).")
-                                .font(.caption)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
+                            DeviceCodePanel(deviceCode: deviceCode)
                         }
 
-                        if let authMessage {
-                            Text(authMessage)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                        authMessageView
+
+                        if !publicRepos.isEmpty {
+                            TextField("Filter repositories", text: $repoFilter)
+                                .textFieldStyle(.roundedBorder)
                         }
 
-                        ForEach(publicRepos) { repo in
-                            Button(repo.fullName) {
-                                track(owner: repo.owner.login, name: repo.name, source: .oauth)
+                        if isLoadingRepos {
+                            ProgressView("Loading repositories…")
+                                .controlSize(.small)
+                        } else if authState == .connected && publicRepos.isEmpty {
+                            SettingsMessageView(message: .info(hasLoadedPublicRepos ? "No public repositories returned for this account." : "Load public repositories from your GitHub account."))
+                        } else {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(filteredRepos.prefix(12)) { repo in
+                                    Button {
+                                        track(owner: repo.owner.login, name: repo.name, source: .oauth)
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "book.closed")
+                                            Text(repo.fullName)
+                                        }
+                                    }
+                                    .buttonStyle(.link)
+                                }
                             }
-                            .buttonStyle(.link)
                         }
                     }
                     .padding(8)
@@ -155,25 +199,118 @@ struct SettingsView: View {
             if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
                 repoText = repo.displayName
             }
+            if KeychainTokenStore(service: "GHMenuStars.GitHubOAuth").hasToken() {
+                authState = .connected
+            }
         }
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Image(nsImage: AppIconFactory.iconImage(size: NSSize(width: 64, height: 64)))
+                .resizable()
+                .frame(width: 38, height: 38)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("GH Menu Stars")
+                    .font(.title3.weight(.semibold))
+                Text("Track a public repository from the menu bar.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.bottom, 2)
+    }
+
+    private var refreshSummary: String {
+        if let repo = repoStore.trackedRepos.first,
+           let checkedAt = repo.lastCheckedAt {
+            return "Last checked \(RelativeDateTimeFormatter.menu.string(for: checkedAt) ?? "recently")."
+        }
+        return "Checks start after you track a repository."
+    }
+
+    private var authButtonTitle: String {
+        switch authState {
+        case .requestingCode:
+            return "Requesting…"
+        case .waitingForAuthorization:
+            return "Waiting…"
+        case .connected:
+            return "Reconnect GitHub"
+        case .disconnected, .failed:
+            return "Connect GitHub"
+        }
+    }
+
+    private var authStateBadge: some View {
+        let text: String
+        let symbol: String
+        switch authState {
+        case .connected:
+            text = "Connected"
+            symbol = "checkmark.circle.fill"
+        case .requestingCode, .waitingForAuthorization:
+            text = "Connecting"
+            symbol = "clock"
+        case .failed:
+            text = "Needs attention"
+            symbol = "exclamationmark.circle"
+        case .disconnected:
+            text = "Optional"
+            symbol = "circle"
+        }
+        return Label(text, systemImage: symbol)
+            .font(.caption)
+            .foregroundStyle(authState == .connected ? .green : .secondary)
+    }
+
+    @ViewBuilder
+    private var authMessageView: some View {
+        switch authState {
+        case .disconnected:
+            SettingsMessageView(message: .info("Manual public repo tracking works without signing in. Connect GitHub only to pick from your public repositories."))
+        case .requestingCode:
+            SettingsMessageView(message: .info("Requesting a GitHub device code…"))
+        case .waitingForAuthorization:
+            SettingsMessageView(message: .info("Authorize in the browser. This window will update when GitHub confirms access."))
+        case .connected:
+            SettingsMessageView(message: .success("GitHub connected. Load public repositories to pick one."))
+        case .failed(let message):
+            SettingsMessageView(message: .warning(message))
+        }
+    }
+
+    private var filteredRepos: [GitHubRepoSummary] {
+        let query = repoFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return publicRepos }
+        return publicRepos.filter { $0.fullName.lowercased().contains(query) }
     }
 
     private func validateManualRepo() {
         let input = repoText
+        do {
+            let parsed = try RepoURLParser.parse(input)
+            validateRepo(owner: parsed.owner, name: parsed.name, source: .manual)
+        } catch {
+            validationMessage = .warning(GitHubError.userMessage(for: error))
+        }
+    }
+
+    private func validateRepo(owner: String, name: String, source: RepoSource) {
         isValidating = true
         validationMessage = nil
         Task {
             do {
-                let parsed = try RepoURLParser.parse(input)
-                let repoResult = try await gitHubClient.fetchRepo(owner: parsed.owner, name: parsed.name, etag: nil)
+                let repoResult = try await gitHubClient.fetchRepo(owner: owner, name: name, etag: nil)
                 guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
-                let releasesResult = try await gitHubClient.fetchReleases(owner: parsed.owner, name: parsed.name, etag: nil)
+                let releasesResult = try await gitHubClient.fetchReleases(owner: owner, name: name, etag: nil)
                 let downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
                 await MainActor.run {
                     let repo = TrackedRepo(
-                        owner: parsed.owner,
-                        name: parsed.name,
-                        source: .manual,
+                        owner: owner,
+                        name: name,
+                        source: source,
                         lastStars: repoResult.value.stargazersCount,
                         lastDownloads: downloads,
                         lastCheckedAt: Date(),
@@ -182,12 +319,12 @@ struct SettingsView: View {
                         etagReleases: releasesResult.etag
                     )
                     repoStore.setTrackedRepo(repo)
-                    validationMessage = "Tracking \(parsed.owner)/\(parsed.name)."
+                    validationMessage = .success("Tracking \(owner)/\(name).")
                     isValidating = false
                 }
             } catch {
                 await MainActor.run {
-                    validationMessage = GitHubError.userMessage(for: error)
+                    validationMessage = .warning(GitHubError.userMessage(for: error))
                     isValidating = false
                 }
             }
@@ -195,33 +332,42 @@ struct SettingsView: View {
     }
 
     private func track(owner: String, name: String, source: RepoSource) {
-        repoStore.setTrackedRepo(TrackedRepo(owner: owner, name: name, source: source))
+        repoText = "\(owner)/\(name)"
+        validateRepo(owner: owner, name: name, source: source)
     }
 
     private func startDeviceFlow() {
-        authMessage = nil
+        guard let clientID = GitHubOAuthConfiguration.clientID(settings: settingsStore.settings) else {
+            authState = .failed("GitHub connection is not configured in this build.")
+            return
+        }
+
+        authState = .requestingCode
+        deviceCode = nil
         Task {
             do {
-                let response = try await DeviceFlowClient().requestDeviceCode(clientID: settingsStore.settings.gitHubOAuthClientID)
+                let response = try await DeviceFlowClient().requestDeviceCode(clientID: clientID)
                 await MainActor.run {
                     deviceCode = response
-                    authMessage = "After authorizing, click Load Public Repos."
+                    authState = .waitingForAuthorization
                     if let url = URL(string: response.verificationURI) {
                         NSWorkspace.shared.open(url)
                     }
                 }
                 let token = try await DeviceFlowClient().pollForToken(
-                    clientID: settingsStore.settings.gitHubOAuthClientID,
+                    clientID: clientID,
                     deviceCode: response.deviceCode,
                     interval: response.interval
                 )
                 try KeychainTokenStore(service: "GHMenuStars.GitHubOAuth").saveToken(token.accessToken)
                 await MainActor.run {
-                    authMessage = "Connected."
+                    authState = .connected
+                    deviceCode = nil
+                    loadPublicRepos()
                 }
             } catch {
                 await MainActor.run {
-                    authMessage = GitHubError.userMessage(for: error)
+                    authState = .failed(GitHubError.userMessage(for: error))
                 }
             }
         }
@@ -229,20 +375,137 @@ struct SettingsView: View {
 
     private func loadPublicRepos() {
         isLoadingRepos = true
+        hasLoadedPublicRepos = false
         Task {
             do {
                 let repos = try await gitHubClient.fetchAccessiblePublicRepos()
                 await MainActor.run {
                     publicRepos = repos
-                    authMessage = repos.isEmpty ? "No public repositories returned." : nil
+                    hasLoadedPublicRepos = true
                     isLoadingRepos = false
                 }
             } catch {
                 await MainActor.run {
-                    authMessage = GitHubError.userMessage(for: error)
+                    authState = .failed(GitHubError.userMessage(for: error))
                     isLoadingRepos = false
                 }
             }
         }
+    }
+}
+
+private struct CurrentRepoSummary: View {
+    let repo: TrackedRepo
+    let delta: RepoDelta?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(repo.displayName, systemImage: "star.circle.fill")
+                .font(.headline)
+            HStack(spacing: 12) {
+                Text(RepoDeltaFormatter.metricLine(label: "★", value: repo.lastStars, delta: delta?.starsDelta))
+                Text(RepoDeltaFormatter.metricLine(label: "Downloads", value: repo.lastDownloads, delta: delta?.downloadsDelta))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct EmptyRepositoryView: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "star.slash")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No repository tracked")
+                    .font(.headline)
+                Text("Paste a public GitHub repo URL or owner/repo.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct DeviceCodePanel: View {
+    let deviceCode: DeviceCodeResponse
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(deviceCode.userCode)
+                .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                .textSelection(.enabled)
+            HStack {
+                Button("Copy Code") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(deviceCode.userCode, forType: .string)
+                }
+                Button("Open GitHub") {
+                    if let url = URL(string: deviceCode.verificationURI) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+            Text(deviceCode.verificationURI)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private enum SettingsMessage: Equatable {
+    case info(String)
+    case success(String)
+    case warning(String)
+
+    var text: String {
+        switch self {
+        case .info(let text), .success(let text), .warning(let text):
+            return text
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .info:
+            return "info.circle"
+        case .success:
+            return "checkmark.circle"
+        case .warning:
+            return "exclamationmark.triangle"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .info:
+            return .secondary
+        case .success:
+            return .green
+        case .warning:
+            return .orange
+        }
+    }
+}
+
+private struct SettingsMessageView: View {
+    let message: SettingsMessage
+
+    var body: some View {
+        Label(message.text, systemImage: message.symbol)
+            .font(.caption)
+            .foregroundStyle(message.color)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

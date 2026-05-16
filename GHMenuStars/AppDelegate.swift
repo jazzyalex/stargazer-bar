@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isHostedUnitTest() else { return }
 
+        AppIconFactory.applyRuntimeIcon()
+
         let controller = StatusItemController(
             repoStore: repoStore,
             settingsStore: settingsStore,
