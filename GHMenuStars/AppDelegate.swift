@@ -5,6 +5,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsStore = SettingsStore()
     private let repoStore = TrackedRepoStore()
+    private let updaterController = UpdaterController()
     private let tokenStore = KeychainTokenStore(service: "GHMenuStars.GitHubOAuth")
     private lazy var gitHubClient = GitHubClient(tokenProvider: { [tokenStore] in
         try? tokenStore.loadToken()
@@ -30,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             repoStore: repoStore,
             settingsStore: settingsStore,
             pollingService: pollingService,
+            updaterController: updaterController,
             animationCoordinator: animationCoordinator
         )
         statusItemController = controller

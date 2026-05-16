@@ -1,3 +1,8 @@
 // Copy this file to Config/Local.xcconfig and set the client id from a
 // registered GitHub OAuth app. Config/Local.xcconfig is git-ignored.
 GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID = your_github_oauth_client_id
+
+// Optional: set a Sparkle appcast URL after the feed is published, or override
+// the EdDSA public key for local testing.
+// GHMENUSTARS_SPARKLE_FEED_URL = https:/$()/example.com/appcast.xml
+// GHMENUSTARS_SPARKLE_PUBLIC_ED_KEY = your_sparkle_public_key

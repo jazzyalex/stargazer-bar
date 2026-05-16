@@ -5,6 +5,7 @@ struct StatusMenuBuilder {
     let repoStore: TrackedRepoStore
     let settingsStore: SettingsStore
     let pollingService: RepoPollingService
+    let updaterController: UpdaterController
 
     func build(target: StatusItemController) -> NSMenu {
         let menu = NSMenu()
@@ -34,11 +35,24 @@ struct StatusMenuBuilder {
         }
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(actionItem("Check Now", #selector(StatusItemController.checkNow), target))
         let openItem = actionItem("Open on GitHub", #selector(StatusItemController.openGitHub), target)
         openItem.isEnabled = repoStore.trackedRepos.first != nil
         menu.addItem(openItem)
+        menu.addItem(actionItem("Check Now", #selector(StatusItemController.checkNow), target))
+        menu.addItem(NSMenuItem.separator())
+        let muteItem = actionItem(
+            settingsStore.settings.isMuted ? "Mute: On" : "Mute: Off",
+            #selector(StatusItemController.toggleMute),
+            target
+        )
+        muteItem.state = settingsStore.settings.isMuted ? .on : .off
+        menu.addItem(muteItem)
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Settings…", #selector(StatusItemController.openSettings), target))
+        let updateTitle = updaterController.hasGentleReminder ? "Install Update…" : "Check for Updates…"
+        let updateItem = actionItem(updateTitle, #selector(StatusItemController.checkForUpdates), target)
+        updateItem.isEnabled = updaterController.canCheckForUpdates
+        menu.addItem(updateItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Quit", #selector(StatusItemController.quit), target))
         return menu

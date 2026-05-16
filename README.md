@@ -17,4 +17,4 @@ For local builds, copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig
 
 ## Privacy
 
-The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. The app has no backend and no telemetry.
+The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. The app has no backend and no telemetry. The only non-GitHub network activity is optional Sparkle update checking when updates are enabled.

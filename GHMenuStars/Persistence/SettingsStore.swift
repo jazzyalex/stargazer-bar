@@ -7,7 +7,31 @@ struct AppSettings: Codable, Equatable {
     var notifyOnStarIncrease: Bool = true
     var playSoundOnStarIncrease: Bool = false
     var animateOnStarIncrease: Bool = true
+    var isMuted: Bool = false
     var gitHubOAuthClientID: String = ""
+
+    private enum CodingKeys: String, CodingKey {
+        case refreshInterval
+        case hideDockIcon
+        case notifyOnStarIncrease
+        case playSoundOnStarIncrease
+        case animateOnStarIncrease
+        case isMuted
+        case gitHubOAuthClientID
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        refreshInterval = try container.decode(RefreshInterval.self, forKey: .refreshInterval)
+        hideDockIcon = try container.decode(Bool.self, forKey: .hideDockIcon)
+        notifyOnStarIncrease = try container.decode(Bool.self, forKey: .notifyOnStarIncrease)
+        playSoundOnStarIncrease = try container.decode(Bool.self, forKey: .playSoundOnStarIncrease)
+        animateOnStarIncrease = try container.decode(Bool.self, forKey: .animateOnStarIncrease)
+        isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
+        gitHubOAuthClientID = try container.decode(String.self, forKey: .gitHubOAuthClientID)
+    }
 }
 
 @MainActor
@@ -36,4 +60,3 @@ final class SettingsStore: ObservableObject {
         defaults.set(data, forKey: key)
     }
 }
-

@@ -6,14 +6,24 @@ final class PreferencesWindow {
     static let shared = PreferencesWindow()
     private var controller: NSWindowController?
 
-    func show(repoStore: TrackedRepoStore, settingsStore: SettingsStore, gitHubClient: GitHubClient) {
+    func show(
+        repoStore: TrackedRepoStore,
+        settingsStore: SettingsStore,
+        gitHubClient: GitHubClient,
+        updaterController: UpdaterController
+    ) {
         if let controller, let window = controller.window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let root = SettingsView(repoStore: repoStore, settingsStore: settingsStore, gitHubClient: gitHubClient)
+        let root = SettingsView(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: gitHubClient,
+            updaterController: updaterController
+        )
         let hosting = NSHostingController(rootView: root)
         let window = NSWindow(contentViewController: hosting)
         window.title = "Settings"
@@ -31,4 +41,3 @@ final class PreferencesWindow {
         NSApp.activate(ignoringOtherApps: true)
     }
 }
-

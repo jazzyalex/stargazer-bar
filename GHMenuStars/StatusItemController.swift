@@ -9,6 +9,7 @@ final class StatusItemController: NSObject {
     private let repoStore: TrackedRepoStore
     private let settingsStore: SettingsStore
     private let pollingService: RepoPollingService
+    private let updaterController: UpdaterController
     private let animationCoordinator: AnimationCoordinator
     private var cancellables: Set<AnyCancellable> = []
     private var lengthUpdateScheduled = false
@@ -19,11 +20,13 @@ final class StatusItemController: NSObject {
         repoStore: TrackedRepoStore,
         settingsStore: SettingsStore,
         pollingService: RepoPollingService,
+        updaterController: UpdaterController,
         animationCoordinator: AnimationCoordinator
     ) {
         self.repoStore = repoStore
         self.settingsStore = settingsStore
         self.pollingService = pollingService
+        self.updaterController = updaterController
         self.animationCoordinator = animationCoordinator
         super.init()
     }
@@ -67,7 +70,8 @@ final class StatusItemController: NSObject {
         item.menu = StatusMenuBuilder(
             repoStore: repoStore,
             settingsStore: settingsStore,
-            pollingService: pollingService
+            pollingService: pollingService,
+            updaterController: updaterController
         ).build(target: self)
         button.performClick(nil)
         item.menu = nil
@@ -75,6 +79,12 @@ final class StatusItemController: NSObject {
 
     @objc func checkNow() {
         pollingService.refreshNow()
+    }
+
+    @objc func toggleMute() {
+        settingsStore.update { settings in
+            settings.isMuted.toggle()
+        }
     }
 
     @objc func openGitHub() {
@@ -87,8 +97,13 @@ final class StatusItemController: NSObject {
         PreferencesWindow.shared.show(
             repoStore: repoStore,
             settingsStore: settingsStore,
-            gitHubClient: pollingService.gitHubClient
+            gitHubClient: pollingService.gitHubClient,
+            updaterController: updaterController
         )
+    }
+
+    @objc func checkForUpdates() {
+        updaterController.checkForUpdates(nil)
     }
 
     @objc func quit() {
@@ -110,4 +125,3 @@ final class StatusItemController: NSObject {
         item.length = max(44, hosting.fittingSize.width + 2)
     }
 }
-

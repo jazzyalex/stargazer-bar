@@ -24,6 +24,7 @@ struct SettingsView: View {
 
     @ObservedObject var repoStore: TrackedRepoStore
     @ObservedObject var settingsStore: SettingsStore
+    @ObservedObject var updaterController: UpdaterController
     let gitHubClient: GitHubClient
 
     @State private var repoText = ""
@@ -35,6 +36,18 @@ struct SettingsView: View {
     @State private var isLoadingRepos = false
     @State private var hasLoadedPublicRepos = false
     @State private var repoFilter = ""
+
+    init(
+        repoStore: TrackedRepoStore,
+        settingsStore: SettingsStore,
+        gitHubClient: GitHubClient,
+        updaterController: UpdaterController
+    ) {
+        self._repoStore = ObservedObject(wrappedValue: repoStore)
+        self._settingsStore = ObservedObject(wrappedValue: settingsStore)
+        self._updaterController = ObservedObject(wrappedValue: updaterController)
+        self.gitHubClient = gitHubClient
+    }
 
     var body: some View {
         ScrollView(.vertical) {
@@ -180,10 +193,32 @@ struct SettingsView: View {
                 }
 
                 GroupBox("App") {
-                    Toggle("Show Dock icon", isOn: Binding(
-                        get: { !settingsStore.settings.hideDockIcon },
-                        set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
-                    ))
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Show Dock icon", isOn: Binding(
+                            get: { !settingsStore.settings.hideDockIcon },
+                            set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
+                        ))
+
+                        Divider()
+
+                        if updaterController.hasGentleReminder {
+                            SettingsMessageView(message: .success("An update is available."))
+                        }
+
+                        HStack(spacing: 12) {
+                            Toggle("Auto-Update", isOn: Binding(
+                                get: { updaterController.autoUpdateEnabled },
+                                set: { updaterController.autoUpdateEnabled = $0 }
+                            ))
+                            .toggleStyle(.checkbox)
+                            .disabled(updaterController.updater == nil)
+
+                            Button("Check for Updates…") {
+                                updaterController.checkForUpdates(nil)
+                            }
+                            .disabled(!updaterController.canCheckForUpdates)
+                        }
+                    }
                     .padding(8)
                 }
 

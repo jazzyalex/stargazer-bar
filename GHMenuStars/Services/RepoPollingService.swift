@@ -108,6 +108,7 @@ final class RepoPollingService {
     private func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
         guard delta.hasStarIncrease else { return }
         let settings = settingsStore.settings
+        guard !settings.isMuted else { return }
         if settings.notifyOnStarIncrease,
            repoStore.trackedRepos.first?.lastNotifiedStars != stars {
             notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
@@ -121,4 +122,3 @@ final class RepoPollingService {
         }
     }
 }
-

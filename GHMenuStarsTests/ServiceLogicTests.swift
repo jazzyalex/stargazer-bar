@@ -31,11 +31,37 @@ final class ServiceLogicTests: XCTestCase {
         store.update { settings in
             settings.refreshInterval = .oneDay
             settings.hideDockIcon = false
+            settings.isMuted = true
         }
 
         let reloaded = SettingsStore(defaults: defaults)
         XCTAssertEqual(reloaded.settings.refreshInterval, .oneDay)
         XCTAssertFalse(reloaded.settings.hideDockIcon)
+        XCTAssertTrue(reloaded.settings.isMuted)
+    }
+
+    func testSettingsDecodeDefaultsMissingMute() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let legacySettingsJSON = """
+        {
+          "refreshInterval": "sixtyMinutes",
+          "hideDockIcon": false,
+          "notifyOnStarIncrease": false,
+          "playSoundOnStarIncrease": true,
+          "animateOnStarIncrease": false,
+          "gitHubOAuthClientID": "saved-client"
+        }
+        """
+        defaults.set(Data(legacySettingsJSON.utf8), forKey: "GHMenuStars.AppSettings.v1")
+
+        let store = SettingsStore(defaults: defaults)
+        XCTAssertEqual(store.settings.refreshInterval, .sixtyMinutes)
+        XCTAssertFalse(store.settings.hideDockIcon)
+        XCTAssertFalse(store.settings.notifyOnStarIncrease)
+        XCTAssertTrue(store.settings.playSoundOnStarIncrease)
+        XCTAssertFalse(store.settings.animateOnStarIncrease)
+        XCTAssertFalse(store.settings.isMuted)
+        XCTAssertEqual(store.settings.gitHubOAuthClientID, "saved-client")
     }
 
     func testRateLimitParsing() {
