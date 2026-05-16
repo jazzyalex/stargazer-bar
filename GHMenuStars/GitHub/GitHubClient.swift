@@ -139,7 +139,7 @@ final class GitHubClient {
         if let etag {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
-        if let token = tokenProvider() {
+        if requiresAuth, let token = tokenProvider() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         } else if requiresAuth {
             throw GitHubError.missingToken

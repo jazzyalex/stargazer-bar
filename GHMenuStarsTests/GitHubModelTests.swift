@@ -52,6 +52,28 @@ final class GitHubModelTests: XCTestCase {
             "/user/repos?visibility=public&affiliation=owner,collaborator&sort=updated&per_page=100&page=2"
         ])
     }
+
+    func testPublicRepoFetchDoesNotReadToken() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        var tokenProviderCallCount = 0
+        let client = GitHubClient(session: session, tokenProvider: {
+            tokenProviderCallCount += 1
+            return "token"
+        })
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo": MockURLProtocol.Response(
+                data: Data(#"{"full_name":"owner/repo","stargazers_count":12,"private":false}"#.utf8)
+            )
+        ]
+
+        let result = try await client.fetchRepo(owner: "owner", name: "repo", etag: nil)
+
+        XCTAssertEqual(result.value.fullName, "owner/repo")
+        XCTAssertEqual(tokenProviderCallCount, 0)
+    }
 }
 
 private final class MockURLProtocol: URLProtocol {
