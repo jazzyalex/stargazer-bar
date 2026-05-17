@@ -1,8 +1,30 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-  <channel>
-    <title>GH Menu Stars Updates</title>
-    <link>https://github.com/jazzyalex/GH-menu-stars</link>
-    <description>GH Menu Stars release feed.</description>
-  </channel>
+    <channel>
+        <title>GH Menu Stars Updates</title>
+        <link>https://github.com/jazzyalex/GH-menu-stars</link>
+        <description>GH Menu Stars release feed.</description>
+        <item>
+            <title>0.1.0</title>
+            <pubDate>Sat, 16 May 2026 20:42:10 -0700</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<h2>What's New in 0.1.0</h2>
+<h3>Features</h3>
+<ul>
+<li>Initial menu-bar app for tracking GitHub repository stars and latest release downloads.</li>
+<li>Optional GitHub OAuth device flow for browsing public repositories available to the signed-in user.</li>
+<li>Sparkle update support with automatic checks and automatic downloads enabled by default.</li>
+</ul>
+<h3>Improvements</h3>
+<ul>
+<li>Local-only storage for tracked repository metadata and settings.</li>
+</ul>
+<p>Full release notes: <a href="https://github.com/jazzyalex/GH-menu-stars/releases/tag/v0.1.0">https://github.com/jazzyalex/GH-menu-stars/releases/tag/v0.1.0</a></p>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/GH-menu-stars/releases/download/v0.1.0/GHMenuStars-0.1.0.zip" length="3151991" type="application/octet-stream" sparkle:edSignature="iuB3+ROJ3J+B3XP339hbTGMs3/IN/FmNAFl9uq7rYAiGFeb46qIBwxmXGjY8EoBL/zr6HPW+3sqbFJgQYDChBw=="/>
+        </item>
+    </channel>
 </rss>
