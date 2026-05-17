@@ -5,18 +5,19 @@ import Sparkle
 final class UpdaterController: NSObject, ObservableObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     @Published var hasGentleReminder = false
     @Published private(set) var canCheckForUpdates = false
+    @Published private(set) var autoUpdateEnabled: Bool
+    @Published private(set) var isUpdateCheckingConfigured: Bool
 
     private var controller: SPUStandardUpdaterController?
-    private var canCheckForUpdatesObservation: NSKeyValueObservation?
-    private let defaultAutoUpdateEnabled: Bool
+    private var updaterObservations: [NSKeyValueObservation] = []
 
     override init() {
-        self.defaultAutoUpdateEnabled = Self.hasConfiguredFeedURL &&
-            ((Bundle.main.object(forInfoDictionaryKey: "SUAutomaticallyUpdate") as? Bool) ?? false)
+        self.autoUpdateEnabled = Self.defaultAutoUpdateEnabled
+        self.isUpdateCheckingConfigured = Self.configuredFeedURL != nil
         super.init()
 
         guard !AppDelegate.isHostedUnitTest() else { return }
-        guard Self.hasConfiguredFeedURL else { return }
+        guard isUpdateCheckingConfigured else { return }
 
         let controller = SPUStandardUpdaterController(
             startingUpdater: false,
@@ -24,17 +25,13 @@ final class UpdaterController: NSObject, ObservableObject, SPUUpdaterDelegate, S
             userDriverDelegate: self
         )
         self.controller = controller
-        canCheckForUpdatesObservation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] _, change in
-            let canCheckForUpdates = change.newValue ?? false
-            Task { @MainActor in
-                self?.canCheckForUpdates = canCheckForUpdates
-            }
-        }
+        observeUpdater(controller.updater)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let controller = self?.controller else { return }
+            guard let self, let updater = self.updater else { return }
             do {
-                try controller.updater.start()
+                try updater.start()
+                syncAutoUpdateState(from: updater)
             } catch {
                 print("Failed to start updater - \(error.localizedDescription)")
             }
@@ -45,19 +42,53 @@ final class UpdaterController: NSObject, ObservableObject, SPUUpdaterDelegate, S
         controller?.updater
     }
 
-    var autoUpdateEnabled: Bool {
-        get { controller?.updater.automaticallyDownloadsUpdates ?? defaultAutoUpdateEnabled }
-        set {
-            guard let updater = controller?.updater else { return }
-            updater.automaticallyDownloadsUpdates = newValue
-            objectWillChange.send()
+    var canRequestUpdateCheck: Bool {
+        guard isUpdateCheckingConfigured else { return true }
+        return canCheckForUpdates
+    }
+
+    var canChangeAutoUpdatePreference: Bool {
+        updater != nil
+    }
+
+    func setAutoUpdateEnabled(_ enabled: Bool) {
+        guard let updater else { return }
+
+        if enabled {
+            updater.automaticallyChecksForUpdates = true
+            updater.automaticallyDownloadsUpdates = true
+        } else {
+            updater.automaticallyDownloadsUpdates = false
+            updater.automaticallyChecksForUpdates = false
         }
+
+        syncAutoUpdateState(from: updater)
+    }
+
+    func toggleAutoUpdateEnabled() {
+        setAutoUpdateEnabled(!autoUpdateEnabled)
     }
 
     @objc func checkForUpdates(_ sender: Any?) {
-        guard canCheckForUpdates else { return }
+        guard isUpdateCheckingConfigured else {
+            showUpdateAlert(
+                title: "Updates are not configured",
+                message: "This build does not include a Sparkle appcast URL, so it cannot check for app updates."
+            )
+            return
+        }
+
+        guard let updater else { return }
+        guard updater.canCheckForUpdates else {
+            showUpdateAlert(
+                title: "Update check is not ready",
+                message: "Sparkle is busy or still starting. Try checking again in a moment."
+            )
+            return
+        }
+
         hasGentleReminder = false
-        controller?.checkForUpdates(sender)
+        updater.checkForUpdates()
     }
 
     nonisolated var supportsGentleScheduledUpdateReminders: Bool {
@@ -111,10 +142,51 @@ final class UpdaterController: NSObject, ObservableObject, SPUUpdaterDelegate, S
         print("Already up to date")
     }
 
-    private static var hasConfiguredFeedURL: Bool {
+    private func observeUpdater(_ updater: SPUUpdater) {
+        updaterObservations = [
+            updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+                Task { @MainActor in
+                    self?.canCheckForUpdates = updater.canCheckForUpdates
+                }
+            },
+            updater.observe(\.automaticallyChecksForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+                Task { @MainActor in
+                    self?.syncAutoUpdateState(from: updater)
+                }
+            },
+            updater.observe(\.automaticallyDownloadsUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+                Task { @MainActor in
+                    self?.syncAutoUpdateState(from: updater)
+                }
+            }
+        ]
+    }
+
+    private func syncAutoUpdateState(from updater: SPUUpdater) {
+        autoUpdateEnabled = updater.automaticallyChecksForUpdates && updater.automaticallyDownloadsUpdates
+    }
+
+    private func showUpdateAlert(title: String, message: String) {
+        guard !AppDelegate.isHostedUnitTest() else { return }
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.runModal()
+    }
+
+    private static var defaultAutoUpdateEnabled: Bool {
+        guard configuredFeedURL != nil else { return false }
+        return ((Bundle.main.object(forInfoDictionaryKey: "SUEnableAutomaticChecks") as? Bool) ?? false) &&
+            ((Bundle.main.object(forInfoDictionaryKey: "SUAutomaticallyUpdate") as? Bool) ?? false)
+    }
+
+    private static var configuredFeedURL: URL? {
         guard let feedURL = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String else {
-            return false
+            return nil
         }
-        return !feedURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let trimmed = feedURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("$(") else { return nil }
+        return URL(string: trimmed)
     }
 }

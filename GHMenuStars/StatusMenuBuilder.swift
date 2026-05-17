@@ -49,9 +49,17 @@ struct StatusMenuBuilder {
         menu.addItem(muteItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Settings…", #selector(StatusItemController.openSettings), target))
+        let automaticUpdatesItem = actionItem(
+            "Automatic Updates",
+            #selector(StatusItemController.toggleAutomaticUpdates),
+            target
+        )
+        automaticUpdatesItem.state = updaterController.autoUpdateEnabled ? .on : .off
+        automaticUpdatesItem.isEnabled = updaterController.canChangeAutoUpdatePreference
+        menu.addItem(automaticUpdatesItem)
         let updateTitle = updaterController.hasGentleReminder ? "Install Update…" : "Check for Updates…"
         let updateItem = actionItem(updateTitle, #selector(StatusItemController.checkForUpdates), target)
-        updateItem.isEnabled = updaterController.canCheckForUpdates
+        updateItem.isEnabled = updaterController.canRequestUpdateCheck
         menu.addItem(updateItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Quit", #selector(StatusItemController.quit), target))

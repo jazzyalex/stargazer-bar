@@ -1,5 +1,5 @@
 GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID =
-GHMENUSTARS_SPARKLE_FEED_URL =
+GHMENUSTARS_SPARKLE_FEED_URL = https:/$()/jazzyalex.github.io/GH-menu-stars/appcast.xml
 GHMENUSTARS_SPARKLE_PUBLIC_ED_KEY = IxXWh+jLs25J3FiI4BDhurpau1yHNIK2z33NxJqR4Bc=
 
 #include? "Local.xcconfig"

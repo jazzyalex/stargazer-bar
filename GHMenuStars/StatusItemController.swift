@@ -106,6 +106,10 @@ final class StatusItemController: NSObject {
         updaterController.checkForUpdates(nil)
     }
 
+    @objc func toggleAutomaticUpdates() {
+        updaterController.toggleAutoUpdateEnabled()
+    }
+
     @objc func quit() {
         NSApp.terminate(nil)
     }

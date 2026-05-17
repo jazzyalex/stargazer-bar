@@ -208,15 +208,15 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             Toggle("Auto-Update", isOn: Binding(
                                 get: { updaterController.autoUpdateEnabled },
-                                set: { updaterController.autoUpdateEnabled = $0 }
+                                set: { updaterController.setAutoUpdateEnabled($0) }
                             ))
                             .toggleStyle(.checkbox)
-                            .disabled(updaterController.updater == nil)
+                            .disabled(!updaterController.canChangeAutoUpdatePreference)
 
                             Button("Check for Updates…") {
                                 updaterController.checkForUpdates(nil)
                             }
-                            .disabled(!updaterController.canCheckForUpdates)
+                            .disabled(!updaterController.canRequestUpdateCheck)
                         }
                     }
                     .padding(8)

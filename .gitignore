@@ -1,6 +1,9 @@
 .DS_Store
 DerivedData/
 build/
+dist/
+__pycache__/
+*.pyc
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
@@ -14,3 +17,4 @@ build/
 *.pkg
 *.dmg
 Config/Local.xcconfig
+tools/release/.env
