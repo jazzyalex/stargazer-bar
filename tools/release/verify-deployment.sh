@@ -8,6 +8,9 @@ VERSION=${1:-${VERSION:-}}
 REPO=${REPO:-jazzyalex/GH-menu-stars}
 APP_NAME=${APP_NAME:-GHMenuStars}
 APPCAST_URL=${APPCAST_URL:-https://jazzyalex.github.io/GH-menu-stars/appcast.xml}
+UPDATE_CASK=${UPDATE_CASK:-1}
+CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-gh-menu-stars}
+CASK_PATH=${CASK_PATH:-Casks/gh-menu-stars.rb}
 
 if [[ -z "$VERSION" ]]; then
   echo "Usage: tools/release/verify-deployment.sh VERSION" >&2
@@ -78,3 +81,26 @@ echo "==> Verifying release asset URLs"
 curl -fsI "$DMG_URL" >/dev/null
 curl -fsI "$ZIP_URL" >/dev/null
 echo "✓ DMG and Sparkle ZIP URLs reachable"
+
+if [[ "$UPDATE_CASK" == "1" ]]; then
+  echo "==> Verifying Homebrew cask"
+  DMG_SHA=$(curl -fsSL "${DMG_URL}.sha256" | awk '{print $1}')
+  CASK_BODY=$(gh api -H "Accept: application/vnd.github+json" \
+    "/repos/${CASK_REPO}/contents/${CASK_PATH}" --jq .content | tr -d '\n' | base64 --decode)
+  CASK_VERSION=$(printf '%s\n' "$CASK_BODY" | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n1)
+  CASK_SHA=$(printf '%s\n' "$CASK_BODY" | sed -n 's/.*sha256 "\([^"]*\)".*/\1/p' | head -n1)
+  CASK_URL_TEMPLATE="https://github.com/${REPO}/releases/download/v#{version}/${APP_NAME}-#{version}.dmg"
+  printf '%s\n' "$CASK_BODY" | grep -F "$CASK_URL_TEMPLATE" >/dev/null
+  printf '%s\n' "$CASK_BODY" | grep -F 'depends_on arch: :arm64' >/dev/null
+  if [[ "$CASK_VERSION" != "$VERSION" ]]; then
+    echo "Cask version mismatch: expected $VERSION, got $CASK_VERSION" >&2
+    exit 1
+  fi
+  if [[ "$CASK_SHA" != "$DMG_SHA" ]]; then
+    echo "Cask SHA mismatch: expected $DMG_SHA, got $CASK_SHA" >&2
+    exit 1
+  fi
+  echo "✓ Homebrew cask matches release"
+else
+  echo "Skipping Homebrew cask verification because UPDATE_CASK=$UPDATE_CASK."
+fi

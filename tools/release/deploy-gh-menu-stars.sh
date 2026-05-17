@@ -23,6 +23,8 @@ COMMIT_TOOL=${COMMIT_TOOL:-Codex}
 COMMIT_MODEL=${COMMIT_MODEL:-gpt-5}
 SPARKLE_ACCOUNT=${SPARKLE_ACCOUNT:-ed25519}
 SPARKLE_ED_KEY_FILE=${SPARKLE_ED_KEY_FILE:-}
+UPDATE_CASK=${UPDATE_CASK:-1}
+CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-gh-menu-stars}
 
 green(){ printf "\033[32m%s\033[0m\n" "$*"; }
 yellow(){ printf "\033[33m%s\033[0m\n" "$*"; }
@@ -50,6 +52,8 @@ Environment:
   NOTARY_* / ASC_*     Notary credentials; see tools/release/notary-auth.sh.
   SKIP_CONFIRM=1       Run without interactive confirmation.
   SPARKLE_ED_KEY_FILE  Optional Sparkle private EdDSA key file. Defaults to Keychain.
+  UPDATE_CASK=1        Update the Homebrew tap cask via GitHub API.
+  CASK_REPO            Homebrew tap repository. Defaults to jazzyalex/homebrew-gh-menu-stars.
 EOF
 }
 
@@ -187,6 +191,10 @@ for cmd in xcodebuild git gh python3 curl shasum codesign hdiutil xcrun security
 done
 
 gh auth status >/dev/null 2>&1 || { red "gh is not authenticated. Run: gh auth login"; exit 2; }
+
+if [[ "$UPDATE_CASK" == "1" ]]; then
+  CASK_REPO="$CASK_REPO" "$ROOT/tools/release/update-homebrew-cask.sh" --preflight
+fi
 
 rm -rf "$DIST"
 
@@ -328,6 +336,7 @@ spctl --assess --type open --context context:primary-signature -vv "$DMG"
 echo "==> Checksumming"
 (cd "$DIST" && shasum -a 256 "$DMG_BASENAME") | tee "$DMG.sha256"
 (cd "$DIST" && shasum -a 256 "$ZIP_BASENAME") | tee "$ZIP.sha256"
+DMG_SHA=$(awk '{print $1}' "$DMG.sha256")
 
 echo "==> Generating release notes"
 NOTES_TXT="$DIST/release-notes-${VERSION}.txt"
@@ -409,6 +418,17 @@ gh release view "$TAG" --repo "$REPO" >/dev/null
 curl -fsI "$RELEASE_URL" >/dev/null
 curl -fsI "$DMG_URL" >/dev/null
 wait_for_appcast "$VERSION" "$RELEASE_URL" 120 || true
+
+if [[ "$UPDATE_CASK" == "1" ]]; then
+  echo "==> Updating Homebrew cask"
+  VERSION="$VERSION" \
+    DMG_SHA="$DMG_SHA" \
+    REPO="$REPO" \
+    CASK_REPO="$CASK_REPO" \
+    "$ROOT/tools/release/update-homebrew-cask.sh"
+else
+  yellow "Skipping Homebrew cask update because UPDATE_CASK=$UPDATE_CASK."
+fi
 
 green "Release complete: https://github.com/${REPO}/releases/tag/${TAG}"
 green "Appcast: $APPCAST_URL"

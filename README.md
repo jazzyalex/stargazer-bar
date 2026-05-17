@@ -1,8 +1,38 @@
 # GH Menu Stars
 
-GH Menu Stars is a native macOS menu-bar app for tracking stars on a public GitHub repository.
+GH Menu Stars is a native macOS menu-bar app for watching a GitHub repository without keeping a browser tab open. It shows the current star count in the menu bar, tracks changes between refreshes, and includes release-download totals from the latest 100 releases in the dropdown.
 
-V1 tracks one public repository, shows stars in the menu-bar counter, and shows latest-100-release download totals in the dropdown. Manual public repository entry does not require credentials. GitHub OAuth device flow is optional and is used only to list public repositories the signed-in user can access.
+![GH Menu Stars menu screenshot](docs/assets/hero-menu.png)
+
+## Install
+
+### Homebrew
+
+```bash
+brew tap jazzyalex/gh-menu-stars
+brew install --cask gh-menu-stars
+```
+
+### Direct Download
+
+Download the latest signed and notarized Apple silicon DMG from:
+
+```text
+https://github.com/jazzyalex/GH-menu-stars/releases/latest
+```
+
+## Features
+
+- Menu-bar star counter for one public GitHub repository.
+- Release-download total from the latest 100 releases.
+- Local change detection and optional macOS notifications.
+- Manual repository entry with no GitHub login required.
+- Optional GitHub OAuth device flow for browsing public repositories available to the signed-in user.
+- Sparkle automatic updates, signed with EdDSA and enabled by default.
+- Apple silicon build for macOS Ventura or later.
+- Local-only settings storage, with optional OAuth tokens stored in Keychain.
+
+![GH Menu Stars settings screenshot](docs/assets/settings-panel.png)
 
 ## Build
 
@@ -23,7 +53,7 @@ GH Menu Stars uses Sparkle 2 for signed automatic updates. The production appcas
 https://jazzyalex.github.io/GH-menu-stars/appcast.xml
 ```
 
-The release helper builds the Release app, signs with Developer ID, notarizes and staples the DMG, generates a Sparkle EdDSA-signed appcast for the zipped app archive with release notes from `docs/CHANGELOG.md`, commits the appcast, and creates or updates the GitHub release:
+The release helper builds the Release app, signs with Developer ID, notarizes and staples the app and DMG, generates a Sparkle EdDSA-signed appcast for the zipped app archive with release notes from `docs/CHANGELOG.md`, creates or updates the GitHub release, commits the appcast, verifies the public release, and updates the Homebrew cask tap:
 
 ```bash
 VERSION=0.1.0 tools/release/deploy-gh-menu-stars.sh
@@ -31,6 +61,13 @@ tools/release/verify-deployment.sh 0.1.0
 ```
 
 The script expects `gh` authentication, a Developer ID Application certificate, notary credentials, and the Sparkle EdDSA private key in Keychain. `tools/release/.env` may provide `TEAM_ID`, `DEV_ID_APP`, `NOTARY_KEY_PATH`, `NOTARY_KEY_ID`, `NOTARY_ISSUER`, or `SPARKLE_ED_KEY_FILE`.
+
+Homebrew tap settings:
+
+```bash
+UPDATE_CASK=1
+CASK_REPO=jazzyalex/homebrew-gh-menu-stars
+```
 
 To test the full local release path without publishing or modifying `docs/appcast.xml`:
 
