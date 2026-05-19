@@ -26,6 +26,7 @@ SPARKLE_ACCOUNT=${SPARKLE_ACCOUNT:-ed25519}
 SPARKLE_ED_KEY_FILE=${SPARKLE_ED_KEY_FILE:-}
 UPDATE_CASK=${UPDATE_CASK:-1}
 CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
+ALLOW_EXISTING_RELEASE=${ALLOW_EXISTING_RELEASE:-0}
 
 green(){ printf "\033[32m%s\033[0m\n" "$*"; }
 yellow(){ printf "\033[33m%s\033[0m\n" "$*"; }
@@ -54,6 +55,8 @@ Environment:
   SKIP_CONFIRM=1       Run without interactive confirmation.
   SPARKLE_ED_KEY_FILE  Optional Sparkle private EdDSA key file. Defaults to Keychain.
   UPDATE_CASK=1        Update the Homebrew tap cask via GitHub API.
+  ALLOW_EXISTING_RELEASE=1
+                       Replace assets/notes/appcast for an existing GitHub release.
   CASK_REPO            Homebrew tap repository. Defaults to jazzyalex/homebrew-stargazer-bar.
   APP_BUNDLE_NAME      Built .app bundle name. Defaults to DISPLAY_NAME.
 EOF
@@ -218,8 +221,12 @@ if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
 fi
 
 if git rev-parse "$TAG" >/dev/null 2>&1; then
-  red "Tag already exists: $TAG"
-  exit 2
+  if [[ "$ALLOW_EXISTING_RELEASE" == "1" ]] && gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+    yellow "Updating existing release: $TAG"
+  else
+    red "Tag already exists: $TAG"
+    exit 2
+  fi
 fi
 
 if [[ ! -f "$ROOT/docs/CHANGELOG.md" ]]; then
@@ -231,7 +238,7 @@ if ! grep -q "^## \\[$VERSION\\]" "$ROOT/docs/CHANGELOG.md"; then
   exit 2
 fi
 
-PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]' | head -n1 || true)
+PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]' | grep -vx "$TAG" | head -n1 || true)
 if [[ -n "$PREV_TAG" ]]; then
   PREV_BUILD=$(git show "$PREV_TAG:$PROJECT/project.pbxproj" 2>/dev/null | sed -n 's/.*CURRENT_PROJECT_VERSION = \([0-9][0-9]*\).*/\1/p' | head -n1 | tr -d ' ' || true)
   if [[ -n "$PREV_BUILD" && -n "$BUILD_NUMBER" && "$BUILD_NUMBER" -le "$PREV_BUILD" ]]; then
