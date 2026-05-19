@@ -1,59 +1,87 @@
-# GH Menu Stars
+<div align="center">
 
-GH Menu Stars is a native macOS menu-bar app for watching a GitHub repository without keeping a browser tab open. It shows the current star count in the menu bar, tracks changes between refreshes, and includes release-download totals from the latest 100 releases in the dropdown.
+<img src="docs/assets/og-banner.png" alt="GH Menu Stars — GitHub stars in your menu bar" width="780">
 
-![GH Menu Stars menu screenshot](docs/assets/hero-menu.png)
+<h1>GH Menu Stars</h1>
+
+<p>
+  <strong>GitHub stars in your macOS menu bar.</strong><br>
+  A tiny native app that keeps your repository's star count and<br>
+  release downloads one glance away.
+</p>
+
+<p>
+  <a href="https://github.com/jazzyalex/GH-menu-stars/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/jazzyalex/GH-menu-stars?label=release&color=0071e3&style=flat-square"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-6e6e73?style=flat-square"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-1d1d1f?style=flat-square">
+  <a href="https://github.com/jazzyalex/homebrew-gh-menu-stars"><img alt="Homebrew" src="https://img.shields.io/badge/homebrew-cask-fbb040?style=flat-square"></a>
+</p>
+
+<p>
+  <a href="https://github.com/jazzyalex/GH-menu-stars/releases/latest"><b>Download</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://jazzyalex.github.io/GH-menu-stars/"><b>Website</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/jazzyalex/GH-menu-stars/issues"><b>Issues</b></a>
+</p>
+
+</div>
+
+---
 
 ## Install
 
-### Homebrew
+**Homebrew** *(recommended)*
 
 ```bash
-brew tap jazzyalex/gh-menu-stars
-brew install --cask gh-menu-stars
+brew install --cask jazzyalex/gh-menu-stars/gh-menu-stars
 ```
 
-### Direct Download
+**Direct download**
 
-Download the latest signed and notarized Apple silicon DMG from:
-
-```text
-https://github.com/jazzyalex/GH-menu-stars/releases/latest
-```
+Grab the signed, notarized Apple silicon DMG from the [latest release](https://github.com/jazzyalex/GH-menu-stars/releases/latest).
 
 ## Features
 
-- Menu-bar star counter for one public GitHub repository.
-- Release-download total from the latest 100 releases.
-- Local change detection and optional macOS notifications.
-- Manual repository entry with no GitHub login required.
-- Optional GitHub OAuth device flow for browsing public repositories available to the signed-in user.
-- Sparkle automatic updates, signed with EdDSA and enabled by default.
-- Apple silicon build for macOS Ventura or later.
-- Local-only settings storage, with optional OAuth tokens stored in Keychain.
+- ⭐ &nbsp;Live star count in your menu bar — no browser tab required
+- 📦 &nbsp;Download totals from your latest 100 releases
+- 🔑 &nbsp;Track any public repo without a GitHub account (sign-in is optional)
+- 🔄 &nbsp;Sparkle auto-updates, EdDSA-signed and notarized
+- 🔒 &nbsp;Private by default — no backend, no telemetry, Keychain-stored tokens
+- 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way
 
-![GH Menu Stars settings screenshot](docs/assets/settings-panel.png)
+<div align="center">
+  <img src="docs/assets/settings-window.png" alt="GH Menu Stars settings window in dark mode" width="520">
+</div>
 
-## Build
+## Privacy
+
+The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. There is **no backend and no telemetry**. The only non-GitHub network activity is optional Sparkle update checking.
+
+## Build from source
 
 ```bash
 xcodebuild -project GHMenuStars.xcodeproj -scheme GHMenuStars -configuration Debug build
-xcodebuild -project GHMenuStars.xcodeproj -scheme GHMenuStars -configuration Debug -destination 'platform=macOS,arch=arm64' test
+xcodebuild -project GHMenuStars.xcodeproj -scheme GHMenuStars -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' test
 ```
 
-`Connect GitHub` uses GitHub's OAuth device flow. Manual repository tracking works without credentials, but the signed-in repository picker requires a registered GitHub OAuth app client id.
+The **Connect GitHub** feature uses GitHub's OAuth device flow. Manual repository tracking works without credentials; the signed-in repository picker requires a GitHub OAuth app client id.
 
-For local builds, copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set `GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID`. The local config file is ignored by git. You can also pass `GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID=...` to `xcodebuild`, or launch with `GH_MENU_STARS_GITHUB_CLIENT_ID=...` for one-off debugging.
+For local builds, copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set `GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID`. The local config file is gitignored. You can also pass `GHMENUSTARS_GITHUB_OAUTH_CLIENT_ID=...` to `xcodebuild`, or launch with `GH_MENU_STARS_GITHUB_CLIENT_ID=...` for one-off debugging.
 
-## Release
+<details>
+<summary><b>Release &amp; deploy</b></summary>
 
-GH Menu Stars uses Sparkle 2 for signed automatic updates. The production appcast is published from `docs/appcast.xml` to:
+<br>
 
-```text
+GH Menu Stars uses Sparkle 2 for signed automatic updates. The production appcast is published at:
+
+```
 https://jazzyalex.github.io/GH-menu-stars/appcast.xml
 ```
 
-The release helper builds the Release app, signs with Developer ID, notarizes and staples the app and DMG, generates a Sparkle EdDSA-signed appcast for the zipped app archive with release notes from `docs/CHANGELOG.md`, creates or updates the GitHub release, commits the appcast, verifies the public release, and updates the Homebrew cask tap:
+The release helper builds the Release app, signs with Developer ID, notarizes and staples the app and DMG, generates a Sparkle EdDSA-signed appcast for the zipped archive (release notes from `docs/CHANGELOG.md`), creates or updates the GitHub release, commits the appcast, verifies the public release, and updates the Homebrew cask tap:
 
 ```bash
 VERSION=0.1.0 tools/release/deploy-gh-menu-stars.sh
@@ -77,6 +105,12 @@ VERSION=0.1.0 tools/release/test-release-path.sh
 
 This builds the Release app, signs with Developer ID, packages a DMG and Sparkle ZIP, checksums them, renders release notes, and generates a signed Sparkle appcast under `dist/release-path-test`. It notarizes when credentials are configured; set `REQUIRE_NOTARY=1` to fail the test if notarization is unavailable.
 
-## Privacy
+</details>
 
-The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. The app has no backend and no telemetry. The only non-GitHub network activity is optional Sparkle update checking when updates are enabled.
+## License
+
+[BSD 3-Clause](LICENSE) · See [Third-Party Notices](ThirdPartyNotices.md)
+
+<div align="center">
+  <sub>Made with care for people who like their tools small and quiet.</sub>
+</div>
