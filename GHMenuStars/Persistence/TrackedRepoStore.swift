@@ -12,11 +12,18 @@ final class TrackedRepoStore: ObservableObject {
     private let deltaKey = "GHMenuStars.LastDelta.v1"
     private let rateLimitKey = "GHMenuStars.RateLimit.v1"
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        legacyDefaults: UserDefaults? = UserDefaults(suiteName: "com.jazzyalex.GHMenuStars")
+    ) {
         self.defaults = defaults
-        self.trackedRepos = Self.decode([TrackedRepo].self, key: reposKey, defaults: defaults) ?? []
+        self.trackedRepos = Self.decode([TrackedRepo].self, key: reposKey, defaults: defaults)
+            ?? Self.migrate([TrackedRepo].self, key: reposKey, from: legacyDefaults, to: defaults)
+            ?? []
         self.lastDelta = Self.decode(RepoDelta.self, key: deltaKey, defaults: defaults)
+            ?? Self.migrate(RepoDelta.self, key: deltaKey, from: legacyDefaults, to: defaults)
         self.rateLimitState = Self.decode(RateLimitState.self, key: rateLimitKey, defaults: defaults)
+            ?? Self.migrate(RateLimitState.self, key: rateLimitKey, from: legacyDefaults, to: defaults)
     }
 
     func setTrackedRepo(_ repo: TrackedRepo) {
@@ -83,5 +90,18 @@ final class TrackedRepoStore: ObservableObject {
         guard let data = defaults.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
-}
 
+    private static func migrate<T: Decodable>(
+        _ type: T.Type,
+        key: String,
+        from legacyDefaults: UserDefaults?,
+        to defaults: UserDefaults
+    ) -> T? {
+        guard let data = legacyDefaults?.data(forKey: key),
+              let decoded = try? JSONDecoder().decode(type, from: data) else {
+            return nil
+        }
+        defaults.set(data, forKey: key)
+        return decoded
+    }
+}

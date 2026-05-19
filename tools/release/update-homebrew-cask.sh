@@ -8,6 +8,7 @@ VERSION=${VERSION:-${1:-}}
 REPO=${REPO:-jazzyalex/stargazer-bar}
 APP_NAME=${APP_NAME:-GHMenuStars}
 DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
+APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-$DISPLAY_NAME}
 CASK_TOKEN=${CASK_TOKEN:-stargazer-bar}
 CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
 CASK_PATH=${CASK_PATH:-Casks/${CASK_TOKEN}.rb}
@@ -87,10 +88,12 @@ cask "${CASK_TOKEN}" do
   depends_on macos: ">= :ventura"
   depends_on arch: :arm64
 
-  app "${APP_NAME}.app"
+  app "${APP_BUNDLE_NAME}.app"
 
   zap trash: [
+    "~/Library/Preferences/com.jazzyalex.StargazerBar.plist",
     "~/Library/Preferences/com.jazzyalex.GHMenuStars.plist",
+    "~/Library/Saved Application State/com.jazzyalex.StargazerBar.savedState",
     "~/Library/Saved Application State/com.jazzyalex.GHMenuStars.savedState",
   ]
 end

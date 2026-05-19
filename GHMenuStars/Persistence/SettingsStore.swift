@@ -40,11 +40,22 @@ final class SettingsStore: ObservableObject {
     private let defaults: UserDefaults
     private let key = "GHMenuStars.AppSettings.v1"
 
-    init(defaults: UserDefaults = .standard) {
+    var settingsDidChange: AnyPublisher<AppSettings, Never> {
+        $settings.eraseToAnyPublisher()
+    }
+
+    init(
+        defaults: UserDefaults = .standard,
+        legacyDefaults: UserDefaults? = UserDefaults(suiteName: "com.jazzyalex.GHMenuStars")
+    ) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key),
            let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
             self.settings = decoded
+        } else if let data = legacyDefaults?.data(forKey: key),
+                  let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
+            self.settings = decoded
+            defaults.set(data, forKey: key)
         } else {
             self.settings = AppSettings()
         }

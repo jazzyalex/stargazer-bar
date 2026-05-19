@@ -1,4 +1,5 @@
 import XCTest
+import Security
 @testable import GHMenuStars
 
 @MainActor
@@ -40,6 +41,30 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(reloaded.settings.isMuted)
     }
 
+    func testSettingsMigrateFromLegacyBundleDefaults() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let legacyDefaults = UserDefaults(suiteName: "GHMenuStarsTests.Legacy.\(UUID().uuidString)")!
+        let legacySettingsJSON = """
+        {
+          "refreshInterval": "oneDay",
+          "hideDockIcon": false,
+          "notifyOnStarIncrease": true,
+          "playSoundOnStarIncrease": true,
+          "animateOnStarIncrease": false,
+          "isMuted": true,
+          "gitHubOAuthClientID": "legacy-client"
+        }
+        """
+        legacyDefaults.set(Data(legacySettingsJSON.utf8), forKey: "GHMenuStars.AppSettings.v1")
+
+        let store = SettingsStore(defaults: defaults, legacyDefaults: legacyDefaults)
+        XCTAssertEqual(store.settings.refreshInterval, .oneDay)
+        XCTAssertFalse(store.settings.hideDockIcon)
+        XCTAssertTrue(store.settings.isMuted)
+        XCTAssertEqual(store.settings.gitHubOAuthClientID, "legacy-client")
+        XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.AppSettings.v1"))
+    }
+
     func testSettingsDecodeDefaultsMissingMute() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let legacySettingsJSON = """
@@ -73,6 +98,21 @@ final class ServiceLogicTests: XCTestCase {
         ])
         XCTAssertEqual(state?.limit, 60)
         XCTAssertTrue(state?.isLimited == true)
+    }
+
+    func testTrackedReposMigrateFromLegacyBundleDefaults() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let legacyDefaults = UserDefaults(suiteName: "GHMenuStarsTests.Legacy.\(UUID().uuidString)")!
+        let repo = TrackedRepo(owner: "old", name: "repo", source: .manual, lastStars: 42, lastDownloads: 7)
+        let delta = RepoDelta(starsDelta: 2, downloadsDelta: 1)
+        legacyDefaults.set(try JSONEncoder().encode([repo]), forKey: "GHMenuStars.TrackedRepos.v1")
+        legacyDefaults.set(try JSONEncoder().encode(delta), forKey: "GHMenuStars.LastDelta.v1")
+
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: legacyDefaults)
+        XCTAssertEqual(store.trackedRepos, [repo])
+        XCTAssertEqual(store.lastDelta, delta)
+        XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.TrackedRepos.v1"))
+        XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.LastDelta.v1"))
     }
 
     func testMenuTextFormatting() {
@@ -125,5 +165,16 @@ final class ServiceLogicTests: XCTestCase {
             GitHubOAuthConfiguration.clientID(settings: settings, environment: [:], infoDictionaryClientID: nil),
             "saved-client"
         )
+    }
+
+    func testKeychainTokenReadCanDisableAuthenticationUI() throws {
+        var capturedQuery: [String: Any] = [:]
+        let store = KeychainTokenStore(service: "test-service") { query, _ in
+            capturedQuery = query as! [String: Any]
+            return errSecInteractionNotAllowed
+        }
+
+        XCTAssertNil(try store.loadToken(allowUserInteraction: false))
+        XCTAssertNotNil(capturedQuery[kSecUseAuthenticationContext as String])
     }
 }

@@ -7,6 +7,7 @@ cd "$ROOT"
 VERSION=${1:-${VERSION:-}}
 REPO=${REPO:-jazzyalex/stargazer-bar}
 APP_NAME=${APP_NAME:-GHMenuStars}
+APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-"Stargazer Bar"}
 APPCAST_URL=${APPCAST_URL:-https://jazzyalex.github.io/stargazer-bar/appcast.xml}
 UPDATE_CASK=${UPDATE_CASK:-1}
 CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
@@ -91,6 +92,7 @@ if [[ "$UPDATE_CASK" == "1" ]]; then
   CASK_SHA=$(printf '%s\n' "$CASK_BODY" | sed -n 's/.*sha256 "\([^"]*\)".*/\1/p' | head -n1)
   CASK_URL_TEMPLATE="https://github.com/${REPO}/releases/download/v#{version}/${APP_NAME}-#{version}.dmg"
   printf '%s\n' "$CASK_BODY" | grep -F "$CASK_URL_TEMPLATE" >/dev/null
+  printf '%s\n' "$CASK_BODY" | grep -F "app \"${APP_BUNDLE_NAME}.app\"" >/dev/null
   printf '%s\n' "$CASK_BODY" | grep -F 'depends_on arch: :arm64' >/dev/null
   if [[ "$CASK_VERSION" != "$VERSION" ]]; then
     echo "Cask version mismatch: expected $VERSION, got $CASK_VERSION" >&2

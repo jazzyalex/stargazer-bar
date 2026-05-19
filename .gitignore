@@ -17,4 +17,6 @@ __pycache__/
 *.pkg
 *.dmg
 Config/Local.xcconfig
+.claude/launch.json
+.claude/settings.local.json
 tools/release/.env

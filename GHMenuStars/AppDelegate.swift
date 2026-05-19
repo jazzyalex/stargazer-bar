@@ -6,9 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsStore = SettingsStore()
     private let repoStore = TrackedRepoStore()
     private let updaterController = UpdaterController()
-    private let tokenStore = KeychainTokenStore(service: "GHMenuStars.GitHubOAuth")
-    private lazy var gitHubClient = GitHubClient(tokenProvider: { [tokenStore] in
-        try? tokenStore.loadToken()
+    private lazy var gitHubClient = GitHubClient(tokenProvider: {
+        KeychainTokenStore.loadGitHubOAuthToken()
     })
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,
@@ -36,13 +35,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         statusItemController = controller
         controller.ensureStatusItem()
+        PreferencesWindow.shared.visibilityDidChange = { [weak self] in
+            DispatchQueue.main.async { self?.applyActivationPolicy() }
+        }
         applyActivationPolicy()
 
-        settingsStore.objectWillChange
+        settingsStore.settingsDidChange
+            .dropFirst()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.applyActivationPolicy() }
-            }
+            .sink { [weak self] _ in self?.applyActivationPolicy() }
             .store(in: &cancellables)
 
         pollingService.start()
@@ -60,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 hasStatusItem: hasMenuBarPath
             )
         )
+        PreferencesWindow.shared.keepVisibleAfterActivationPolicyChange()
     }
 
     static func isHostedUnitTest(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {

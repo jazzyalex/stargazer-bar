@@ -12,6 +12,7 @@ fi
 
 APP_NAME=${APP_NAME:-GHMenuStars}
 DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
+APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-$DISPLAY_NAME}
 PROJECT=${PROJECT:-GHMenuStars.xcodeproj}
 SCHEME=${SCHEME:-GHMenuStars}
 REPO=${REPO:-jazzyalex/stargazer-bar}
@@ -54,6 +55,7 @@ Environment:
   SPARKLE_ED_KEY_FILE  Optional Sparkle private EdDSA key file. Defaults to Keychain.
   UPDATE_CASK=1        Update the Homebrew tap cask via GitHub API.
   CASK_REPO            Homebrew tap repository. Defaults to jazzyalex/homebrew-stargazer-bar.
+  APP_BUNDLE_NAME      Built .app bundle name. Defaults to DISPLAY_NAME.
 EOF
 }
 
@@ -177,7 +179,7 @@ BUILD_NUMBER=$(project_value CURRENT_PROJECT_VERSION)
 DMG_BASENAME="${APP_NAME}-${VERSION}.dmg"
 ZIP_BASENAME="${APP_NAME}-${VERSION}.zip"
 DIST="$ROOT/dist"
-APP="$DIST/${APP_NAME}.app"
+APP="$DIST/${APP_BUNDLE_NAME}.app"
 DMG="$DIST/$DMG_BASENAME"
 ZIP="$DIST/$ZIP_BASENAME"
 NOTARY_ZIP="$DIST/${APP_NAME}-${VERSION}-notary.zip"
@@ -193,7 +195,7 @@ done
 gh auth status >/dev/null 2>&1 || { red "gh is not authenticated. Run: gh auth login"; exit 2; }
 
 if [[ "$UPDATE_CASK" == "1" ]]; then
-  CASK_REPO="$CASK_REPO" "$ROOT/tools/release/update-homebrew-cask.sh" --preflight
+  CASK_REPO="$CASK_REPO" APP_BUNDLE_NAME="$APP_BUNDLE_NAME" "$ROOT/tools/release/update-homebrew-cask.sh" --preflight
 fi
 
 rm -rf "$DIST"
@@ -425,6 +427,7 @@ if [[ "$UPDATE_CASK" == "1" ]]; then
     DMG_SHA="$DMG_SHA" \
     REPO="$REPO" \
     CASK_REPO="$CASK_REPO" \
+    APP_BUNDLE_NAME="$APP_BUNDLE_NAME" \
     "$ROOT/tools/release/update-homebrew-cask.sh"
 else
   yellow "Skipping Homebrew cask update because UPDATE_CASK=$UPDATE_CASK."

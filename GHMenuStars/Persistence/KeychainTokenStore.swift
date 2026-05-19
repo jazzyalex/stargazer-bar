@@ -1,9 +1,28 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 struct KeychainTokenStore {
+    typealias CopyMatching = (CFDictionary, UnsafeMutablePointer<AnyObject?>?) -> OSStatus
+
+    static let gitHubOAuthService = "StargazerBar.GitHubOAuth"
+    static let legacyGitHubOAuthService = "GHMenuStars.GitHubOAuth"
+
     let service: String
+    var copyMatching: CopyMatching = SecItemCopyMatching
     private let account = "github-oauth"
+
+    static func gitHubOAuthStore() -> KeychainTokenStore {
+        KeychainTokenStore(service: gitHubOAuthService)
+    }
+
+    static func loadGitHubOAuthToken() -> String? {
+        try? gitHubOAuthStore().loadToken(allowUserInteraction: false)
+    }
+
+    static func hasGitHubOAuthToken() -> Bool {
+        loadGitHubOAuthToken() != nil
+    }
 
     func saveToken(_ token: String) throws {
         let data = Data(token.utf8)
@@ -19,17 +38,22 @@ struct KeychainTokenStore {
         guard status == errSecSuccess else { throw GitHubError.transport("Keychain save failed: \(status)") }
     }
 
-    func loadToken() throws -> String? {
-        let query: [String: Any] = [
+    func loadToken(allowUserInteraction: Bool = true) throws -> String? {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
+        if !allowUserInteraction {
+            let context = LAContext()
+            context.interactionNotAllowed = true
+            query[kSecUseAuthenticationContext as String] = context
+        }
         var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
+        let status = copyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound || status == errSecInteractionNotAllowed { return nil }
         guard status == errSecSuccess, let data = result as? Data else {
             throw GitHubError.transport("Keychain read failed: \(status)")
         }
@@ -37,6 +61,6 @@ struct KeychainTokenStore {
     }
 
     func hasToken() -> Bool {
-        (try? loadToken()) != nil
+        (try? loadToken(allowUserInteraction: false)) != nil
     }
 }

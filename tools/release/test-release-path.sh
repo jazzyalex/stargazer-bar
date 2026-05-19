@@ -12,6 +12,7 @@ fi
 
 APP_NAME=${APP_NAME:-GHMenuStars}
 DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
+APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-$DISPLAY_NAME}
 PROJECT=${PROJECT:-GHMenuStars.xcodeproj}
 SCHEME=${SCHEME:-GHMenuStars}
 REPO=${REPO:-jazzyalex/stargazer-bar}
@@ -52,6 +53,7 @@ Environment:
   TEAM_ID              Optional Team ID for certificate filtering.
   SPARKLE_ED_KEY_FILE  Optional Sparkle private EdDSA key file. Defaults to Keychain.
   REQUIRE_NOTARY=1     Fail if notary credentials are unavailable.
+  APP_BUNDLE_NAME      Built .app bundle name. Defaults to DISPLAY_NAME.
 EOF
 }
 
@@ -174,7 +176,7 @@ BUILD_NUMBER=$(project_value CURRENT_PROJECT_VERSION)
 DIST="$ROOT/dist/release-path-test"
 BUILD_DIR="$DIST/build"
 UPDATES_DIR="$DIST/updates"
-APP="$BUILD_DIR/${APP_NAME}.app"
+APP="$BUILD_DIR/${APP_BUNDLE_NAME}.app"
 DMG_BASENAME="${APP_NAME}-${VERSION}.dmg"
 ZIP_BASENAME="${APP_NAME}-${VERSION}.zip"
 DMG="$DIST/$DMG_BASENAME"
