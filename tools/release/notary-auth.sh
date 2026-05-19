@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Shared notarytool authentication resolver for GH Menu Stars release scripts.
+# Shared notarytool authentication resolver for Stargazer Bar release scripts.
 # Supported modes, in precedence order:
 # 1. App Store Connect API key:
 #      NOTARY_KEY_PATH, NOTARY_KEY_ID, NOTARY_ISSUER

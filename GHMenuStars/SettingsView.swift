@@ -19,8 +19,8 @@ private enum GitHubAuthViewState: Equatable {
 }
 
 struct SettingsView: View {
-    static let contentWidth: CGFloat = 520
-    static let contentHeight: CGFloat = 680
+    static let contentWidth: CGFloat = 480
+    static let contentHeight: CGFloat = 560
 
     @ObservedObject var repoStore: TrackedRepoStore
     @ObservedObject var settingsStore: SettingsStore
@@ -50,84 +50,139 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 16) {
-                header
+        TabView {
+            generalTab
+                .tabItem { Label("General", systemImage: "gearshape") }
 
-                GroupBox("Repository") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let tracked = repoStore.trackedRepos.first {
-                            CurrentRepoSummary(repo: tracked, delta: repoStore.lastDelta)
+            accountTab
+                .tabItem { Label("Account", systemImage: "person.crop.circle") }
+
+            updatesTab
+                .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
+        }
+        .frame(width: Self.contentWidth, height: Self.contentHeight)
+        .onAppear {
+            if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
+                repoText = repo.displayName
+            }
+            if KeychainTokenStore(service: "StargazerBar.GitHubOAuth").hasToken() {
+                authState = .connected
+            }
+        }
+    }
+
+    // MARK: - General tab
+
+    private var generalTab: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                repositorySection
+                refreshSection
+                notificationsSection
+                appSection
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var repositorySection: some View {
+        GroupBox("Repository") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let tracked = repoStore.trackedRepos.first {
+                    CurrentRepoSummary(repo: tracked, delta: repoStore.lastDelta)
+                } else {
+                    EmptyRepositoryView()
+                }
+
+                HStack(spacing: 8) {
+                    TextField("owner/repo or https://github.com/owner/repo", text: $repoText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { validateManualRepo() }
+
+                    Button {
+                        validateManualRepo()
+                    } label: {
+                        if isValidating {
+                            ProgressView()
+                                .controlSize(.small)
                         } else {
-                            EmptyRepositoryView()
-                        }
-
-                        HStack(spacing: 8) {
-                            TextField("owner/repo or https://github.com/owner/repo", text: $repoText)
-                                .textFieldStyle(.roundedBorder)
-                                .onSubmit { validateManualRepo() }
-
-                            Button {
-                                validateManualRepo()
-                            } label: {
-                                if isValidating {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Text("Track")
-                                }
-                            }
-                            .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-
-                        if let validationMessage {
-                            SettingsMessageView(message: validationMessage)
+                            Text("Track")
                         }
                     }
-                    .padding(8)
+                    .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
-                GroupBox("Refresh") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Picker("Poll interval", selection: Binding(
-                            get: { settingsStore.settings.refreshInterval },
-                            set: { newValue in settingsStore.update { $0.refreshInterval = newValue } }
-                        )) {
-                            ForEach(RefreshInterval.allCases) { interval in
-                                Text(interval.displayName).tag(interval)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                if let validationMessage {
+                    SettingsMessageView(message: validationMessage)
+                }
+            }
+            .padding(8)
+        }
+    }
 
-                        if let state = repoStore.rateLimitState, state.isLimited {
-                            SettingsMessageView(message: .warning("GitHub rate limit active. The app will retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
-                        } else {
-                            Text(refreshSummary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+    private var refreshSection: some View {
+        GroupBox("Refresh") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Poll interval", selection: Binding(
+                    get: { settingsStore.settings.refreshInterval },
+                    set: { newValue in settingsStore.update { $0.refreshInterval = newValue } }
+                )) {
+                    ForEach(RefreshInterval.allCases) { interval in
+                        Text(interval.displayName).tag(interval)
                     }
-                    .padding(8)
                 }
+                .pickerStyle(.segmented)
 
-                GroupBox("Notifications") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle("Notify on star increases", isOn: Binding(
-                            get: { settingsStore.settings.notifyOnStarIncrease },
-                            set: { newValue in settingsStore.update { $0.notifyOnStarIncrease = newValue } }
-                        ))
-                        Toggle("Play sound on star increases", isOn: Binding(
-                            get: { settingsStore.settings.playSoundOnStarIncrease },
-                            set: { newValue in settingsStore.update { $0.playSoundOnStarIncrease = newValue } }
-                        ))
-                        Toggle("Animate menu-bar counter on star increases", isOn: Binding(
-                            get: { settingsStore.settings.animateOnStarIncrease },
-                            set: { newValue in settingsStore.update { $0.animateOnStarIncrease = newValue } }
-                        ))
-                    }
-                    .padding(8)
+                if let state = repoStore.rateLimitState, state.isLimited {
+                    SettingsMessageView(message: .warning("GitHub rate limit active. The app will retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
+                } else {
+                    Text(refreshSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+            }
+            .padding(8)
+        }
+    }
 
+    private var notificationsSection: some View {
+        GroupBox("Notifications") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Notify on star increases", isOn: Binding(
+                    get: { settingsStore.settings.notifyOnStarIncrease },
+                    set: { newValue in settingsStore.update { $0.notifyOnStarIncrease = newValue } }
+                ))
+                Toggle("Play sound on star increases", isOn: Binding(
+                    get: { settingsStore.settings.playSoundOnStarIncrease },
+                    set: { newValue in settingsStore.update { $0.playSoundOnStarIncrease = newValue } }
+                ))
+                Toggle("Animate menu-bar counter on star increases", isOn: Binding(
+                    get: { settingsStore.settings.animateOnStarIncrease },
+                    set: { newValue in settingsStore.update { $0.animateOnStarIncrease = newValue } }
+                ))
+            }
+            .padding(8)
+        }
+    }
+
+    private var appSection: some View {
+        GroupBox("App") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Show Dock icon", isOn: Binding(
+                    get: { !settingsStore.settings.hideDockIcon },
+                    set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
+                ))
+            }
+            .padding(8)
+        }
+    }
+
+    // MARK: - Account tab
+
+    private var accountTab: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
                 GroupBox("GitHub Account") {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -191,71 +246,54 @@ struct SettingsView: View {
                     }
                     .padding(8)
                 }
-
-                GroupBox("App") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle("Show Dock icon", isOn: Binding(
-                            get: { !settingsStore.settings.hideDockIcon },
-                            set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
-                        ))
-
-                        Divider()
-
-                        if updaterController.hasGentleReminder {
-                            SettingsMessageView(message: .success("An update is available."))
-                        }
-
-                        HStack(spacing: 12) {
-                            Toggle("Auto-Update", isOn: Binding(
-                                get: { updaterController.autoUpdateEnabled },
-                                set: { updaterController.setAutoUpdateEnabled($0) }
-                            ))
-                            .toggleStyle(.checkbox)
-                            .disabled(!updaterController.canChangeAutoUpdatePreference)
-
-                            Button("Check for Updates…") {
-                                updaterController.checkForUpdates(nil)
-                            }
-                            .disabled(!updaterController.canRequestUpdateCheck)
-                        }
-                    }
-                    .padding(8)
-                }
-
-                Text("Release downloads: total from latest 100 releases")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(width: Self.contentWidth, height: Self.contentHeight, alignment: .topLeading)
-        .onAppear {
-            if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
-                repoText = repo.displayName
-            }
-            if KeychainTokenStore(service: "GHMenuStars.GitHubOAuth").hasToken() {
-                authState = .connected
-            }
-        }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(nsImage: AppIconFactory.iconImage(size: NSSize(width: 64, height: 64)))
-                .resizable()
-                .frame(width: 38, height: 38)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("GH Menu Stars")
-                    .font(.title3.weight(.semibold))
-                Text("Track a public repository from the menu bar.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    // MARK: - Updates tab
+
+    private var updatesTab: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            GroupBox("Updates") {
+                VStack(alignment: .leading, spacing: 10) {
+                    if updaterController.hasGentleReminder {
+                        SettingsMessageView(message: .success("An update is available."))
+                    }
+
+                    Toggle("Automatic updates", isOn: Binding(
+                        get: { updaterController.autoUpdateEnabled },
+                        set: { updaterController.setAutoUpdateEnabled($0) }
+                    ))
+                    .disabled(!updaterController.canChangeAutoUpdatePreference)
+
+                    Text("Sparkle updates are EdDSA-signed and notarized.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack {
+                        Button("Check for Updates…") {
+                            updaterController.checkForUpdates(nil)
+                        }
+                        .disabled(!updaterController.canRequestUpdateCheck)
+                        Spacer()
+                    }
+                }
+                .padding(8)
             }
+
+            Text("Release downloads: total from latest 100 releases.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Spacer()
         }
-        .padding(.bottom, 2)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    // MARK: - Helpers
 
     private var refreshSummary: String {
         if let repo = repoStore.trackedRepos.first,
@@ -394,7 +432,7 @@ struct SettingsView: View {
                     deviceCode: response.deviceCode,
                     interval: response.interval
                 )
-                try KeychainTokenStore(service: "GHMenuStars.GitHubOAuth").saveToken(token.accessToken)
+                try KeychainTokenStore(service: "StargazerBar.GitHubOAuth").saveToken(token.accessToken)
                 await MainActor.run {
                     authState = .connected
                     deviceCode = nil

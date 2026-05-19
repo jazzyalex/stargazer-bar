@@ -5,12 +5,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 VERSION=${1:-${VERSION:-}}
-REPO=${REPO:-jazzyalex/GH-menu-stars}
+REPO=${REPO:-jazzyalex/stargazer-bar}
 APP_NAME=${APP_NAME:-GHMenuStars}
-APPCAST_URL=${APPCAST_URL:-https://jazzyalex.github.io/GH-menu-stars/appcast.xml}
+APPCAST_URL=${APPCAST_URL:-https://jazzyalex.github.io/stargazer-bar/appcast.xml}
 UPDATE_CASK=${UPDATE_CASK:-1}
-CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-gh-menu-stars}
-CASK_PATH=${CASK_PATH:-Casks/gh-menu-stars.rb}
+CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
+CASK_PATH=${CASK_PATH:-Casks/stargazer-bar.rb}
 
 if [[ -z "$VERSION" ]]; then
   echo "Usage: tools/release/verify-deployment.sh VERSION" >&2

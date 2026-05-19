@@ -29,7 +29,7 @@ fi
 
 mkdir -p "$ARCHIVE_DIR"
 rm -f "$DMG"
-hdiutil create -volname "GH Menu Stars" -srcfolder "$APP" -ov -format UDZO "$DMG"
+hdiutil create -volname "Stargazer Bar" -srcfolder "$APP" -ov -format UDZO "$DMG"
 hdiutil verify "$DMG"
 codesign --verify --deep --strict "$APP"
 echo "$DMG"

@@ -1,9 +1,9 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>GH Menu Stars Updates</title>
-        <link>https://github.com/jazzyalex/GH-menu-stars</link>
-        <description>GH Menu Stars release feed.</description>
+        <title>Stargazer Bar Updates</title>
+        <link>https://github.com/jazzyalex/stargazer-bar</link>
+        <description>Stargazer Bar release feed.</description>
         <item>
             <title>0.1.0</title>
             <pubDate>Sat, 16 May 2026 20:42:10 -0700</pubDate>
@@ -22,9 +22,9 @@
 <ul>
 <li>Local-only storage for tracked repository metadata and settings.</li>
 </ul>
-<p>Full release notes: <a href="https://github.com/jazzyalex/GH-menu-stars/releases/tag/v0.1.0">https://github.com/jazzyalex/GH-menu-stars/releases/tag/v0.1.0</a></p>
+<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.1.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.1.0</a></p>
 ]]></description>
-            <enclosure url="https://github.com/jazzyalex/GH-menu-stars/releases/download/v0.1.0/GHMenuStars-0.1.0.zip" length="3151991" type="application/octet-stream" sparkle:edSignature="iuB3+ROJ3J+B3XP339hbTGMs3/IN/FmNAFl9uq7rYAiGFeb46qIBwxmXGjY8EoBL/zr6HPW+3sqbFJgQYDChBw=="/>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.1.0/GHMenuStars-0.1.0.zip" length="3151991" type="application/octet-stream" sparkle:edSignature="iuB3+ROJ3J+B3XP339hbTGMs3/IN/FmNAFl9uq7rYAiGFeb46qIBwxmXGjY8EoBL/zr6HPW+3sqbFJgQYDChBw=="/>
         </item>
     </channel>
 </rss>

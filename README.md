@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/assets/og-banner.png" alt="GH Menu Stars — GitHub stars in your menu bar" width="780">
+<img src="docs/assets/og-banner.png" alt="Stargazer Bar — GitHub stars in your menu bar" width="780">
 
-<h1>GH Menu Stars</h1>
+<h1>Stargazer Bar</h1>
 
 <p>
   <strong>GitHub stars in your macOS menu bar.</strong><br>
@@ -11,18 +11,18 @@
 </p>
 
 <p>
-  <a href="https://github.com/jazzyalex/GH-menu-stars/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/jazzyalex/GH-menu-stars?label=release&color=0071e3&style=flat-square"></a>
+  <a href="https://github.com/jazzyalex/stargazer-bar/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/jazzyalex/stargazer-bar?label=release&color=0071e3&style=flat-square"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD%203--Clause-6e6e73?style=flat-square"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-1d1d1f?style=flat-square">
-  <a href="https://github.com/jazzyalex/homebrew-gh-menu-stars"><img alt="Homebrew" src="https://img.shields.io/badge/homebrew-cask-fbb040?style=flat-square"></a>
+  <a href="https://github.com/jazzyalex/homebrew-stargazer-bar"><img alt="Homebrew" src="https://img.shields.io/badge/homebrew-cask-fbb040?style=flat-square"></a>
 </p>
 
 <p>
-  <a href="https://github.com/jazzyalex/GH-menu-stars/releases/latest"><b>Download</b></a>
+  <a href="https://github.com/jazzyalex/stargazer-bar/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
-  <a href="https://jazzyalex.github.io/GH-menu-stars/"><b>Website</b></a>
+  <a href="https://jazzyalex.github.io/stargazer-bar/"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/jazzyalex/GH-menu-stars/issues"><b>Issues</b></a>
+  <a href="https://github.com/jazzyalex/stargazer-bar/issues"><b>Issues</b></a>
 </p>
 
 </div>
@@ -34,12 +34,12 @@
 **Homebrew** *(recommended)*
 
 ```bash
-brew install --cask jazzyalex/gh-menu-stars/gh-menu-stars
+brew install --cask jazzyalex/stargazer-bar/stargazer-bar
 ```
 
 **Direct download**
 
-Grab the signed, notarized Apple silicon DMG from the [latest release](https://github.com/jazzyalex/GH-menu-stars/releases/latest).
+Grab the signed, notarized Apple silicon DMG from the [latest release](https://github.com/jazzyalex/stargazer-bar/releases/latest).
 
 ## Features
 
@@ -51,7 +51,7 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 - 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way
 
 <div align="center">
-  <img src="docs/assets/settings-window.png" alt="GH Menu Stars settings window in dark mode" width="520">
+  <img src="docs/assets/settings-window.png" alt="Stargazer Bar settings window in dark mode" width="520">
 </div>
 
 ## Privacy
@@ -75,16 +75,16 @@ For local builds, copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig
 
 <br>
 
-GH Menu Stars uses Sparkle 2 for signed automatic updates. The production appcast is published at:
+Stargazer Bar uses Sparkle 2 for signed automatic updates. The production appcast is published at:
 
 ```
-https://jazzyalex.github.io/GH-menu-stars/appcast.xml
+https://jazzyalex.github.io/stargazer-bar/appcast.xml
 ```
 
 The release helper builds the Release app, signs with Developer ID, notarizes and staples the app and DMG, generates a Sparkle EdDSA-signed appcast for the zipped archive (release notes from `docs/CHANGELOG.md`), creates or updates the GitHub release, commits the appcast, verifies the public release, and updates the Homebrew cask tap:
 
 ```bash
-VERSION=0.1.0 tools/release/deploy-gh-menu-stars.sh
+VERSION=0.1.0 tools/release/deploy-stargazer-bar.sh
 tools/release/verify-deployment.sh 0.1.0
 ```
 
@@ -94,7 +94,7 @@ Homebrew tap settings:
 
 ```bash
 UPDATE_CASK=1
-CASK_REPO=jazzyalex/homebrew-gh-menu-stars
+CASK_REPO=jazzyalex/homebrew-stargazer-bar
 ```
 
 To test the full local release path without publishing or modifying `docs/appcast.xml`:

@@ -11,11 +11,11 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 APP_NAME=${APP_NAME:-GHMenuStars}
-DISPLAY_NAME=${DISPLAY_NAME:-"GH Menu Stars"}
+DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
 PROJECT=${PROJECT:-GHMenuStars.xcodeproj}
 SCHEME=${SCHEME:-GHMenuStars}
-REPO=${REPO:-jazzyalex/GH-menu-stars}
-PAGES_BASE_URL=${PAGES_BASE_URL:-https://jazzyalex.github.io/GH-menu-stars}
+REPO=${REPO:-jazzyalex/stargazer-bar}
+PAGES_BASE_URL=${PAGES_BASE_URL:-https://jazzyalex.github.io/stargazer-bar}
 APPCAST_URL=${APPCAST_URL:-$PAGES_BASE_URL/appcast.xml}
 NOTARY_PROFILE=${NOTARY_PROFILE:-GHMenuStarsNotary}
 SKIP_CONFIRM=${SKIP_CONFIRM:-0}
@@ -24,7 +24,7 @@ COMMIT_MODEL=${COMMIT_MODEL:-gpt-5}
 SPARKLE_ACCOUNT=${SPARKLE_ACCOUNT:-ed25519}
 SPARKLE_ED_KEY_FILE=${SPARKLE_ED_KEY_FILE:-}
 UPDATE_CASK=${UPDATE_CASK:-1}
-CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-gh-menu-stars}
+CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
 
 green(){ printf "\033[32m%s\033[0m\n" "$*"; }
 yellow(){ printf "\033[33m%s\033[0m\n" "$*"; }
@@ -43,7 +43,7 @@ source "$ROOT/tools/release/notary-auth.sh"
 usage() {
   cat <<EOF
 Usage:
-  VERSION=X.Y.Z tools/release/deploy-gh-menu-stars.sh
+  VERSION=X.Y.Z tools/release/deploy-stargazer-bar.sh
 
 Environment:
   VERSION              Required release version. Defaults to MARKETING_VERSION if omitted.
@@ -53,7 +53,7 @@ Environment:
   SKIP_CONFIRM=1       Run without interactive confirmation.
   SPARKLE_ED_KEY_FILE  Optional Sparkle private EdDSA key file. Defaults to Keychain.
   UPDATE_CASK=1        Update the Homebrew tap cask via GitHub API.
-  CASK_REPO            Homebrew tap repository. Defaults to jazzyalex/homebrew-gh-menu-stars.
+  CASK_REPO            Homebrew tap repository. Defaults to jazzyalex/homebrew-stargazer-bar.
 EOF
 }
 

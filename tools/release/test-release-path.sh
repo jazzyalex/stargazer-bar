@@ -11,10 +11,10 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 APP_NAME=${APP_NAME:-GHMenuStars}
-DISPLAY_NAME=${DISPLAY_NAME:-"GH Menu Stars"}
+DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
 PROJECT=${PROJECT:-GHMenuStars.xcodeproj}
 SCHEME=${SCHEME:-GHMenuStars}
-REPO=${REPO:-jazzyalex/GH-menu-stars}
+REPO=${REPO:-jazzyalex/stargazer-bar}
 TAG_PREFIX=${TAG_PREFIX:-v}
 TEAM_ID=${TEAM_ID:-}
 DEV_ID_APP=${DEV_ID_APP:-}

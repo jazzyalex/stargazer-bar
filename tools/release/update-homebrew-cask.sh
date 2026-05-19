@@ -5,11 +5,11 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 VERSION=${VERSION:-${1:-}}
-REPO=${REPO:-jazzyalex/GH-menu-stars}
+REPO=${REPO:-jazzyalex/stargazer-bar}
 APP_NAME=${APP_NAME:-GHMenuStars}
-DISPLAY_NAME=${DISPLAY_NAME:-"GH Menu Stars"}
-CASK_TOKEN=${CASK_TOKEN:-gh-menu-stars}
-CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-gh-menu-stars}
+DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
+CASK_TOKEN=${CASK_TOKEN:-stargazer-bar}
+CASK_REPO=${CASK_REPO:-jazzyalex/homebrew-stargazer-bar}
 CASK_PATH=${CASK_PATH:-Casks/${CASK_TOKEN}.rb}
 DMG_SHA=${DMG_SHA:-}
 
@@ -77,7 +77,7 @@ cask "${CASK_TOKEN}" do
       verified: "github.com/${REPO}/"
   name "${DISPLAY_NAME}"
   desc "Native macOS menu-bar tracker for GitHub stars and release downloads"
-  homepage "https://jazzyalex.github.io/GH-menu-stars/"
+  homepage "https://jazzyalex.github.io/stargazer-bar/"
 
   livecheck do
     url :url

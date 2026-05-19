@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1] - 2026-05-19
+
+### Changes
+- Renamed from GH Menu Stars to **Stargazer Bar**. New bundle identifier (`com.jazzyalex.StargazerBar`) and new appcast URL (`https://jazzyalex.github.io/stargazer-bar/appcast.xml`).
+- Reorganized Settings into tabs so the window fits without scrolling.
+
 ## [0.1.0] - 2026-05-16
 
 ### Features
