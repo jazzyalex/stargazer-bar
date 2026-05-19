@@ -12,7 +12,7 @@ fi
 BUILD_ROOT="$ROOT/build"
 ARCHIVE_DIR="$BUILD_ROOT/release"
 APP="$BUILD_ROOT/Release/Stargazer Bar.app"
-DMG="$ARCHIVE_DIR/GHMenuStars.dmg"
+DMG="$ARCHIVE_DIR/Stargazer-Bar.dmg"
 
 xcodebuild \
   -project GHMenuStars.xcodeproj \

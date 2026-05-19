@@ -6,7 +6,7 @@ cd "$ROOT"
 
 VERSION=${1:-${VERSION:-}}
 REPO=${REPO:-jazzyalex/stargazer-bar}
-APP_NAME=${APP_NAME:-GHMenuStars}
+APP_NAME=${APP_NAME:-Stargazer-Bar}
 APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-"Stargazer Bar"}
 APPCAST_URL=${APPCAST_URL:-https://jazzyalex.github.io/stargazer-bar/appcast.xml}
 UPDATE_CASK=${UPDATE_CASK:-1}

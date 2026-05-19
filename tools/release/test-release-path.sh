@@ -10,7 +10,7 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
 fi
 
-APP_NAME=${APP_NAME:-GHMenuStars}
+APP_NAME=${APP_NAME:-Stargazer-Bar}
 DISPLAY_NAME=${DISPLAY_NAME:-"Stargazer Bar"}
 APP_BUNDLE_NAME=${APP_BUNDLE_NAME:-$DISPLAY_NAME}
 PROJECT=${PROJECT:-GHMenuStars.xcodeproj}
