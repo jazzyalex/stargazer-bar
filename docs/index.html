@@ -3,347 +3,682 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <meta name="description" content="GH Menu Stars is a native macOS menu-bar tracker for GitHub stars and release downloads.">
-  <title>GH Menu Stars</title>
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="GH Menu Stars keeps your repository's star count and release downloads in the macOS menu bar — native, private, and always a glance away.">
+  <title>GH Menu Stars — GitHub Stars in Your Menu Bar</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --ink: #151515;
-      --paper: #f4f0e8;
-      --panel: #fffaf0;
-      --line: #28231b;
-      --muted: #645d52;
-      --green: #0f7b56;
-      --gold: #d79b2b;
-      --red: #bc4132;
-      --shadow: 0 24px 70px rgba(30, 24, 14, 0.22);
+      --bg:          #ffffff;
+      --bg-alt:      #f5f5f7;
+      --text:        #1d1d1f;
+      --secondary:   #6e6e73;
+      --tertiary:    #aeaeb2;
+      --accent:      #0071e3;
+      --accent-dark: #0064cc;
+      --green:       #34c759;
+      --border:      rgba(0,0,0,0.08);
+      --r-card:      20px;
+      --r-pill:      980px;
     }
 
-    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
 
     body {
-      margin: 0;
-      min-height: 100vh;
-      color: var(--ink);
-      background:
-        linear-gradient(90deg, rgba(21,21,21,0.05) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(21,21,21,0.04) 1px, transparent 1px),
-        var(--paper);
-      background-size: 42px 42px;
-      font-family: ui-serif, "Iowan Old Style", Georgia, serif;
-      letter-spacing: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 17px;
+      line-height: 1.47059;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
-    a { color: inherit; }
+    a { color: inherit; text-decoration: none; }
 
-    .wrap {
-      width: min(1160px, calc(100% - 32px));
-      margin: 0 auto;
-    }
+    /* ── NAV ─────────────────────────────────────────────────── */
 
-    header {
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 24px;
-      padding: 22px 0;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 13px;
-      text-transform: uppercase;
+      padding: 0 max(28px, env(safe-area-inset-left));
+      height: 52px;
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 0.5px solid var(--border);
     }
 
-    .brand {
+    .nav-brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 800;
+      gap: 7px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text);
     }
 
-    .mark {
-      width: 28px;
-      height: 28px;
-      display: grid;
-      place-items: center;
-      border: 2px solid var(--line);
-      background: var(--gold);
-      box-shadow: 3px 3px 0 var(--line);
-    }
+    .nav-star { color: #f5a623; }
 
-    nav {
+    .nav-links {
       display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      align-items: center;
+      gap: 4px;
     }
 
-    nav a {
-      text-decoration: none;
-      border-bottom: 2px solid transparent;
+    .nav-link {
+      padding: 6px 12px;
+      font-size: 14px;
+      color: var(--secondary);
+      border-radius: var(--r-pill);
+      transition: color 0.15s, background 0.15s;
     }
+    .nav-link:hover { color: var(--text); background: rgba(0,0,0,0.05); }
 
-    nav a:hover { border-color: var(--line); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      height: 30px;
+      padding: 0 14px;
+      margin-left: 6px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: var(--r-pill);
+      transition: background 0.15s, transform 0.1s;
+    }
+    .nav-cta:hover { background: var(--accent-dark); transform: scale(1.02); }
+
+    /* ── HERO ────────────────────────────────────────────────── */
 
     .hero {
+      padding: 80px 24px 100px;
+      background: radial-gradient(
+        ellipse 90% 60% at 70% 20%,
+        rgba(0,113,227,0.06) 0%,
+        transparent 65%
+      );
+    }
+
+    .hero-grid {
+      max-width: 1120px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
-      gap: 42px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+      gap: 56px;
       align-items: center;
-      padding: 42px 0 74px;
+    }
+
+    .hero-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 13px;
+      background: var(--bg-alt);
+      border-radius: var(--r-pill);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--secondary);
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: rise 0.55s 0.05s ease both;
+    }
+
+    .eyebrow-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 2.5px rgba(52,199,89,0.22);
     }
 
     h1 {
-      margin: 0;
-      max-width: 780px;
-      font-size: clamp(56px, 8vw, 116px);
-      line-height: 0.86;
-      letter-spacing: 0;
+      font-size: clamp(44px, 5.4vw, 68px);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.04;
+      max-width: 540px;
+      opacity: 0;
+      animation: rise 0.55s 0.15s ease both;
     }
 
-    .deck {
-      max-width: 620px;
-      margin: 28px 0 0;
-      font-size: 22px;
-      line-height: 1.35;
-      color: #2e2a24;
+    .hero-sub {
+      margin-top: 18px;
+      font-size: clamp(17px, 1.9vw, 20px);
+      font-weight: 400;
+      color: var(--secondary);
+      max-width: 460px;
+      line-height: 1.5;
+      letter-spacing: -0.01em;
+      opacity: 0;
+      animation: rise 0.55s 0.25s ease both;
     }
 
-    .actions {
+    .hero-actions {
       display: flex;
-      gap: 14px;
+      align-items: center;
+      gap: 12px;
+      margin-top: 32px;
       flex-wrap: wrap;
-      margin-top: 34px;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      opacity: 0;
+      animation: rise 0.55s 0.35s ease both;
     }
 
-    .button {
+    .btn {
       display: inline-flex;
       align-items: center;
-      min-height: 46px;
-      padding: 0 18px;
-      border: 2px solid var(--line);
-      background: var(--green);
-      color: white;
-      text-decoration: none;
-      box-shadow: 5px 5px 0 var(--line);
-      font-weight: 800;
+      gap: 6px;
+      height: 50px;
+      padding: 0 26px;
+      border-radius: var(--r-pill);
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: scale(1.025); }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover {
+      background: var(--accent-dark);
+      box-shadow: 0 6px 20px rgba(0,113,227,0.38);
     }
 
-    .button.secondary {
-      background: var(--panel);
-      color: var(--ink);
+    .btn-secondary { background: var(--bg-alt); color: var(--text); }
+    .btn-secondary:hover { background: #e5e5ea; }
+
+    .brew-block {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 22px;
+      padding: 11px 16px 11px 18px;
+      background: var(--bg-alt);
+      border-radius: 13px;
+      opacity: 0;
+      animation: rise 0.55s 0.42s ease both;
     }
 
-    .terminal {
-      margin-top: 24px;
-      padding: 14px 16px;
-      border: 2px solid var(--line);
-      background: #191714;
-      color: #f6f1e6;
-      box-shadow: 5px 5px 0 var(--line);
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    .brew-code {
+      font-family: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+      font-size: 13.5px;
+      color: var(--secondary);
+      letter-spacing: 0;
+    }
+    .brew-code b { color: var(--text); font-weight: 500; }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(0,0,0,0.07);
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--secondary);
       font-size: 14px;
-      overflow-x: auto;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: rgba(0,0,0,0.13); color: var(--text); }
+
+    /* ── HERO STAGE (real macOS screenshot) ──────────────────── */
+
+    .hero-stage {
+      opacity: 0;
+      animation: rise 0.7s 0.5s ease both;
+      display: flex;
+      justify-content: flex-end;
     }
 
-    .hero-shot {
-      position: relative;
-    }
-
-    .hero-shot::before {
-      content: "";
-      position: absolute;
-      inset: 18px -18px -18px 18px;
-      background: var(--gold);
-      border: 2px solid var(--line);
-    }
-
-    .hero-shot img,
-    .shot img {
+    .stage {
       position: relative;
       width: 100%;
-      display: block;
-      border: 2px solid var(--line);
-      box-shadow: var(--shadow);
+      max-width: 560px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0a0a0a;
+      box-shadow:
+        0 1px 3px rgba(0,0,0,0.10),
+        0 14px 32px rgba(0,0,0,0.18),
+        0 40px 90px rgba(0,0,0,0.14);
+      transition: transform 0.4s ease;
     }
 
-    .band {
-      border-top: 2px solid var(--line);
-      padding: 54px 0;
+    .stage:hover { transform: translateY(-3px); }
+
+    .stage img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* gradient fade into features */
+    .hero-fade {
+      width: 100%;
+      height: 80px;
+      background: linear-gradient(to bottom, transparent, var(--bg-alt));
+    }
+
+    /* ── FEATURES ────────────────────────────────────────────── */
+
+    .features {
+      background: var(--bg-alt);
+      padding: 72px 24px 96px;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .section-heading {
+      font-size: clamp(30px, 3.8vw, 46px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      max-width: 500px;
+      margin-bottom: 44px;
     }
 
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0;
-      border: 2px solid var(--line);
-      background: var(--panel);
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
     }
 
-    .feature {
-      min-height: 188px;
-      padding: 22px;
-      border-right: 2px solid var(--line);
+    .feature-card {
+      background: var(--bg);
+      border-radius: var(--r-card);
+      padding: 32px 32px 36px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 14px 36px rgba(0,0,0,0.07);
     }
 
-    .feature:last-child { border-right: 0; }
-
-    .feature strong {
+    .feature-icon {
+      font-size: 30px;
+      margin-bottom: 16px;
       display: block;
-      margin-bottom: 12px;
-      font-size: 22px;
+      line-height: 1;
     }
 
-    .feature p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.45;
+    .feature-card h3 {
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 9px;
     }
+
+    .feature-card p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--secondary);
+    }
+
+    /* ── SPLIT ───────────────────────────────────────────────── */
 
     .split {
+      padding: 96px 24px;
+    }
+
+    .split-inner {
+      max-width: 980px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: 0.9fr 1.1fr;
-      gap: 42px;
+      grid-template-columns: 1fr 1fr;
+      gap: 72px;
       align-items: center;
     }
 
-    h2 {
-      margin: 0 0 18px;
-      font-size: clamp(34px, 5vw, 62px);
-      line-height: 0.95;
-      letter-spacing: 0;
-    }
+    .split-copy .section-heading { margin-bottom: 16px; }
 
-    .copy {
-      font-size: 19px;
-      line-height: 1.5;
-      color: #312d27;
+    .split-body {
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--secondary);
+      margin-bottom: 30px;
     }
 
     .checklist {
       display: grid;
-      gap: 10px;
-      margin-top: 24px;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 14px;
+      gap: 11px;
     }
 
-    .checklist div::before {
-      content: "✓";
-      display: inline-grid;
-      place-items: center;
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .check-dot {
       width: 22px;
       height: 22px;
-      margin-right: 10px;
-      border: 2px solid var(--line);
+      border-radius: 50%;
       background: var(--green);
-      color: white;
-      font-weight: 900;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
-    footer {
-      padding: 34px 0 50px;
-      border-top: 2px solid var(--line);
-      color: var(--muted);
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    .split-img img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 16px;
+      box-shadow:
+        0 2px 6px rgba(0,0,0,0.07),
+        0 10px 32px rgba(0,0,0,0.09),
+        0 24px 64px rgba(0,0,0,0.06);
+    }
+
+    /* ── BOTTOM CTA ──────────────────────────────────────────── */
+
+    .cta-band {
+      background: var(--text);
+      padding: 80px 24px;
+      text-align: center;
+    }
+
+    .cta-band h2 {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: #fff;
+      margin-bottom: 14px;
+    }
+
+    .cta-band p {
+      font-size: 17px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 36px;
+    }
+
+    .cta-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-white {
+      background: #fff;
+      color: var(--text);
+    }
+    .btn-white:hover { background: rgba(255,255,255,0.9); }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── FOOTER ──────────────────────────────────────────────── */
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 22px max(28px, env(safe-area-inset-left));
+      border-top: 0.5px solid var(--border);
       font-size: 13px;
+      color: var(--tertiary);
     }
 
-    @media (max-width: 880px) {
-      .hero,
-      .split,
-      .feature-grid {
+    .footer a { color: var(--secondary); transition: color 0.15s; }
+    .footer a:hover { color: var(--text); }
+
+    /* ── ANIMATIONS ──────────────────────────────────────────── */
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-12px); }
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────── */
+
+    @media (max-width: 900px) {
+      .hero-grid {
         grid-template-columns: 1fr;
+        gap: 48px;
       }
+      .hero-text { align-items: center; text-align: center; }
+      .hero-text h1 { max-width: none; }
+      .hero-actions { justify-content: center; }
+      .stage { margin: 0 auto; }
+    }
 
-      .feature {
-        border-right: 0;
-        border-bottom: 2px solid var(--line);
+    @media (max-width: 768px) {
+      .nav-link { display: none; }
+
+      .feature-grid { grid-template-columns: 1fr; }
+
+      .split-inner {
+        grid-template-columns: 1fr;
+        gap: 40px;
       }
+      .split-img { order: -1; }
+    }
 
-      .feature:last-child { border-bottom: 0; }
-
-      .hero {
-        padding-top: 24px;
-      }
-
-      header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      nav { justify-content: flex-start; }
+    @media (max-width: 480px) {
+      .hero { padding-top: 56px; }
+      h1 { font-size: 40px; }
+      .btn { height: 46px; font-size: 16px; padding: 0 22px; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand"><span class="mark">★</span> GH Menu Stars</div>
-      <nav aria-label="Primary">
-        <a href="#install">Install</a>
-        <a href="https://github.com/jazzyalex/GH-menu-stars/releases/latest">Release</a>
-        <a href="https://github.com/jazzyalex/GH-menu-stars">GitHub</a>
-      </nav>
-    </header>
 
-    <main>
-      <section class="hero">
-        <div>
-          <h1>GitHub stars in the macOS menu bar.</h1>
-          <p class="deck">Track a repository's star count and release-download totals from the latest 100 releases in a small native app that stays out of the way.</p>
-          <div class="actions">
-            <a class="button" href="https://github.com/jazzyalex/GH-menu-stars/releases/latest">Download DMG</a>
-            <a class="button secondary" href="https://github.com/jazzyalex/GH-menu-stars">Source</a>
-          </div>
-          <pre id="install" class="terminal"><code>brew tap jazzyalex/gh-menu-stars
-brew install --cask gh-menu-stars</code></pre>
-        </div>
-        <div class="hero-shot">
-          <img src="assets/hero-menu.png" width="1280" height="900" alt="GH Menu Stars menu-bar dropdown showing repository stars and release downloads">
-        </div>
-      </section>
+  <!-- NAV -->
+  <nav class="nav">
+    <a class="nav-brand" href="/">
+      <span class="nav-star">★</span> GH Menu Stars
+    </a>
+    <div class="nav-links">
+      <a class="nav-link" href="#install">Install</a>
+      <a class="nav-link" href="https://github.com/jazzyalex/GH-menu-stars">GitHub</a>
+      <a class="nav-cta" href="https://github.com/jazzyalex/GH-menu-stars/releases/latest">Download</a>
+    </div>
+  </nav>
 
-      <section class="band">
-        <div class="feature-grid">
-          <div class="feature">
-            <strong>Menu-bar signal</strong>
-            <p>Keep the repository's star count visible without a browser tab or dashboard.</p>
-          </div>
-          <div class="feature">
-            <strong>Release downloads</strong>
-            <p>See download totals from the latest 100 releases in the same compact dropdown.</p>
-          </div>
-          <div class="feature">
-            <strong>No login required</strong>
-            <p>Manual public repository tracking works without a GitHub account.</p>
-          </div>
-          <div class="feature">
-            <strong>Signed updates</strong>
-            <p>Sparkle updates are signed, notarized, and enabled by default.</p>
-          </div>
-        </div>
-      </section>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid">
 
-      <section class="band split">
-        <div>
-          <h2>Built for quiet launch watching.</h2>
-          <p class="copy">Add a repository, choose a refresh interval, and let the Apple silicon menu-bar app do the watching. Optional GitHub sign-in only helps browse your public repositories faster.</p>
-          <div class="checklist">
-            <div>Native macOS app</div>
-            <div>Apple silicon, macOS Ventura or later</div>
-            <div>Local settings and Keychain tokens</div>
-            <div>No backend and no telemetry</div>
+      <div class="hero-text">
+
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          Free &amp; Open Source &nbsp;·&nbsp; macOS Ventura+
+        </div>
+
+        <h1>GitHub stars in your menu bar.</h1>
+
+        <p class="hero-sub">
+          A tiny native macOS app that keeps your repository's star count
+          and release downloads one glance away.
+        </p>
+
+        <div class="hero-actions" id="install">
+          <a class="btn btn-primary" href="https://github.com/jazzyalex/GH-menu-stars/releases/latest">
+            ↓&thinsp; Download DMG
+          </a>
+          <a class="btn btn-secondary" href="https://github.com/jazzyalex/GH-menu-stars">
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="brew-block">
+          <span class="brew-code"><b>brew install --cask</b> gh-menu-stars</span>
+          <button class="copy-btn" title="Copy brew command"
+            onclick="
+              navigator.clipboard.writeText(
+                'brew tap jazzyalex/gh-menu-stars &amp;&amp; brew install --cask gh-menu-stars'
+              ).then(() => {
+                this.textContent = '✓';
+                setTimeout(() => this.textContent = '⎘', 1600);
+              });
+            ">⎘</button>
+        </div>
+
+      </div>
+
+      <div class="hero-stage">
+        <div class="stage">
+          <img
+            src="assets/hero-stage.png"
+            width="1078"
+            height="718"
+            alt="GH Menu Stars in the macOS menu bar with its dropdown open, showing star count and release downloads for jazzyalex/agent-sessions"
+          >
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="hero-fade"></div>
+
+  <!-- FEATURES -->
+  <section class="features">
+    <div class="container">
+      <p class="section-eyebrow">Why it exists</p>
+      <h2 class="section-heading">Built to stay<br>out of your way.</h2>
+      <div class="feature-grid">
+
+        <div class="feature-card">
+          <span class="feature-icon">⭐</span>
+          <h3>Menu-bar signal</h3>
+          <p>Star count lives in your menu bar — no browser tab required. It's always there when you glance up.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📦</span>
+          <h3>Release downloads</h3>
+          <p>Download totals from your latest 100 releases, right in the same compact dropdown.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🔑</span>
+          <h3>No login required</h3>
+          <p>Track any public repo without a GitHub account. Sign in only if you want the repository picker.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🔄</span>
+          <h3>Signed auto-updates</h3>
+          <p>Sparkle updates are EdDSA-signed, notarized, and enabled by default. Always current.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- SPLIT: PRIVACY -->
+  <section class="split">
+    <div class="split-inner">
+      <div class="split-copy">
+        <p class="section-eyebrow">Privacy</p>
+        <h2 class="section-heading">Private by default.</h2>
+        <p class="split-body">
+          No backend, no telemetry. Settings live in UserDefaults on your Mac.
+          Optional OAuth tokens are stored in Keychain and never leave your machine.
+        </p>
+        <div class="checklist">
+          <div class="check-item">
+            <span class="check-dot">✓</span>
+            Native Apple silicon app
+          </div>
+          <div class="check-item">
+            <span class="check-dot">✓</span>
+            macOS Ventura or later
+          </div>
+          <div class="check-item">
+            <span class="check-dot">✓</span>
+            Local settings &amp; Keychain tokens
+          </div>
+          <div class="check-item">
+            <span class="check-dot">✓</span>
+            No backend, no telemetry
           </div>
         </div>
-        <div class="shot">
-          <img src="assets/settings-panel.png" width="1280" height="900" alt="GH Menu Stars settings window with repository tracking and app update controls">
-        </div>
-      </section>
-    </main>
+      </div>
+      <div class="split-img">
+        <img
+          src="assets/settings-window.png"
+          width="1264"
+          height="1500"
+          alt="GH Menu Stars settings window in dark mode, showing repository tracking, refresh interval, notifications, and GitHub account"
+        >
+      </div>
+    </div>
+  </section>
 
-    <footer>
-      <div>GH Menu Stars is open source and distributed as a notarized macOS app.</div>
-    </footer>
-  </div>
+  <!-- BOTTOM CTA -->
+  <section class="cta-band">
+    <h2>Stop refreshing GitHub.</h2>
+    <p>One download. No account needed to get started.</p>
+    <div class="cta-actions">
+      <a class="btn btn-white" href="https://github.com/jazzyalex/GH-menu-stars/releases/latest">
+        ↓&thinsp; Download DMG
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/jazzyalex/GH-menu-stars">
+        View Source
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <span>GH Menu Stars &mdash; open source, notarized macOS app</span>
+    <a href="https://github.com/jazzyalex/GH-menu-stars">GitHub &rarr;</a>
+  </footer>
+
 </body>
 </html>
