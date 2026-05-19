@@ -19,8 +19,8 @@ private enum GitHubAuthViewState: Equatable {
 }
 
 struct SettingsView: View {
-    static let contentWidth: CGFloat = 480
-    static let contentHeight: CGFloat = 560
+    static let contentWidth: CGFloat = 460
+    static let contentHeight: CGFloat = 620
 
     @ObservedObject var repoStore: TrackedRepoStore
     @ObservedObject var settingsStore: SettingsStore
@@ -50,53 +50,24 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        TabView {
-            generalTab
-                .tabItem { Label("General", systemImage: "gearshape") }
-
-            accountTab
-                .tabItem { Label("Account", systemImage: "person.crop.circle") }
-
-            updatesTab
-                .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
-        }
-        .frame(width: Self.contentWidth, height: Self.contentHeight)
-        .onAppear {
-            if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
-                repoText = repo.displayName
-            }
-            if KeychainTokenStore(service: "StargazerBar.GitHubOAuth").hasToken() {
-                authState = .connected
-            }
-        }
-    }
-
-    // MARK: - General tab
-
-    private var generalTab: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                repositorySection
-                refreshSection
-                notificationsSection
-                appSection
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-    }
-
-    private var repositorySection: some View {
-        GroupBox("Repository") {
-            VStack(alignment: .leading, spacing: 10) {
+        Form {
+            Section("Repository") {
                 if let tracked = repoStore.trackedRepos.first {
-                    CurrentRepoSummary(repo: tracked, delta: repoStore.lastDelta)
+                    LabeledContent {
+                        Text(RepoDeltaFormatter.metricLine(label: "★", value: tracked.lastStars, delta: repoStore.lastDelta?.starsDelta))
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    } label: {
+                        Text(tracked.displayName)
+                            .font(.callout)
+                    }
                 } else {
-                    EmptyRepositoryView()
+                    Text("No repository tracked yet.")
+                        .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 8) {
-                    TextField("owner/repo or https://github.com/owner/repo", text: $repoText)
+                    TextField("owner/repo", text: $repoText)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit { validateManualRepo() }
 
@@ -104,8 +75,7 @@ struct SettingsView: View {
                         validateManualRepo()
                     } label: {
                         if isValidating {
-                            ProgressView()
-                                .controlSize(.small)
+                            ProgressView().controlSize(.small)
                         } else {
                             Text("Track")
                         }
@@ -117,13 +87,8 @@ struct SettingsView: View {
                     SettingsMessageView(message: validationMessage)
                 }
             }
-            .padding(8)
-        }
-    }
 
-    private var refreshSection: some View {
-        GroupBox("Refresh") {
-            VStack(alignment: .leading, spacing: 10) {
+            Section("Refresh") {
                 Picker("Poll interval", selection: Binding(
                     get: { settingsStore.settings.refreshInterval },
                     set: { newValue in settingsStore.update { $0.refreshInterval = newValue } }
@@ -133,225 +98,166 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
 
                 if let state = repoStore.rateLimitState, state.isLimited {
-                    SettingsMessageView(message: .warning("GitHub rate limit active. The app will retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
-                } else {
-                    Text(refreshSummary)
+                    SettingsMessageView(message: .warning("Rate limit active — retrying \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."))
+                } else if let summary = lastCheckedSummary {
+                    Text(summary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(8)
-        }
-    }
 
-    private var notificationsSection: some View {
-        GroupBox("Notifications") {
-            VStack(alignment: .leading, spacing: 8) {
+            Section("Notifications") {
                 Toggle("Notify on star increases", isOn: Binding(
                     get: { settingsStore.settings.notifyOnStarIncrease },
                     set: { newValue in settingsStore.update { $0.notifyOnStarIncrease = newValue } }
                 ))
-                Toggle("Play sound on star increases", isOn: Binding(
+                Toggle("Play sound", isOn: Binding(
                     get: { settingsStore.settings.playSoundOnStarIncrease },
                     set: { newValue in settingsStore.update { $0.playSoundOnStarIncrease = newValue } }
                 ))
-                Toggle("Animate menu-bar counter on star increases", isOn: Binding(
+                Toggle("Animate menu-bar counter", isOn: Binding(
                     get: { settingsStore.settings.animateOnStarIncrease },
                     set: { newValue in settingsStore.update { $0.animateOnStarIncrease = newValue } }
                 ))
             }
-            .padding(8)
-        }
-    }
 
-    private var appSection: some View {
-        GroupBox("App") {
-            VStack(alignment: .leading, spacing: 8) {
+            Section("GitHub") {
+                HStack(spacing: 10) {
+                    Button(authButtonTitle) { startDeviceFlow() }
+                        .disabled(authState.isBusy)
+                    if authState == .connected {
+                        Button {
+                            loadPublicRepos()
+                        } label: {
+                            if isLoadingRepos {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text("Load Public Repos")
+                            }
+                        }
+                        .disabled(isLoadingRepos)
+                    }
+                    Spacer()
+                    authStateBadge
+                }
+
+                if let deviceCode {
+                    DeviceCodePanel(deviceCode: deviceCode)
+                }
+
+                if case .failed(let message) = authState {
+                    SettingsMessageView(message: .warning(message))
+                }
+
+                if !publicRepos.isEmpty {
+                    TextField("Filter", text: $repoFilter)
+                        .textFieldStyle(.roundedBorder)
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(filteredRepos.prefix(50)) { repo in
+                                Button {
+                                    track(owner: repo.owner.login, name: repo.name, source: .oauth)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "book.closed")
+                                            .foregroundStyle(.secondary)
+                                        Text(repo.fullName)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.link)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 140)
+                }
+            }
+
+            Section("App") {
                 Toggle("Show Dock icon", isOn: Binding(
                     get: { !settingsStore.settings.hideDockIcon },
                     set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
                 ))
             }
-            .padding(8)
-        }
-    }
 
-    // MARK: - Account tab
+            Section("Updates") {
+                Toggle("Automatic updates", isOn: Binding(
+                    get: { updaterController.autoUpdateEnabled },
+                    set: { updaterController.setAutoUpdateEnabled($0) }
+                ))
+                .disabled(!updaterController.canChangeAutoUpdatePreference)
 
-    private var accountTab: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                GroupBox("GitHub Account") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Label("Public repositories you can access.", systemImage: "person.crop.circle.badge.checkmark")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            authStateBadge
-                        }
-
-                        HStack {
-                            Button(authButtonTitle) {
-                                startDeviceFlow()
-                            }
-                            .disabled(authState.isBusy)
-
-                            Button {
-                                loadPublicRepos()
-                            } label: {
-                                if isLoadingRepos {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Text("Load Public Repos")
-                                }
-                            }
-                            .disabled(isLoadingRepos || authState != .connected)
-                        }
-
-                        if let deviceCode {
-                            DeviceCodePanel(deviceCode: deviceCode)
-                        }
-
-                        authMessageView
-
-                        if !publicRepos.isEmpty {
-                            TextField("Filter repositories", text: $repoFilter)
-                                .textFieldStyle(.roundedBorder)
-                        }
-
-                        if isLoadingRepos {
-                            ProgressView("Loading repositories…")
-                                .controlSize(.small)
-                        } else if authState == .connected && publicRepos.isEmpty {
-                            SettingsMessageView(message: .info(hasLoadedPublicRepos ? "No public repositories returned for this account." : "Load public repositories from your GitHub account."))
-                        } else {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(filteredRepos.prefix(12)) { repo in
-                                    Button {
-                                        track(owner: repo.owner.login, name: repo.name, source: .oauth)
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: "book.closed")
-                                            Text(repo.fullName)
-                                        }
-                                    }
-                                    .buttonStyle(.link)
-                                }
-                            }
-                        }
-                    }
-                    .padding(8)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-    }
-
-    // MARK: - Updates tab
-
-    private var updatesTab: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            GroupBox("Updates") {
-                VStack(alignment: .leading, spacing: 10) {
+                HStack {
                     if updaterController.hasGentleReminder {
-                        SettingsMessageView(message: .success("An update is available."))
+                        Label("An update is available.", systemImage: "arrow.down.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("Sparkle, EdDSA-signed and notarized.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-
-                    Toggle("Automatic updates", isOn: Binding(
-                        get: { updaterController.autoUpdateEnabled },
-                        set: { updaterController.setAutoUpdateEnabled($0) }
-                    ))
-                    .disabled(!updaterController.canChangeAutoUpdatePreference)
-
-                    Text("Sparkle updates are EdDSA-signed and notarized.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    HStack {
-                        Button("Check for Updates…") {
-                            updaterController.checkForUpdates(nil)
-                        }
-                        .disabled(!updaterController.canRequestUpdateCheck)
-                        Spacer()
+                    Spacer()
+                    Button("Check Now") {
+                        updaterController.checkForUpdates(nil)
                     }
+                    .controlSize(.small)
+                    .disabled(!updaterController.canRequestUpdateCheck)
                 }
-                .padding(8)
             }
-
-            Text("Release downloads: total from latest 100 releases.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Spacer()
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .formStyle(.grouped)
+        .frame(width: Self.contentWidth, height: Self.contentHeight)
+        .onAppear {
+            if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
+                repoText = repo.displayName
+            }
+            if KeychainTokenStore.hasGitHubOAuthToken() {
+                authState = .connected
+            }
+        }
     }
 
     // MARK: - Helpers
 
-    private var refreshSummary: String {
-        if let repo = repoStore.trackedRepos.first,
-           let checkedAt = repo.lastCheckedAt {
-            return "Last checked \(RelativeDateTimeFormatter.menu.string(for: checkedAt) ?? "recently")."
-        }
-        return "Checks start after you track a repository."
+    private var lastCheckedSummary: String? {
+        guard let repo = repoStore.trackedRepos.first,
+              let checkedAt = repo.lastCheckedAt,
+              let relative = RelativeDateTimeFormatter.menu.string(for: checkedAt)
+        else { return nil }
+        return "Last checked \(relative)."
     }
 
     private var authButtonTitle: String {
         switch authState {
-        case .requestingCode:
-            return "Requesting…"
-        case .waitingForAuthorization:
-            return "Waiting…"
-        case .connected:
-            return "Reconnect GitHub"
-        case .disconnected, .failed:
-            return "Connect GitHub"
+        case .requestingCode:        return "Requesting…"
+        case .waitingForAuthorization: return "Waiting…"
+        case .connected:             return "Reconnect GitHub"
+        case .disconnected, .failed: return "Connect GitHub"
         }
     }
 
     private var authStateBadge: some View {
         let text: String
         let symbol: String
+        let tint: Color
         switch authState {
         case .connected:
-            text = "Connected"
-            symbol = "checkmark.circle.fill"
+            text = "Connected"; symbol = "checkmark.circle.fill"; tint = .green
         case .requestingCode, .waitingForAuthorization:
-            text = "Connecting"
-            symbol = "clock"
+            text = "Connecting"; symbol = "clock"; tint = .secondary
         case .failed:
-            text = "Needs attention"
-            symbol = "exclamationmark.circle"
+            text = "Error"; symbol = "exclamationmark.circle"; tint = .orange
         case .disconnected:
-            text = "Optional"
-            symbol = "circle"
+            text = "Optional"; symbol = "circle"; tint = .secondary
         }
         return Label(text, systemImage: symbol)
             .font(.caption)
-            .foregroundStyle(authState == .connected ? .green : .secondary)
-    }
-
-    @ViewBuilder
-    private var authMessageView: some View {
-        switch authState {
-        case .disconnected:
-            SettingsMessageView(message: .info("Manual public repo tracking works without signing in. Connect GitHub only to pick from your public repositories."))
-        case .requestingCode:
-            SettingsMessageView(message: .info("Requesting a GitHub device code…"))
-        case .waitingForAuthorization:
-            SettingsMessageView(message: .info("Authorize in the browser. This window will update when GitHub confirms access."))
-        case .connected:
-            SettingsMessageView(message: .success("GitHub connected. Load public repositories to pick one."))
-        case .failed(let message):
-            SettingsMessageView(message: .warning(message))
-        }
+            .foregroundStyle(tint)
     }
 
     private var filteredRepos: [GitHubRepoSummary] {
@@ -432,7 +338,7 @@ struct SettingsView: View {
                     deviceCode: response.deviceCode,
                     interval: response.interval
                 )
-                try KeychainTokenStore(service: "StargazerBar.GitHubOAuth").saveToken(token.accessToken)
+                try KeychainTokenStore.gitHubOAuthStore().saveToken(token.accessToken)
                 await MainActor.run {
                     authState = .connected
                     deviceCode = nil
@@ -467,73 +373,35 @@ struct SettingsView: View {
     }
 }
 
-private struct CurrentRepoSummary: View {
-    let repo: TrackedRepo
-    let delta: RepoDelta?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(repo.displayName, systemImage: "star.circle.fill")
-                .font(.headline)
-            HStack(spacing: 12) {
-                Text(RepoDeltaFormatter.metricLine(label: "★", value: repo.lastStars, delta: delta?.starsDelta))
-                Text(RepoDeltaFormatter.metricLine(label: "Downloads", value: repo.lastDownloads, delta: delta?.downloadsDelta))
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-private struct EmptyRepositoryView: View {
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "star.slash")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("No repository tracked")
-                    .font(.headline)
-                Text("Paste a public GitHub repo URL or owner/repo.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-    }
-}
-
 private struct DeviceCodePanel: View {
     let deviceCode: DeviceCodeResponse
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(deviceCode.userCode)
-                .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                .font(.system(size: 20, weight: .semibold, design: .monospaced))
                 .textSelection(.enabled)
             HStack {
-                Button("Copy Code") {
+                Button("Copy") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(deviceCode.userCode, forType: .string)
                 }
+                .controlSize(.small)
                 Button("Open GitHub") {
                     if let url = URL(string: deviceCode.verificationURI) {
                         NSWorkspace.shared.open(url)
                     }
                 }
+                .controlSize(.small)
+                Spacer()
             }
             Text(deviceCode.verificationURI)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
         }
-        .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .padding(8)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -544,37 +412,27 @@ private enum SettingsMessage: Equatable {
 
     var text: String {
         switch self {
-        case .info(let text), .success(let text), .warning(let text):
-            return text
+        case .info(let t), .success(let t), .warning(let t): return t
         }
     }
-
     var symbol: String {
         switch self {
-        case .info:
-            return "info.circle"
-        case .success:
-            return "checkmark.circle"
-        case .warning:
-            return "exclamationmark.triangle"
+        case .info: return "info.circle"
+        case .success: return "checkmark.circle"
+        case .warning: return "exclamationmark.triangle"
         }
     }
-
     var color: Color {
         switch self {
-        case .info:
-            return .secondary
-        case .success:
-            return .green
-        case .warning:
-            return .orange
+        case .info: return .secondary
+        case .success: return .green
+        case .warning: return .orange
         }
     }
 }
 
 private struct SettingsMessageView: View {
     let message: SettingsMessage
-
     var body: some View {
         Label(message.text, systemImage: message.symbol)
             .font(.caption)
