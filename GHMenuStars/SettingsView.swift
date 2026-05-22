@@ -449,7 +449,12 @@ struct SettingsView: View {
             let token: String
             do {
                 guard let keychainToken = try loadGitHubTokenForRepoList(), !keychainToken.isEmpty else {
-                    throw GitHubError.missingToken
+                    await MainActor.run {
+                        isLoadingRepos = false
+                        PreferencesWindow.shared.restoreAfterExternalPrompt(if: shouldRestoreSettingsAfterPrompt)
+                        startDeviceFlow()
+                    }
+                    return
                 }
                 token = keychainToken
                 await MainActor.run {

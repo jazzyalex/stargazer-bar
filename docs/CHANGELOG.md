@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-05-22
+
+### Fixes
+- Started GitHub device authorization automatically when browsing repositories needs a token.
+- Improved user-facing GitHub error messages for server, transport, and unexpected response failures.
+
 ## [0.1.1] - 2026-05-19
 
 ### Changes

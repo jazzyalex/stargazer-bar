@@ -27,6 +27,12 @@ enum GitHubError: Error, Equatable {
             return "Authorization is still pending."
         case GitHubError.authDenied:
             return "GitHub authorization was denied."
+        case GitHubError.server(let statusCode):
+            return "GitHub returned HTTP \(statusCode). Try again later."
+        case GitHubError.decoding:
+            return "GitHub returned an unexpected response."
+        case GitHubError.transport(let message):
+            return message
         default:
             return "GitHub request failed. Try again later."
         }
