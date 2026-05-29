@@ -40,7 +40,28 @@ final class RepoPollingService {
 
     func refreshNow() {
         guard !isRefreshing else { return }
-        guard let repo = repoStore.trackedRepos.first else { return }
+        let repos = repoStore.trackedRepos
+        guard !repos.isEmpty else { return }
+        if let rate = repoStore.rateLimitState, rate.isLimited { return }
+
+        isRefreshing = true
+        Task {
+            defer {
+                Task { @MainActor in
+                    self.isRefreshing = false
+                    self.scheduleTimer()
+                }
+            }
+            for repo in repos {
+                if let rate = self.repoStore.rateLimitState, rate.isLimited { break }
+                await refresh(repo: repo)
+            }
+        }
+    }
+
+    func refreshNow(repoID: UUID) {
+        guard !isRefreshing else { return }
+        guard let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) else { return }
         if let rate = repoStore.rateLimitState, rate.isLimited { return }
 
         isRefreshing = true
@@ -110,7 +131,7 @@ final class RepoPollingService {
         let settings = settingsStore.settings
         guard !settings.isMuted else { return }
         if settings.notifyOnStarIncrease,
-           repoStore.trackedRepos.first?.lastNotifiedStars != stars {
+           repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {
             notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
             repoStore.markNotified(repoID: repoID, stars: stars, downloads: nil)
         }

@@ -20,7 +20,7 @@ private enum GitHubAuthViewState: Equatable {
 
 struct SettingsView: View {
     static let contentWidth: CGFloat = 520
-    static let contentHeight: CGFloat = 500
+    static let contentHeight: CGFloat = 580
 
     @ObservedObject var repoStore: TrackedRepoStore
     @ObservedObject var settingsStore: SettingsStore
@@ -62,11 +62,6 @@ struct SettingsView: View {
         }
         .padding(.top, 8)
         .frame(width: Self.contentWidth, height: Self.contentHeight)
-        .onAppear {
-            if repoText.isEmpty, let repo = repoStore.trackedRepos.first {
-                repoText = repo.displayName
-            }
-        }
     }
 
     private var generalTab: some View {
@@ -91,6 +86,7 @@ struct SettingsView: View {
     private var repositoryTab: some View {
         VStack(alignment: .leading, spacing: 14) {
             repositorySection
+            menuBarSection
             accountSection
         }
         .padding(18)
@@ -98,42 +94,88 @@ struct SettingsView: View {
     }
 
     private var repositorySection: some View {
-        GroupBox("Repository") {
+        GroupBox("Repositories") {
             VStack(alignment: .leading, spacing: 10) {
-            if let tracked = repoStore.trackedRepos.first {
-                LabeledContent {
-                    Text(RepoDeltaFormatter.metricLine(label: "★", value: tracked.lastStars, delta: repoStore.lastDelta?.starsDelta))
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
-                } label: {
-                    Text(tracked.displayName)
-                        .font(.callout)
-                }
-            } else {
-                Text("No repository tracked yet.")
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 8) {
-                TextField("owner/repo", text: $repoText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { validateManualRepo() }
-
-                Button {
-                    validateManualRepo()
-                } label: {
-                    if isValidating {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text("Track")
+                if repoStore.trackedRepos.isEmpty {
+                    Text("No repositories tracked yet.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(repoStore.trackedRepos) { repo in
+                            RepositoryRow(
+                                repo: repo,
+                                isSelected: repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id,
+                                select: { selectMenuBarRepo(repo.id) },
+                                remove: { removeTrackedRepo(repo.id) }
+                            )
+                        }
                     }
                 }
-                .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
 
-            if let validationMessage {
-                SettingsMessageView(message: validationMessage)
+                HStack(spacing: 8) {
+                    TextField("owner/repo", text: $repoText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { validateManualRepo() }
+
+                    Button {
+                        validateManualRepo()
+                    } label: {
+                        if isValidating {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Add")
+                        }
+                    }
+                    .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                HStack {
+                    Text("\(repoStore.trackedRepos.count)/\(TrackedRepoStore.maximumTrackedRepos) repositories")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+
+                if let validationMessage {
+                    SettingsMessageView(message: validationMessage)
+                }
             }
+            .padding(8)
+        }
+    }
+
+    private var menuBarSection: some View {
+        GroupBox("Menu Bar") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Counter", selection: Binding(
+                    get: { settingsStore.settings.menuBarDisplayMode },
+                    set: { newValue in
+                        settingsStore.update { settings in
+                            settings.menuBarDisplayMode = newValue
+                            if newValue.requiresSelectedRepo, settings.selectedMenuBarRepoID == nil {
+                                settings.selectedMenuBarRepoID = repoStore.trackedRepos.first?.id
+                            }
+                        }
+                    }
+                )) {
+                    ForEach(MenuBarDisplayMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+
+                if settingsStore.settings.menuBarDisplayMode.requiresSelectedRepo {
+                    Picker("Shown repo", selection: Binding<UUID?>(
+                        get: { repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id },
+                        set: { newValue in
+                            settingsStore.update { $0.selectedMenuBarRepoID = newValue }
+                        }
+                    )) {
+                        ForEach(repoStore.trackedRepos) { repo in
+                            Text(repo.displayName).tag(Optional(repo.id))
+                        }
+                    }
+                    .disabled(repoStore.trackedRepos.isEmpty)
+                }
             }
             .padding(8)
         }
@@ -314,8 +356,7 @@ struct SettingsView: View {
     // MARK: - Helpers
 
     private var lastCheckedSummary: String? {
-        guard let repo = repoStore.trackedRepos.first,
-              let checkedAt = repo.lastCheckedAt,
+        guard let checkedAt = repoStore.trackedRepos.compactMap(\.lastCheckedAt).max(),
               let relative = RelativeDateTimeFormatter.menu.string(for: checkedAt)
         else { return nil }
         return "Last checked \(relative)."
@@ -366,6 +407,12 @@ struct SettingsView: View {
     }
 
     private func validateRepo(owner: String, name: String, source: RepoSource) {
+        if repoStore.trackedRepos.count >= TrackedRepoStore.maximumTrackedRepos,
+           !repoStore.containsRepo(owner: owner, name: name) {
+            validationMessage = .warning("Remove a repository before adding another. Stargazer Bar tracks up to \(TrackedRepoStore.maximumTrackedRepos) repositories.")
+            return
+        }
+
         isValidating = true
         validationMessage = nil
         Task {
@@ -374,7 +421,7 @@ struct SettingsView: View {
                 guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
                 let releasesResult = try await gitHubClient.fetchReleases(owner: owner, name: name, etag: nil)
                 let downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
-                await MainActor.run {
+                try await MainActor.run {
                     let repo = TrackedRepo(
                         owner: owner,
                         name: name,
@@ -386,8 +433,16 @@ struct SettingsView: View {
                         etagRepo: repoResult.etag,
                         etagReleases: releasesResult.etag
                     )
-                    repoStore.setTrackedRepo(repo)
+                    try repoStore.upsertTrackedRepo(repo)
+                    if settingsStore.settings.selectedMenuBarRepoID == nil {
+                        settingsStore.update { $0.selectedMenuBarRepoID = repoStore.repo(id: nil)?.id }
+                    }
                     validationMessage = .success("Tracking \(owner)/\(name).")
+                    isValidating = false
+                }
+            } catch TrackedRepoStoreError.maximumReached(let maximum) {
+                await MainActor.run {
+                    validationMessage = .warning("Remove a repository before adding another. Stargazer Bar tracks up to \(maximum) repositories.")
                     isValidating = false
                 }
             } catch {
@@ -402,6 +457,22 @@ struct SettingsView: View {
     private func track(owner: String, name: String, source: RepoSource) {
         repoText = "\(owner)/\(name)"
         validateRepo(owner: owner, name: name, source: source)
+    }
+
+    private func selectMenuBarRepo(_ repoID: UUID) {
+        settingsStore.update { settings in
+            settings.selectedMenuBarRepoID = repoID
+            if !settings.menuBarDisplayMode.requiresSelectedRepo {
+                settings.menuBarDisplayMode = .selectedRepoStars
+            }
+        }
+    }
+
+    private func removeTrackedRepo(_ repoID: UUID) {
+        repoStore.removeTrackedRepo(id: repoID)
+        if settingsStore.settings.selectedMenuBarRepoID == repoID {
+            settingsStore.update { $0.selectedMenuBarRepoID = repoStore.trackedRepos.first?.id }
+        }
     }
 
     private func startDeviceFlow() {
@@ -499,6 +570,50 @@ struct SettingsView: View {
         }
         try currentStore.saveToken(legacyToken)
         return legacyToken
+    }
+}
+
+private struct RepositoryRow: View {
+    let repo: TrackedRepo
+    let isSelected: Bool
+    let select: () -> Void
+    let remove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: select) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? .green : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Show in menu bar")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(repo.displayName)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                Text(metricsText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button(action: remove) {
+                Image(systemName: "minus.circle")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Remove repository")
+        }
+        .padding(.vertical, 3)
+    }
+
+    private var metricsText: String {
+        let stars = RepoDeltaFormatter.metricLine(label: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta)
+        let downloads = RepoDeltaFormatter.metricLine(label: "Downloads", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
+        return "\(stars)  \(downloads)"
     }
 }
 

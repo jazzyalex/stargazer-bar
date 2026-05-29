@@ -6,7 +6,7 @@ import Security
 final class ServiceLogicTests: XCTestCase {
     func testDeltaDetectionAndNotificationDedupeState() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
-        let store = TrackedRepoStore(defaults: defaults)
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
         let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 10, lastDownloads: 20)
         store.setTrackedRepo(repo)
 
@@ -18,6 +18,85 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(delta, RepoDelta(starsDelta: 3, downloadsDelta: 10))
         store.markNotified(repoID: repo.id, stars: 13, downloads: nil)
         XCTAssertEqual(store.trackedRepos.first?.lastNotifiedStars, 13)
+        XCTAssertEqual(store.trackedRepos.first?.lastStarsDelta, 3)
+        XCTAssertEqual(store.trackedRepos.first?.lastDownloadsDelta, 10)
+    }
+
+    func testUpsertAddsMultipleReposAndPreservesExistingIdentity() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let first = TrackedRepo(
+            owner: "Owner",
+            name: "Repo",
+            source: .manual,
+            lastStars: 10,
+            lastNotifiedStars: 9,
+            etagRepo: "old"
+        )
+        let second = TrackedRepo(owner: "other", name: "repo", source: .manual, lastStars: 4)
+
+        try store.upsertTrackedRepo(first)
+        try store.upsertTrackedRepo(second)
+        try store.upsertTrackedRepo(TrackedRepo(owner: "owner", name: "repo", source: .oauth, lastStars: 12, etagRepo: "new"))
+
+        XCTAssertEqual(store.trackedRepos.count, 2)
+        XCTAssertEqual(store.trackedRepos[0].id, first.id)
+        XCTAssertEqual(store.trackedRepos[0].source, .oauth)
+        XCTAssertEqual(store.trackedRepos[0].lastStars, 12)
+        XCTAssertEqual(store.trackedRepos[0].lastNotifiedStars, 9)
+        XCTAssertEqual(store.trackedRepos[0].etagRepo, "new")
+    }
+
+    func testUpsertRejectsSixthRepo() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+
+        for index in 0..<TrackedRepoStore.maximumTrackedRepos {
+            try store.upsertTrackedRepo(TrackedRepo(owner: "owner", name: "repo-\(index)", source: .manual))
+        }
+
+        XCTAssertThrowsError(try store.upsertTrackedRepo(TrackedRepo(owner: "owner", name: "repo-over", source: .manual))) { error in
+            XCTAssertEqual(error as? TrackedRepoStoreError, .maximumReached(TrackedRepoStore.maximumTrackedRepos))
+        }
+    }
+
+    func testMenuBarDisplayResolverUsesSelectedAndTotals() throws {
+        let first = TrackedRepo(owner: "owner", name: "one", source: .manual, lastStars: 10, lastDownloads: 3)
+        let second = TrackedRepo(owner: "owner", name: "two", source: .manual, lastStars: 20, lastDownloads: 7)
+        var settings = AppSettings()
+        settings.selectedMenuBarRepoID = second.id
+
+        var value = MenuBarDisplayResolver.value(repos: [first, second], settings: settings)
+        XCTAssertEqual(value.text, "20")
+        XCTAssertEqual(value.symbolName, "star.fill")
+
+        settings.menuBarDisplayMode = .selectedRepoDownloads
+        value = MenuBarDisplayResolver.value(repos: [first, second], settings: settings)
+        XCTAssertEqual(value.text, "7")
+        XCTAssertEqual(value.symbolName, "arrow.down.circle.fill")
+
+        settings.menuBarDisplayMode = .totalStars
+        value = MenuBarDisplayResolver.value(repos: [first, second], settings: settings)
+        XCTAssertEqual(value.text, "30")
+
+        settings.menuBarDisplayMode = .totalDownloads
+        value = MenuBarDisplayResolver.value(repos: [first, second], settings: settings)
+        XCTAssertEqual(value.text, "10")
+    }
+
+    func testMenuBarDisplayResolverKeepsUnknownTotalsBlank() throws {
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        var settings = AppSettings()
+
+        settings.menuBarDisplayMode = .totalStars
+        var value = MenuBarDisplayResolver.value(repos: [repo], settings: settings)
+        XCTAssertEqual(value.text, "--")
+        XCTAssertEqual(value.accessibilityLabel, "Total GitHub stars not checked yet")
+
+        settings.menuBarDisplayMode = .totalDownloads
+        value = MenuBarDisplayResolver.value(repos: [repo], settings: settings)
+        XCTAssertEqual(value.text, "--")
+        XCTAssertEqual(value.accessibilityLabel, "Total release downloads not checked yet")
     }
 
     func testRefreshIntervalDurations() {
@@ -28,17 +107,18 @@ final class ServiceLogicTests: XCTestCase {
 
     func testSettingsPersistence() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
-        let store = SettingsStore(defaults: defaults)
+        let store = SettingsStore(defaults: defaults, legacyDefaults: nil)
         store.update { settings in
             settings.refreshInterval = .oneDay
             settings.hideDockIcon = false
             settings.isMuted = true
         }
 
-        let reloaded = SettingsStore(defaults: defaults)
+        let reloaded = SettingsStore(defaults: defaults, legacyDefaults: nil)
         XCTAssertEqual(reloaded.settings.refreshInterval, .oneDay)
         XCTAssertFalse(reloaded.settings.hideDockIcon)
         XCTAssertTrue(reloaded.settings.isMuted)
+        XCTAssertEqual(reloaded.settings.menuBarDisplayMode, .selectedRepoStars)
     }
 
     func testSettingsMigrateFromLegacyBundleDefaults() {
@@ -87,6 +167,8 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(store.settings.animateOnStarIncrease)
         XCTAssertFalse(store.settings.isMuted)
         XCTAssertEqual(store.settings.gitHubOAuthClientID, "saved-client")
+        XCTAssertEqual(store.settings.menuBarDisplayMode, .selectedRepoStars)
+        XCTAssertNil(store.settings.selectedMenuBarRepoID)
     }
 
     func testRateLimitParsing() {

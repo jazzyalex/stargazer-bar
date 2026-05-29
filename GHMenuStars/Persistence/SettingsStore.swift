@@ -9,6 +9,8 @@ struct AppSettings: Codable, Equatable {
     var animateOnStarIncrease: Bool = true
     var isMuted: Bool = false
     var gitHubOAuthClientID: String = ""
+    var menuBarDisplayMode: MenuBarDisplayMode = .selectedRepoStars
+    var selectedMenuBarRepoID: UUID?
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -18,6 +20,8 @@ struct AppSettings: Codable, Equatable {
         case animateOnStarIncrease
         case isMuted
         case gitHubOAuthClientID
+        case menuBarDisplayMode
+        case selectedMenuBarRepoID
     }
 
     init() {}
@@ -31,6 +35,8 @@ struct AppSettings: Codable, Equatable {
         animateOnStarIncrease = try container.decode(Bool.self, forKey: .animateOnStarIncrease)
         isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         gitHubOAuthClientID = try container.decode(String.self, forKey: .gitHubOAuthClientID)
+        menuBarDisplayMode = try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .selectedRepoStars
+        selectedMenuBarRepoID = try container.decodeIfPresent(UUID.self, forKey: .selectedMenuBarRepoID)
     }
 }
 

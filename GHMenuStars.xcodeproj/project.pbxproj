@@ -18,8 +18,9 @@
 		100000000000000000000009 /* RefreshInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* RefreshInterval.swift */; };
 		10000000000000000000000A /* TrackedRepo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* TrackedRepo.swift */; };
 		10000000000000000000000B /* RepoSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* RepoSnapshot.swift */; };
-		10000000000000000000000C /* RepoDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RepoDelta.swift */; };
-		10000000000000000000000D /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RateLimitState.swift */; };
+			10000000000000000000000C /* RepoDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RepoDelta.swift */; };
+			100000000000000000000024 /* MenuBarDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* MenuBarDisplayMode.swift */; };
+			10000000000000000000000D /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RateLimitState.swift */; };
 		10000000000000000000000E /* RepoURLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* RepoURLParser.swift */; };
 		10000000000000000000000F /* ReleaseDownloadAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* ReleaseDownloadAggregator.swift */; };
 		100000000000000000000010 /* GitHubClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* GitHubClient.swift */; };
@@ -32,8 +33,9 @@
 		100000000000000000000016 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NotificationService.swift */; };
 		100000000000000000000017 /* SoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* SoundService.swift */; };
 		100000000000000000000018 /* AnimationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* AnimationCoordinator.swift */; };
-		100000000000000000000019 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* Formatters.swift */; };
-		10000000000000000000001D /* ActivationPolicyDecider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* ActivationPolicyDecider.swift */; };
+			100000000000000000000019 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* Formatters.swift */; };
+			100000000000000000000025 /* MenuBarDisplayResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* MenuBarDisplayResolver.swift */; };
+			10000000000000000000001D /* ActivationPolicyDecider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* ActivationPolicyDecider.swift */; };
 		10000000000000000000001E /* AppIconFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001F /* AppIconFactory.swift */; };
 		10000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* Assets.xcassets */; };
 		100000000000000000000022 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* UpdaterController.swift */; };
@@ -65,8 +67,9 @@
 		200000000000000000000009 /* RefreshInterval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshInterval.swift; sourceTree = "<group>"; };
 		20000000000000000000000A /* TrackedRepo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedRepo.swift; sourceTree = "<group>"; };
 		20000000000000000000000B /* RepoSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoSnapshot.swift; sourceTree = "<group>"; };
-		20000000000000000000000C /* RepoDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoDelta.swift; sourceTree = "<group>"; };
-		20000000000000000000000D /* RateLimitState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
+			20000000000000000000000C /* RepoDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoDelta.swift; sourceTree = "<group>"; };
+			200000000000000000000025 /* MenuBarDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayMode.swift; sourceTree = "<group>"; };
+			20000000000000000000000D /* RateLimitState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		20000000000000000000000E /* RepoURLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoURLParser.swift; sourceTree = "<group>"; };
 		20000000000000000000000F /* ReleaseDownloadAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseDownloadAggregator.swift; sourceTree = "<group>"; };
 		200000000000000000000010 /* GitHubClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubClient.swift; sourceTree = "<group>"; };
@@ -89,7 +92,8 @@
 		200000000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		200000000000000000000022 /* GHMenuStars.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = GHMenuStars.xcconfig; sourceTree = "<group>"; };
 		200000000000000000000023 /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig.example; sourceTree = "<group>"; };
-		200000000000000000000024 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
+			200000000000000000000024 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
+			200000000000000000000026 /* MenuBarDisplayResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayResolver.swift; sourceTree = "<group>"; };
 		500000000000000000000001 /* Stargazer Bar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Stargazer Bar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		500000000000000000000002 /* GHMenuStarsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GHMenuStarsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -131,10 +135,10 @@
 			path = GHMenuStars;
 			sourceTree = "<group>";
 		};
-		700000000000000000000003 /* Models */ = {isa = PBXGroup; children = (200000000000000000000008, 200000000000000000000009, 20000000000000000000000A, 20000000000000000000000B, 20000000000000000000000C); path = Models; sourceTree = "<group>"; };
+			700000000000000000000003 /* Models */ = {isa = PBXGroup; children = (200000000000000000000008, 200000000000000000000009, 20000000000000000000000A, 20000000000000000000000B, 20000000000000000000000C, 200000000000000000000025); path = Models; sourceTree = "<group>"; };
 		700000000000000000000004 /* GitHub */ = {isa = PBXGroup; children = (20000000000000000000000D, 20000000000000000000000E, 20000000000000000000000F, 200000000000000000000010, 200000000000000000000011, 200000000000000000000021); path = GitHub; sourceTree = "<group>"; };
 		700000000000000000000005 /* Persistence */ = {isa = PBXGroup; children = (200000000000000000000012, 200000000000000000000013, 200000000000000000000014); path = Persistence; sourceTree = "<group>"; };
-		700000000000000000000006 /* Services */ = {isa = PBXGroup; children = (200000000000000000000015, 200000000000000000000016, 200000000000000000000017, 200000000000000000000018, 200000000000000000000019, 20000000000000000000001E, 20000000000000000000001F); path = Services; sourceTree = "<group>"; };
+			700000000000000000000006 /* Services */ = {isa = PBXGroup; children = (200000000000000000000015, 200000000000000000000016, 200000000000000000000017, 200000000000000000000018, 200000000000000000000019, 200000000000000000000026, 20000000000000000000001E, 20000000000000000000001F); path = Services; sourceTree = "<group>"; };
 		700000000000000000000007 /* GHMenuStarsTests */ = {isa = PBXGroup; children = (20000000000000000000001A, 20000000000000000000001B, 20000000000000000000001C); path = GHMenuStarsTests; sourceTree = "<group>"; };
 		700000000000000000000008 /* Products */ = {isa = PBXGroup; children = (500000000000000000000001, 500000000000000000000002); name = Products; sourceTree = "<group>"; };
 		700000000000000000000009 /* Config */ = {isa = PBXGroup; children = (200000000000000000000022, 200000000000000000000023); path = Config; sourceTree = "<group>"; };
@@ -210,7 +214,7 @@
 		A00000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000006, 100000000000000000000007, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B, 10000000000000000000000C, 10000000000000000000000D, 10000000000000000000000E, 10000000000000000000000F, 100000000000000000000010, 100000000000000000000011, 100000000000000000000012, 100000000000000000000013, 100000000000000000000014, 100000000000000000000015, 100000000000000000000016, 100000000000000000000017, 100000000000000000000018, 100000000000000000000019, 10000000000000000000001D, 10000000000000000000001E, 100000000000000000000021, 100000000000000000000022);
+				files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000006, 100000000000000000000007, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B, 10000000000000000000000C, 100000000000000000000024, 10000000000000000000000D, 10000000000000000000000E, 10000000000000000000000F, 100000000000000000000010, 100000000000000000000011, 100000000000000000000012, 100000000000000000000013, 100000000000000000000014, 100000000000000000000015, 100000000000000000000016, 100000000000000000000017, 100000000000000000000018, 100000000000000000000019, 100000000000000000000025, 10000000000000000000001D, 10000000000000000000001E, 100000000000000000000021, 100000000000000000000022);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A00000000000000000000002 /* Sources */ = {

@@ -1,8 +1,14 @@
 import Combine
 import Foundation
 
+enum TrackedRepoStoreError: Error, Equatable {
+    case maximumReached(Int)
+}
+
 @MainActor
 final class TrackedRepoStore: ObservableObject {
+    static let maximumTrackedRepos = 5
+
     @Published private(set) var trackedRepos: [TrackedRepo]
     @Published private(set) var lastDelta: RepoDelta?
     @Published private(set) var rateLimitState: RateLimitState?
@@ -33,6 +39,59 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func upsertTrackedRepo(_ repo: TrackedRepo) throws {
+        if let index = trackedRepos.firstIndex(where: { Self.matches($0, repo) }) {
+            var existing = trackedRepos[index]
+            existing.owner = repo.owner
+            existing.name = repo.name
+            existing.displayName = repo.displayName
+            existing.source = repo.source
+            existing.lastStars = repo.lastStars ?? existing.lastStars
+            existing.lastDownloads = repo.lastDownloads ?? existing.lastDownloads
+            existing.lastCheckedAt = repo.lastCheckedAt ?? existing.lastCheckedAt
+            existing.lastSuccessfulCheckAt = repo.lastSuccessfulCheckAt ?? existing.lastSuccessfulCheckAt
+            existing.etagRepo = repo.etagRepo ?? existing.etagRepo
+            existing.etagReleases = repo.etagReleases ?? existing.etagReleases
+            trackedRepos[index] = existing
+        } else {
+            guard trackedRepos.count < Self.maximumTrackedRepos else {
+                throw TrackedRepoStoreError.maximumReached(Self.maximumTrackedRepos)
+            }
+            trackedRepos.append(repo)
+        }
+        rateLimitState = nil
+        saveAll()
+    }
+
+    func removeTrackedRepo(id: UUID) {
+        trackedRepos.removeAll { $0.id == id }
+        saveAll()
+    }
+
+    func moveTrackedRepos(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let moving = source.sorted().map { trackedRepos[$0] }
+        var remaining = trackedRepos.enumerated()
+            .filter { !source.contains($0.offset) }
+            .map(\.element)
+        let skippedBeforeDestination = source.filter { $0 < destination }.count
+        let insertionIndex = max(0, min(destination - skippedBeforeDestination, remaining.count))
+        remaining.insert(contentsOf: moving, at: insertionIndex)
+        trackedRepos = remaining
+        saveAll()
+    }
+
+    func repo(id: UUID?) -> TrackedRepo? {
+        guard let id else { return trackedRepos.first }
+        return trackedRepos.first { $0.id == id } ?? trackedRepos.first
+    }
+
+    func containsRepo(owner: String, name: String) -> Bool {
+        trackedRepos.contains {
+            $0.owner.caseInsensitiveCompare(owner) == .orderedSame
+                && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
     func apply(snapshot: RepoSnapshot, to repoID: UUID) -> RepoDelta? {
         guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return nil }
         var repo = trackedRepos[index]
@@ -44,6 +103,8 @@ final class TrackedRepoStore: ObservableObject {
         repo.lastDownloads = snapshot.releaseDownloads
         repo.lastCheckedAt = snapshot.checkedAt
         repo.lastSuccessfulCheckAt = snapshot.checkedAt
+        repo.lastStarsDelta = delta.starsDelta
+        repo.lastDownloadsDelta = delta.downloadsDelta
         repo.etagRepo = snapshot.repoETag ?? repo.etagRepo
         repo.etagReleases = snapshot.releasesETag ?? repo.etagReleases
         trackedRepos[index] = repo
@@ -79,6 +140,11 @@ final class TrackedRepoStore: ObservableObject {
         encode(trackedRepos, key: reposKey)
         encode(lastDelta, key: deltaKey)
         encode(rateLimitState, key: rateLimitKey)
+    }
+
+    private static func matches(_ lhs: TrackedRepo, _ rhs: TrackedRepo) -> Bool {
+        lhs.owner.caseInsensitiveCompare(rhs.owner) == .orderedSame
+            && lhs.name.caseInsensitiveCompare(rhs.name) == .orderedSame
     }
 
     private func encode<T: Encodable>(_ value: T, key: String) {
