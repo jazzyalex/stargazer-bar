@@ -16,6 +16,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var lastDownloadsDelta: Int?
     var etagRepo: String?
     var etagReleases: String?
+    var starSound: StarSound
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -33,6 +34,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case lastDownloadsDelta
         case etagRepo
         case etagReleases
+        case starSound
     }
 
     init(
@@ -50,7 +52,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         lastStarsDelta: Int? = nil,
         lastDownloadsDelta: Int? = nil,
         etagRepo: String? = nil,
-        etagReleases: String? = nil
+        etagReleases: String? = nil,
+        starSound: StarSound = .glass
     ) {
         self.id = id
         self.owner = owner
@@ -67,6 +70,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.lastDownloadsDelta = lastDownloadsDelta
         self.etagRepo = etagRepo
         self.etagReleases = etagReleases
+        self.starSound = starSound
     }
 
     init(from decoder: Decoder) throws {
@@ -86,5 +90,6 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         lastDownloadsDelta = try container.decodeIfPresent(Int.self, forKey: .lastDownloadsDelta)
         etagRepo = try container.decodeIfPresent(String.self, forKey: .etagRepo)
         etagReleases = try container.decodeIfPresent(String.self, forKey: .etagReleases)
+        starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
     }
 }

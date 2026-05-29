@@ -26,6 +26,7 @@ struct SettingsView: View {
     @ObservedObject var settingsStore: SettingsStore
     @ObservedObject var updaterController: UpdaterController
     let gitHubClient: GitHubClient
+    private let soundPreviewService = SoundService()
 
     @State private var repoText = ""
     @State private var validationMessage: SettingsMessage?
@@ -106,7 +107,10 @@ struct SettingsView: View {
                                 repo: repo,
                                 isSelected: repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id,
                                 select: { selectMenuBarRepo(repo.id) },
-                                remove: { removeTrackedRepo(repo.id) }
+                                remove: { removeTrackedRepo(repo.id) },
+                                sound: repo.starSound,
+                                setSound: { repoStore.setStarSound($0, for: repo.id) },
+                                previewSound: { soundPreviewService.play($0) }
                             )
                         }
                     }
@@ -217,6 +221,15 @@ struct SettingsView: View {
                 get: { settingsStore.settings.playSoundOnStarIncrease },
                 set: { newValue in settingsStore.update { $0.playSoundOnStarIncrease = newValue } }
             ))
+            Picker("Play sound when", selection: Binding(
+                get: { settingsStore.settings.starSoundThreshold },
+                set: { newValue in settingsStore.update { $0.starSoundThreshold = newValue } }
+            )) {
+                ForEach(StarSoundThreshold.allCases) { threshold in
+                    Text(threshold.displayName).tag(threshold)
+                }
+            }
+            .disabled(!settingsStore.settings.playSoundOnStarIncrease)
             Toggle("Animate menu-bar counter", isOn: Binding(
                 get: { settingsStore.settings.animateOnStarIncrease },
                 set: { newValue in settingsStore.update { $0.animateOnStarIncrease = newValue } }
@@ -578,6 +591,9 @@ private struct RepositoryRow: View {
     let isSelected: Bool
     let select: () -> Void
     let remove: () -> Void
+    let sound: StarSound
+    let setSound: (StarSound) -> Void
+    let previewSound: (StarSound) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -597,8 +613,29 @@ private struct RepositoryRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+            .frame(minWidth: 120, alignment: .leading)
 
             Spacer()
+
+            Picker("Sound", selection: Binding(
+                get: { sound },
+                set: setSound
+            )) {
+                ForEach(StarSound.allCases) { sound in
+                    Text(sound.displayName).tag(sound)
+                }
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 130)
+            .help("Star sound")
+
+            Button { previewSound(sound) } label: {
+                Image(systemName: "speaker.wave.2")
+            }
+            .buttonStyle(.plain)
+            .disabled(sound.isSilent)
+            .help("Preview sound")
 
             Button(action: remove) {
                 Image(systemName: "minus.circle")

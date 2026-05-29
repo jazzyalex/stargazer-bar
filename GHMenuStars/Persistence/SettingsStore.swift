@@ -6,6 +6,7 @@ struct AppSettings: Codable, Equatable {
     var hideDockIcon: Bool = true
     var notifyOnStarIncrease: Bool = true
     var playSoundOnStarIncrease: Bool = false
+    var starSoundThreshold: StarSoundThreshold = .one
     var animateOnStarIncrease: Bool = true
     var isMuted: Bool = false
     var gitHubOAuthClientID: String = ""
@@ -17,6 +18,7 @@ struct AppSettings: Codable, Equatable {
         case hideDockIcon
         case notifyOnStarIncrease
         case playSoundOnStarIncrease
+        case starSoundThreshold
         case animateOnStarIncrease
         case isMuted
         case gitHubOAuthClientID
@@ -32,6 +34,7 @@ struct AppSettings: Codable, Equatable {
         hideDockIcon = try container.decode(Bool.self, forKey: .hideDockIcon)
         notifyOnStarIncrease = try container.decode(Bool.self, forKey: .notifyOnStarIncrease)
         playSoundOnStarIncrease = try container.decode(Bool.self, forKey: .playSoundOnStarIncrease)
+        starSoundThreshold = try container.decodeIfPresent(StarSoundThreshold.self, forKey: .starSoundThreshold) ?? .one
         animateOnStarIncrease = try container.decode(Bool.self, forKey: .animateOnStarIncrease)
         isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         gitHubOAuthClientID = try container.decode(String.self, forKey: .gitHubOAuthClientID)

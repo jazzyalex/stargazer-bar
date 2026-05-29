@@ -131,6 +131,12 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func setStarSound(_ sound: StarSound, for repoID: UUID) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].starSound = sound
+        saveAll()
+    }
+
     func updateRateLimit(_ state: RateLimitState?) {
         rateLimitState = state
         saveAll()

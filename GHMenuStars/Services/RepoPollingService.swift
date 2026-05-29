@@ -135,8 +135,10 @@ final class RepoPollingService {
             notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
             repoStore.markNotified(repoID: repoID, stars: stars, downloads: nil)
         }
-        if settings.playSoundOnStarIncrease {
-            soundService.play()
+        if settings.playSoundOnStarIncrease,
+           settings.starSoundThreshold.isMet(by: delta.starsDelta),
+           let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) {
+            soundService.play(repo.starSound)
         }
         if settings.animateOnStarIncrease {
             animationCoordinator.pulse()

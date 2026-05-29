@@ -45,6 +45,19 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.trackedRepos[0].lastStars, 12)
         XCTAssertEqual(store.trackedRepos[0].lastNotifiedStars, 9)
         XCTAssertEqual(store.trackedRepos[0].etagRepo, "new")
+        XCTAssertEqual(store.trackedRepos[0].starSound, .glass)
+    }
+
+    func testPerRepoStarSoundPersistence() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+
+        try store.upsertTrackedRepo(repo)
+        store.setStarSound(.tinyFanfare, for: repo.id)
+
+        let reloaded = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        XCTAssertEqual(reloaded.trackedRepos.first?.starSound, .tinyFanfare)
     }
 
     func testUpsertRejectsSixthRepo() throws {
@@ -119,6 +132,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(reloaded.settings.hideDockIcon)
         XCTAssertTrue(reloaded.settings.isMuted)
         XCTAssertEqual(reloaded.settings.menuBarDisplayMode, .selectedRepoStars)
+        XCTAssertEqual(reloaded.settings.starSoundThreshold, .one)
     }
 
     func testSettingsMigrateFromLegacyBundleDefaults() {
@@ -169,6 +183,15 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.settings.gitHubOAuthClientID, "saved-client")
         XCTAssertEqual(store.settings.menuBarDisplayMode, .selectedRepoStars)
         XCTAssertNil(store.settings.selectedMenuBarRepoID)
+        XCTAssertEqual(store.settings.starSoundThreshold, .one)
+    }
+
+    func testStarSoundThresholds() {
+        XCTAssertTrue(StarSoundThreshold.one.isMet(by: 1))
+        XCTAssertFalse(StarSoundThreshold.ten.isMet(by: 9))
+        XCTAssertTrue(StarSoundThreshold.ten.isMet(by: 10))
+        XCTAssertFalse(StarSoundThreshold.hundred.isMet(by: 99))
+        XCTAssertTrue(StarSoundThreshold.hundred.isMet(by: 100))
     }
 
     func testRateLimitParsing() {
@@ -193,6 +216,7 @@ final class ServiceLogicTests: XCTestCase {
         let store = TrackedRepoStore(defaults: defaults, legacyDefaults: legacyDefaults)
         XCTAssertEqual(store.trackedRepos, [repo])
         XCTAssertEqual(store.lastDelta, delta)
+        XCTAssertEqual(store.trackedRepos.first?.starSound, .glass)
         XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.TrackedRepos.v1"))
         XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.LastDelta.v1"))
     }
