@@ -24,10 +24,7 @@ struct StatusMenuBuilder {
         }
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(actionItem("Check All Now", #selector(StatusItemController.checkNow), target))
-        let checkSelectedItem = actionItem("Check Selected Now", #selector(StatusItemController.checkSelectedNow), target)
-        checkSelectedItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
-        menu.addItem(checkSelectedItem)
+        menu.addItem(actionItem("Check Now", #selector(StatusItemController.checkNow), target))
         let openItem = actionItem("Open Selected on GitHub", #selector(StatusItemController.openGitHub), target)
         openItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
         menu.addItem(openItem)

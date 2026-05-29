@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2] - 2026-05-29
+
+### Features
+- Added support for tracking multiple public repositories from the menu bar.
+- Added per-repository star sounds for distinct update cues.
+
+### Improvements
+- Simplified the status menu refresh action to a single **Check Now** item.
+- Refreshed public screenshots and copy for the Stargazer Bar rename and multi-repo workflow.
+
 ## [0.1.2] - 2026-05-22
 
 ### Fixes

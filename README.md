@@ -6,7 +6,7 @@
 
 <p>
   <strong>GitHub stars in your macOS menu bar.</strong><br>
-  A tiny native app for watching one public repository's stars and<br>
+  A tiny native app for watching multiple public repositories' stars and<br>
   release downloads without keeping GitHub open.
 </p>
 
@@ -29,7 +29,7 @@
 
 ---
 
-Stargazer Bar is an open-source macOS GitHub stars menu bar app for maintainers who want lightweight launch or release telemetry for one public repository. It works as a small GitHub release download counter too: stars stay in the menu bar, release downloads live in the dropdown, and the app reads GitHub directly without a backend.
+Stargazer Bar is an open-source macOS GitHub stars menu bar app for maintainers who want lightweight launch or release telemetry across public repositories. It works as a small GitHub release download counter too: stars stay in the menu bar, release downloads live in the dropdown, and the app reads GitHub directly without a backend.
 
 ## Install
 
@@ -45,15 +45,16 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 
 ## Features
 
-- ⭐ &nbsp;Live star count for one public repo in your menu bar — no browser tab required
+- ⭐ &nbsp;Live star counts for multiple public repos in your menu bar — no browser tab required
 - 📦 &nbsp;Release download totals from GitHub's latest releases API page (up to 100 releases)
+- 🔔 &nbsp;Per-repository star sounds, so each tracked project can have its own update cue
 - 🔑 &nbsp;Track any public repo manually without a GitHub account; sign-in only powers the repo picker
 - 🔄 &nbsp;Sparkle auto-updates, EdDSA-signed and notarized
 - 🔒 &nbsp;Private by default — no backend, no telemetry, Keychain-stored tokens
 - 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way
 
 <div align="center">
-  <img src="docs/assets/settings-window.png" alt="Stargazer Bar settings window in dark mode" width="520">
+  <img src="docs/assets/hero-stage.png" alt="Stargazer Bar menu showing multiple tracked repositories" width="560">
 </div>
 
 ## Privacy
@@ -86,8 +87,8 @@ https://jazzyalex.github.io/stargazer-bar/appcast.xml
 The release helper builds the Release app, signs with Developer ID, notarizes and staples the app and DMG, generates a Sparkle EdDSA-signed appcast for the zipped archive (release notes from `docs/CHANGELOG.md`), creates or updates the GitHub release, commits the appcast, verifies the public release, and updates the Homebrew cask tap:
 
 ```bash
-VERSION=0.1.0 tools/release/deploy-stargazer-bar.sh
-tools/release/verify-deployment.sh 0.1.0
+VERSION=0.2 tools/release/deploy-stargazer-bar.sh
+tools/release/verify-deployment.sh 0.2
 ```
 
 The script expects `gh` authentication, a Developer ID Application certificate, notary credentials, and the Sparkle EdDSA private key in Keychain. `tools/release/.env` may provide `TEAM_ID`, `DEV_ID_APP`, `NOTARY_KEY_PATH`, `NOTARY_KEY_ID`, `NOTARY_ISSUER`, or `SPARKLE_ED_KEY_FILE`.
@@ -102,7 +103,7 @@ CASK_REPO=jazzyalex/homebrew-stargazer-bar
 To test the full local release path without publishing or modifying `docs/appcast.xml`:
 
 ```bash
-VERSION=0.1.0 tools/release/test-release-path.sh
+VERSION=0.2 tools/release/test-release-path.sh
 ```
 
 This builds the Release app, signs with Developer ID, packages a DMG and Sparkle ZIP, checksums them, renders release notes, and generates a signed Sparkle appcast under `dist/release-path-test`. It notarizes when credentials are configured; set `REQUIRE_NOTARY=1` to fail the test if notarization is unavailable.

@@ -89,11 +89,6 @@ final class StatusItemController: NSObject {
         pollingService.refreshNow()
     }
 
-    @objc func checkSelectedNow() {
-        guard let repo = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) else { return }
-        pollingService.refreshNow(repoID: repo.id)
-    }
-
     @objc func toggleMute() {
         settingsStore.update { settings in
             settings.isMuted.toggle()
