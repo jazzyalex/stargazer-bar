@@ -6,8 +6,8 @@
 
 <p>
   <strong>GitHub stars in your macOS menu bar.</strong><br>
-  A tiny native app that keeps your repository's star count and<br>
-  release downloads one glance away.
+  A tiny native app for watching one public repository's stars and<br>
+  release downloads without keeping GitHub open.
 </p>
 
 <p>
@@ -29,6 +29,8 @@
 
 ---
 
+Stargazer Bar is an open-source macOS GitHub stars menu bar app for maintainers who want lightweight launch or release telemetry for one public repository. It works as a small GitHub release download counter too: stars stay in the menu bar, release downloads live in the dropdown, and the app reads GitHub directly without a backend.
+
 ## Install
 
 **Homebrew** *(recommended)*
@@ -43,9 +45,9 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 
 ## Features
 
-- ⭐ &nbsp;Live star count in your menu bar — no browser tab required
-- 📦 &nbsp;Download totals from your latest 100 releases
-- 🔑 &nbsp;Track any public repo without a GitHub account (sign-in is optional)
+- ⭐ &nbsp;Live star count for one public repo in your menu bar — no browser tab required
+- 📦 &nbsp;Release download totals from GitHub's latest releases API page (up to 100 releases)
+- 🔑 &nbsp;Track any public repo manually without a GitHub account; sign-in only powers the repo picker
 - 🔄 &nbsp;Sparkle auto-updates, EdDSA-signed and notarized
 - 🔒 &nbsp;Private by default — no backend, no telemetry, Keychain-stored tokens
 - 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way

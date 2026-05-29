@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="Stargazer Bar keeps your repository's star count and release downloads in the macOS menu bar — native, private, and always a glance away.">
+  <meta name="description" content="Open-source macOS menu bar app for tracking one public GitHub repo's stars and release downloads without keeping GitHub open. Native Swift, no backend, no telemetry.">
   <title>Stargazer Bar — GitHub Stars in Your Menu Bar</title>
 
   <!-- Open Graph / Facebook / LinkedIn -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://jazzyalex.github.io/stargazer-bar/">
   <meta property="og:title" content="Stargazer Bar — GitHub Stars in Your Menu Bar">
-  <meta property="og:description" content="A tiny native macOS app that keeps your repository's star count and release downloads one glance away.">
+  <meta property="og:description" content="Track one public GitHub repo's stars and release downloads from the macOS menu bar. Open source, native Swift, no backend or telemetry.">
   <meta property="og:image" content="https://jazzyalex.github.io/stargazer-bar/assets/og-banner.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -21,7 +21,7 @@
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Stargazer Bar — GitHub Stars in Your Menu Bar">
-  <meta name="twitter:description" content="A tiny native macOS app that keeps your repository's star count and release downloads one glance away.">
+  <meta name="twitter:description" content="Track one public GitHub repo's stars and release downloads from the macOS menu bar. Open source, native Swift, no backend or telemetry.">
   <meta name="twitter:image" content="https://jazzyalex.github.io/stargazer-bar/assets/og-banner.png">
   <meta name="twitter:image:alt" content="Stargazer Bar in the macOS menu bar with its dropdown open.">
 
@@ -561,8 +561,8 @@
         <h1>GitHub stars in your menu bar.</h1>
 
         <p class="hero-sub">
-          A tiny native macOS app that keeps your repository's star count
-          and release downloads one glance away.
+          A tiny native macOS app for watching one public GitHub repo's stars
+          and release downloads without keeping GitHub open.
         </p>
 
         <div class="hero-actions" id="install">
@@ -575,11 +575,11 @@
         </div>
 
         <div class="brew-block">
-          <span class="brew-code"><b>brew install --cask</b> stargazer-bar</span>
+          <span class="brew-code"><b>brew install --cask</b> jazzyalex/stargazer-bar/stargazer-bar</span>
           <button class="copy-btn" title="Copy brew command"
             onclick="
               navigator.clipboard.writeText(
-                'brew tap jazzyalex/stargazer-bar &amp;&amp; brew install --cask stargazer-bar'
+                'brew install --cask jazzyalex/stargazer-bar/stargazer-bar'
               ).then(() => {
                 this.textContent = '✓';
                 setTimeout(() => this.textContent = '⎘', 1600);
@@ -615,13 +615,13 @@
         <div class="feature-card">
           <span class="feature-icon">⭐</span>
           <h3>Menu-bar signal</h3>
-          <p>Star count lives in your menu bar — no browser tab required. It's always there when you glance up.</p>
+          <p>One public repo's star count lives in your menu bar, so you do not need a GitHub tab open after a launch or release.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-icon">📦</span>
           <h3>Release downloads</h3>
-          <p>Download totals from your latest 100 releases, right in the same compact dropdown.</p>
+          <p>Release download totals from GitHub's latest releases API page, shown in the same compact dropdown.</p>
         </div>
 
         <div class="feature-card">
