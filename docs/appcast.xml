@@ -5,6 +5,28 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.2</title>
+            <pubDate>Fri, 29 May 2026 10:17:09 -0700</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<h2>What's New in 0.2</h2>
+<h3>Features</h3>
+<ul>
+<li>Added support for tracking multiple public repositories from the menu bar.</li>
+<li>Added per-repository star sounds for distinct update cues.</li>
+</ul>
+<h3>Improvements</h3>
+<ul>
+<li>Simplified the status menu refresh action to a single **Check Now** item.</li>
+<li>Refreshed public screenshots and copy for the Stargazer Bar rename and multi-repo workflow.</li>
+</ul>
+<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2</a></p>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.2/Stargazer-Bar-0.2.zip" length="3249862" type="application/octet-stream" sparkle:edSignature="7r8SHoPOEGzvnzcLoz8R45hATX85qHjINt4WhGXOb6BpxgBE9QJk/zphG/Lw3f9L3/A/jWRcaJl4a3WHFKi/CA=="/>
+        </item>
+        <item>
             <title>0.1.2</title>
             <pubDate>Fri, 22 May 2026 12:02:23 -0700</pubDate>
             <sparkle:version>3</sparkle:version>
