@@ -87,6 +87,23 @@
 
     .nav-star { color: #f5a623; }
 
+    .nav-meta {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 13px;
+      background: var(--bg-alt);
+      border-radius: var(--r-pill);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--secondary);
+      white-space: nowrap;
+    }
+
     .nav-links {
       display: flex;
       align-items: center;
@@ -145,23 +162,7 @@
       text-align: center;
     }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      height: 28px;
-      padding: 0 13px;
-      background: var(--bg-alt);
-      border-radius: var(--r-pill);
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--secondary);
-      margin-bottom: 24px;
-      opacity: 0;
-      animation: rise 0.55s 0.05s ease both;
-    }
-
-    .eyebrow-dot {
+    .status-dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
@@ -513,6 +514,7 @@
 
     @media (max-width: 768px) {
       .nav-link { display: none; }
+      .nav-meta { display: none; }
 
       .feature-grid { grid-template-columns: 1fr; }
 
@@ -537,6 +539,10 @@
     <a class="nav-brand" href="/">
       <span class="nav-star">★</span> Stargazer Bar
     </a>
+    <div class="nav-meta">
+      <span class="status-dot"></span>
+      <span>macOS &nbsp;•&nbsp; open source<span id="github-stars-container" style="display:none;"> &nbsp;•&nbsp; ⭐️ <span id="github-stars">-</span></span></span>
+    </div>
     <div class="nav-links">
       <a class="nav-link" href="#install">Install</a>
       <a class="nav-link" href="https://github.com/jazzyalex/stargazer-bar">GitHub</a>
@@ -549,11 +555,6 @@
     <div class="hero-grid">
 
       <div class="hero-text">
-
-        <div class="eyebrow">
-          <span class="eyebrow-dot"></span>
-          <span>macOS &nbsp;•&nbsp; open source<span id="github-stars-container" style="display:none;"> &nbsp;•&nbsp; ⭐️ <span id="github-stars">-</span></span></span>
-        </div>
 
         <h1>GitHub stars in your menu bar.</h1>
 
