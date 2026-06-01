@@ -64,40 +64,59 @@
       position: sticky;
       top: 0;
       z-index: 100;
+      height: 58px;
+      padding: 0 max(18px, env(safe-area-inset-left));
+      background:
+        linear-gradient(to bottom, rgba(255,255,255,0.88), rgba(255,255,255,0.68));
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 0.5px solid rgba(60,60,67,0.14);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.72) inset;
+    }
+
+    .nav-inner {
+      width: 100%;
+      max-width: 1120px;
+      height: 100%;
+      margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 max(28px, env(safe-area-inset-left));
-      height: 52px;
-      background: rgba(255,255,255,0.72);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border-bottom: 0.5px solid var(--border);
+      position: relative;
+    }
+
+    .nav-start {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      min-width: 0;
     }
 
     .nav-brand {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 9px;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 650;
       letter-spacing: -0.01em;
       color: var(--text);
     }
 
-    .nav-star { color: #f5a623; }
+    .nav-star {
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      color: #f5a623;
+      background: rgba(245,166,35,0.12);
+      border-radius: 7px;
+      line-height: 1;
+    }
 
     .nav-meta {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      height: 28px;
-      padding: 0 13px;
-      background: var(--bg-alt);
-      border-radius: var(--r-pill);
       font-size: 13px;
       font-weight: 500;
       color: var(--secondary);
@@ -107,11 +126,15 @@
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
+      padding: 3px;
+      background: rgba(245,245,247,0.72);
+      border: 0.5px solid rgba(60,60,67,0.10);
+      border-radius: var(--r-pill);
     }
 
     .nav-link {
-      padding: 6px 12px;
+      padding: 5px 11px;
       font-size: 14px;
       color: var(--secondary);
       border-radius: var(--r-pill);
@@ -124,15 +147,20 @@
       align-items: center;
       height: 30px;
       padding: 0 14px;
-      margin-left: 6px;
+      margin-left: 4px;
       background: var(--accent);
       color: #fff;
       font-size: 13px;
       font-weight: 500;
       border-radius: var(--r-pill);
-      transition: background 0.15s, transform 0.1s;
+      box-shadow: 0 5px 16px rgba(0,113,227,0.24);
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
     }
-    .nav-cta:hover { background: var(--accent-dark); transform: scale(1.02); }
+    .nav-cta:hover {
+      background: var(--accent-dark);
+      box-shadow: 0 6px 20px rgba(0,113,227,0.30);
+      transform: scale(1.02);
+    }
 
     /* ── HERO ────────────────────────────────────────────────── */
 
@@ -160,14 +188,6 @@
       align-items: center;
       width: 100%;
       text-align: center;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 0 2.5px rgba(52,199,89,0.22);
     }
 
     h1 {
@@ -536,17 +556,20 @@
 
   <!-- NAV -->
   <nav class="nav">
-    <a class="nav-brand" href="/">
-      <span class="nav-star">★</span> Stargazer Bar
-    </a>
-    <div class="nav-meta">
-      <span class="status-dot"></span>
-      <span>macOS &nbsp;•&nbsp; open source<span id="github-stars-container" style="display:none;"> &nbsp;•&nbsp; ⭐️ <span id="github-stars">-</span></span></span>
-    </div>
-    <div class="nav-links">
-      <a class="nav-link" href="#install">Install</a>
-      <a class="nav-link" href="https://github.com/jazzyalex/stargazer-bar">GitHub</a>
-      <a class="nav-cta" href="https://github.com/jazzyalex/stargazer-bar/releases/latest">Download</a>
+    <div class="nav-inner">
+      <div class="nav-start">
+        <a class="nav-brand" href="/">
+          <span class="nav-star">★</span> Stargazer Bar
+        </a>
+        <div class="nav-meta">
+          <span>macOS &nbsp;•&nbsp; open source<span id="github-stars-container" style="display:none;"> &nbsp;•&nbsp; ⭐️ <span id="github-stars">-</span></span></span>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a class="nav-link" href="#install">Install</a>
+        <a class="nav-link" href="https://github.com/jazzyalex/stargazer-bar">GitHub</a>
+        <a class="nav-cta" href="https://github.com/jazzyalex/stargazer-bar/releases/latest">Download</a>
+      </div>
     </div>
   </nav>
 
