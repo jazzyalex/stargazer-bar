@@ -131,17 +131,18 @@
     .hero-grid {
       max-width: 1120px;
       margin: 0 auto;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-      gap: 56px;
+      display: flex;
+      flex-direction: column;
       align-items: center;
+      gap: 36px;
     }
 
     .hero-text {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      text-align: left;
+      align-items: center;
+      width: 100%;
+      text-align: center;
     }
 
     .eyebrow {
@@ -173,7 +174,7 @@
       font-weight: 700;
       letter-spacing: -0.035em;
       line-height: 1.04;
-      max-width: 540px;
+      max-width: 860px;
       opacity: 0;
       animation: rise 0.55s 0.15s ease both;
     }
@@ -183,7 +184,7 @@
       font-size: clamp(17px, 1.9vw, 20px);
       font-weight: 400;
       color: var(--secondary);
-      max-width: 460px;
+      max-width: 640px;
       line-height: 1.5;
       letter-spacing: -0.01em;
       opacity: 0;
@@ -193,6 +194,7 @@
     .hero-actions {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 12px;
       margin-top: 32px;
       flex-wrap: wrap;
@@ -228,7 +230,7 @@
       display: inline-flex;
       align-items: center;
       gap: 12px;
-      margin-top: 22px;
+      margin-top: 20px;
       padding: 11px 16px 11px 18px;
       background: var(--bg-alt);
       border-radius: 13px;
@@ -264,16 +266,18 @@
     /* ── HERO STAGE (real macOS screenshot) ──────────────────── */
 
     .hero-stage {
+      width: 100%;
+      margin-top: 36px;
       opacity: 0;
       animation: rise 0.7s 0.5s ease both;
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
     }
 
     .stage {
       position: relative;
       width: 100%;
-      max-width: 560px;
+      max-width: 1120px;
       border-radius: 14px;
       overflow: hidden;
       background: #0a0a0a;
@@ -558,6 +562,17 @@
           and release downloads without keeping GitHub open.
         </p>
 
+        <div class="hero-stage">
+          <div class="stage">
+            <img
+              src="assets/og-banner.png"
+              width="1200"
+              height="630"
+              alt="Stargazer Bar banner showing the updated multi-repository menu screenshot"
+            >
+          </div>
+        </div>
+
         <div class="hero-actions" id="install">
           <a class="btn btn-primary" href="https://github.com/jazzyalex/stargazer-bar/releases/latest">
             ↓&thinsp; Download DMG
@@ -580,17 +595,6 @@
             ">⎘</button>
         </div>
 
-      </div>
-
-      <div class="hero-stage">
-        <div class="stage">
-          <img
-            src="assets/og-banner.png"
-            width="1200"
-            height="630"
-            alt="Stargazer Bar banner showing the updated multi-repository menu screenshot"
-          >
-        </div>
       </div>
 
     </div>
