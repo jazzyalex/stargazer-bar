@@ -555,7 +555,7 @@
 
         <div class="eyebrow">
           <span class="eyebrow-dot"></span>
-          Free &amp; Open Source &nbsp;·&nbsp; Native macOS
+          <span>macOS &nbsp;•&nbsp; open source<span id="github-stars-container" style="display:none;"> &nbsp;•&nbsp; ⭐️ <span id="github-stars">-</span></span></span>
         </div>
 
         <h1>GitHub stars in your menu bar.</h1>
@@ -699,6 +699,35 @@
     <span>Stargazer Bar &mdash; open source, notarized macOS app</span>
     <a href="https://github.com/jazzyalex/stargazer-bar">GitHub &rarr;</a>
   </footer>
+
+  <script>
+    async function loadGitHubStars() {
+      const el = document.getElementById('github-stars');
+      const container = document.getElementById('github-stars-container');
+      if (!el || !container) return;
+
+      try {
+        const res = await fetch('https://api.github.com/repos/jazzyalex/stargazer-bar', {
+          headers: {
+            'Accept': 'application/vnd.github+json'
+          }
+        });
+
+        if (!res.ok) {
+          console.error('GitHub API error:', res.status, await res.text());
+          return;
+        }
+
+        const repo = await res.json();
+        el.textContent = repo.stargazers_count ?? 0;
+        container.style.display = 'inline';
+      } catch (e) {
+        console.error('Failed to load GitHub stars', e);
+      }
+    }
+
+    loadGitHubStars();
+  </script>
 
 </body>
 </html>
