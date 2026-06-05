@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2026-06-05
+
+### Fixes
+- Clear stale Stargazer Bar entries from the Dock recent-apps list when the Dock icon is hidden.
+- Rename the setting to **Hide Dock icon** so the toggle state directly matches the behavior.
+
 ## [0.2.1] - 2026-06-04
 
 ### Fixes
