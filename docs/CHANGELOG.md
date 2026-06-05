@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-06-04
+
+### Fixes
+- Launch Stargazer Bar as a menu bar agent so it does not appear as a normal Dock app.
+
 ## [0.2] - 2026-05-29
 
 ### Features
