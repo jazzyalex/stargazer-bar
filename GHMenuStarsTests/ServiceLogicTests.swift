@@ -232,6 +232,10 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: false, hasStatusItem: true), .regular)
     }
 
+    func testAppBundleLaunchesAsMenuBarAgent() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "LSUIElement") as? Bool, true)
+    }
+
     func testAppDelegateDetectsHostedUnitTests() {
         XCTAssertTrue(AppDelegate.isHostedUnitTest(environment: [
             "XCTestConfigurationFilePath": "/tmp/GHMenuStarsTests.xctestconfiguration"
