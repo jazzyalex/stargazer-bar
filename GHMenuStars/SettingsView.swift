@@ -241,10 +241,10 @@ struct SettingsView: View {
     private var appSection: some View {
         GroupBox("App") {
             VStack(alignment: .leading, spacing: 10) {
-            Toggle("Show Dock icon", isOn: Binding(
-                get: { !settingsStore.settings.hideDockIcon },
-                set: { newValue in settingsStore.update { $0.hideDockIcon = !newValue } }
-            ))
+                Toggle("Hide Dock icon", isOn: Binding(
+                    get: { settingsStore.settings.hideDockIcon },
+                    set: { newValue in settingsStore.update { $0.hideDockIcon = newValue } }
+                ))
             }
             .padding(8)
         }
