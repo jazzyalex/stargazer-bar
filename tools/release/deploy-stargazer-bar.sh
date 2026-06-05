@@ -128,6 +128,20 @@ verify_dmg() {
   return 1
 }
 
+detach_dmg_if_attached() {
+  local dmg="$1"
+  local device
+
+  device=$(hdiutil info | awk -v path="$dmg" '
+    $0 ~ "^image-path[[:space:]]*: " path "$" { seen=1; next }
+    seen && $1 ~ "^/dev/disk" { print $1; exit }
+  ') || true
+
+  if [[ -n "$device" ]]; then
+    hdiutil detach "$device" >/dev/null
+  fi
+}
+
 detect_developer_id() {
   if [[ -n "${DEV_ID_APP:-}" ]]; then
     return 0
@@ -330,6 +344,7 @@ rm -f "$NOTARY_ZIP"
 echo "==> Creating DMG"
 rm -f "$DMG"
 hdiutil create -volname "$DISPLAY_NAME" -srcfolder "$APP" -ov -format UDZO "$DMG"
+detach_dmg_if_attached "$DMG"
 codesign --force --sign "$DEV_ID_APP" --timestamp "$DMG"
 verify_dmg "$DMG"
 
