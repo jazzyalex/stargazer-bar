@@ -5,6 +5,23 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.2.2</title>
+            <pubDate>Thu, 04 Jun 2026 20:35:21 -0700</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<h2>What's New in 0.2.2</h2>
+<h3>Fixes</h3>
+<ul>
+<li>Clear stale Stargazer Bar entries from the Dock recent-apps list when the Dock icon is hidden.</li>
+<li>Rename the setting to **Hide Dock icon** so the toggle state directly matches the behavior.</li>
+</ul>
+<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2.2</a></p>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.2.2/Stargazer-Bar-0.2.2.zip" length="3255597" type="application/octet-stream" sparkle:edSignature="8WaNEzmceMVZC+rIbRfwKWK5UwyToI/g0YhUTlaDXbysCkroFlKTE+gydJRBYz5zc5qFgnmATJRn9A1rNQXuAg=="/>
+        </item>
+        <item>
             <title>0.2.1</title>
             <pubDate>Thu, 04 Jun 2026 20:08:58 -0700</pubDate>
             <sparkle:version>5</sparkle:version>
@@ -41,23 +58,6 @@
 <p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.2</a></p>
 ]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.2/Stargazer-Bar-0.2.zip" length="3249862" type="application/octet-stream" sparkle:edSignature="7r8SHoPOEGzvnzcLoz8R45hATX85qHjINt4WhGXOb6BpxgBE9QJk/zphG/Lw3f9L3/A/jWRcaJl4a3WHFKi/CA=="/>
-        </item>
-        <item>
-            <title>0.1.2</title>
-            <pubDate>Fri, 22 May 2026 12:02:23 -0700</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<h2>What's New in 0.1.2</h2>
-<h3>Fixes</h3>
-<ul>
-<li>Started GitHub device authorization automatically when browsing repositories needs a token.</li>
-<li>Improved user-facing GitHub error messages for server, transport, and unexpected response failures.</li>
-</ul>
-<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.1.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.1.2</a></p>
-]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.1.2/Stargazer-Bar-0.1.2.zip" length="3172643" type="application/octet-stream" sparkle:edSignature="1n1IT/ecJ1j5WwtXl3gmh20DeL4kcOU9gRFbBC8zM6Jzk4Pve1ooqoDLwtyCrEzPGXsoSZMt+B1RNJ4lZbyTCQ=="/>
         </item>
     </channel>
 </rss>
