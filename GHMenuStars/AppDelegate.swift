@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let animationCoordinator = AnimationCoordinator()
     private var statusItemController: StatusItemController?
     private var cancellables: Set<AnyCancellable> = []
+    private var isDockRecentCleanupScheduled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isHostedUnitTest() else { return }
@@ -55,13 +56,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyActivationPolicy() {
         let hasMenuBarPath = statusItemController?.isAvailable == true
-        NSApplication.shared.setActivationPolicy(
-            ActivationPolicyDecider.policy(
-                hideDockIcon: settingsStore.settings.hideDockIcon,
-                hasStatusItem: hasMenuBarPath
-            )
+        let policy = ActivationPolicyDecider.policy(
+            hideDockIcon: settingsStore.settings.hideDockIcon,
+            hasStatusItem: hasMenuBarPath
         )
+        NSApplication.shared.setActivationPolicy(policy)
+        if policy == .accessory {
+            scheduleDockRecentCleanup()
+        }
         PreferencesWindow.shared.keepVisibleAfterActivationPolicyChange()
+    }
+
+    private func scheduleDockRecentCleanup() {
+        guard !isDockRecentCleanupScheduled else { return }
+        isDockRecentCleanupScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            DockRecentAppCleaner.removeCurrentAppIfPresent()
+            self?.isDockRecentCleanupScheduled = false
+        }
     }
 
     static func isHostedUnitTest(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {

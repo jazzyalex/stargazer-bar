@@ -236,6 +236,39 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "LSUIElement") as? Bool, true)
     }
 
+    func testDockRecentAppCleanerRemovesOnlyCurrentApp() {
+        let currentApp: [String: Any] = [
+            "tile-data": [
+                "bundle-identifier": "com.jazzyalex.StargazerBar",
+                "file-label": "Stargazer Bar"
+            ]
+        ]
+        let currentAppByURL: [String: Any] = [
+            "tile-data": [
+                "file-label": "Stargazer Bar",
+                "file-data": [
+                    "_CFURLString": "file:///Applications/Stargazer%20Bar.app/"
+                ]
+            ]
+        ]
+        let otherApp: [String: Any] = [
+            "tile-data": [
+                "bundle-identifier": "com.apple.Safari",
+                "file-label": "Safari"
+            ]
+        ]
+
+        let cleaned = DockRecentAppCleaner.removingApp(
+            from: [otherApp, currentApp, currentAppByURL],
+            bundleIdentifier: "com.jazzyalex.StargazerBar",
+            bundleURL: URL(string: "file:///Applications/Stargazer%20Bar.app/")!
+        )
+
+        XCTAssertEqual(cleaned.count, 1)
+        let tileData = (cleaned[0] as? [String: Any])?["tile-data"] as? [String: Any]
+        XCTAssertEqual(tileData?["bundle-identifier"] as? String, "com.apple.Safari")
+    }
+
     func testAppDelegateDetectsHostedUnitTests() {
         XCTAssertTrue(AppDelegate.isHostedUnitTest(environment: [
             "XCTestConfigurationFilePath": "/tmp/GHMenuStarsTests.xctestconfiguration"
