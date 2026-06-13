@@ -28,6 +28,9 @@ struct StatusMenuBuilder {
         let openItem = actionItem("Open Selected on GitHub", #selector(StatusItemController.openGitHub), target)
         openItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
         menu.addItem(openItem)
+        let starItem = actionItem("Star on GitHub", #selector(StatusItemController.openProjectForStar), target)
+        starItem.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
+        menu.addItem(starItem)
         menu.addItem(displayModeItem(target: target))
         menu.addItem(NSMenuItem.separator())
         let muteItem = actionItem(

@@ -101,6 +101,10 @@ final class StatusItemController: NSObject {
         NSWorkspace.shared.open(url)
     }
 
+    @objc func openProjectForStar() {
+        NSWorkspace.shared.open(AppExternalLinks.gitHubRepository)
+    }
+
     @objc func showRepoInMenuBar(_ sender: NSMenuItem) {
         guard let repoID = sender.representedObject as? UUID else { return }
         settingsStore.update { settings in

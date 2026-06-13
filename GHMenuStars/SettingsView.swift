@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+enum AppExternalLinks {
+    static let projectPage = URL(string: "https://jazzyalex.github.io/stargazer-bar/")!
+    static let gitHubRepository = URL(string: "https://github.com/jazzyalex/stargazer-bar")!
+    static let xProfile = URL(string: "https://x.com/jazzyalex")!
+}
+
 private enum GitHubAuthViewState: Equatable {
     case disconnected
     case requestingCode
@@ -266,9 +272,10 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 12) {
-                        SettingsLink("Project Page", url: "https://jazzyalex.github.io/stargazer-bar/")
-                        SettingsLink("GitHub", url: "https://github.com/jazzyalex/stargazer-bar")
-                        SettingsLink("X", url: "https://x.com/jazzyalex")
+                        SettingsLink("Project Page", url: AppExternalLinks.projectPage)
+                        SettingsLink("GitHub", url: AppExternalLinks.gitHubRepository)
+                        SettingsLink("Star on GitHub", url: AppExternalLinks.gitHubRepository)
+                        SettingsLink("X", url: AppExternalLinks.xProfile)
                     }
                     .font(.caption)
                 }
@@ -659,9 +666,9 @@ private struct SettingsLink: View {
     let url: URL
     @State private var isPointing = false
 
-    init(_ title: String, url: String) {
+    init(_ title: String, url: URL) {
         self.title = title
-        self.url = URL(string: url)!
+        self.url = url
     }
 
     var body: some View {
