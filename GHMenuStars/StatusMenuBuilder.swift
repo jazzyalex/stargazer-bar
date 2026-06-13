@@ -191,6 +191,7 @@ private final class RepoTrendView: NSView {
         let start = chartStart(for: points)
         let end = Date()
         drawGrid(in: plot)
+        drawHorizontalTicks(in: plot, start: start, end: end)
         drawScale(in: plot, minValue: minValue, maxValue: maxValue)
         drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
         drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
@@ -295,6 +296,30 @@ private final class RepoTrendView: NSView {
         }
     }
 
+    private func drawHorizontalTicks(in plot: NSRect, start: Date, end: Date) {
+        let ticks = RepoTrendAxisTickBuilder.ticks(start: start, end: end, calendar: calendar, maxTicks: 5)
+        let lineColor = NSColor.separatorColor.withAlphaComponent(0.28)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .regular),
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ]
+
+        for tick in ticks {
+            let x = xPosition(for: tick.date, in: plot, start: start, end: end)
+            lineColor.setStroke()
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: x, y: plot.minY))
+            line.line(to: NSPoint(x: x, y: plot.maxY))
+            line.lineWidth = 0.5
+            line.stroke()
+
+            tick.label.draw(
+                in: NSRect(x: x - 16, y: plot.minY - 15, width: 32, height: 10),
+                withAttributes: attributes
+            )
+        }
+    }
+
     private func drawScale(in plot: NSRect, minValue: Int, maxValue: Int) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
@@ -334,7 +359,7 @@ private final class RepoTrendView: NSView {
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
             .foregroundColor: NSColor.tertiaryLabelColor
         ]
-        trendRange.axisLabel.draw(in: NSRect(x: plot.minX, y: plot.minY - 15, width: 32, height: 11), withAttributes: attributes)
+        trendRange.axisLabel.draw(in: NSRect(x: plot.minX - 2, y: plot.minY - 23, width: 32, height: 11), withAttributes: attributes)
         "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
     }
 

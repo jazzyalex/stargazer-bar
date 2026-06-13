@@ -49,6 +49,28 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(points.count, 366)
     }
 
+    func testTrendAxisTicksAdaptToRangeLength() {
+        let calendar = Calendar(identifier: .gregorian)
+        let longStart = calendar.date(from: DateComponents(year: 2021, month: 6, day: 13))!
+        let longEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 13))!
+        let longTicks = RepoTrendAxisTickBuilder.ticks(start: longStart, end: longEnd, calendar: calendar)
+        XCTAssertEqual(longTicks.map(\.label), ["2022", "2023", "2024", "2025", "2026"])
+
+        let monthStart = calendar.date(from: DateComponents(year: 2026, month: 1, day: 15))!
+        let monthEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 13))!
+        let monthComponents = RepoTrendAxisTickBuilder
+            .ticks(start: monthStart, end: monthEnd, calendar: calendar)
+            .map { calendar.component(.month, from: $0.date) }
+        XCTAssertEqual(monthComponents, [2, 3, 4, 5, 6])
+
+        let dayStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let dayEnd = calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!
+        let dayComponents = RepoTrendAxisTickBuilder
+            .ticks(start: dayStart, end: dayEnd, calendar: calendar)
+            .map { calendar.component(.day, from: $0.date) }
+        XCTAssertEqual(dayComponents, [8, 15, 22, 29])
+    }
+
     func testStoreReplacesTrendFromSnapshotWithoutAccumulating() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)

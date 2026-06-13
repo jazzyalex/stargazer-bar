@@ -6,6 +6,123 @@ struct RepoTrendPoint: Codable, Equatable {
     var forks: Int
 }
 
+struct RepoTrendAxisTick: Equatable {
+    var date: Date
+    var label: String
+}
+
+enum RepoTrendAxisTickBuilder {
+    static func ticks(
+        start: Date,
+        end: Date,
+        calendar: Calendar = Calendar(identifier: .gregorian),
+        maxTicks: Int = 5
+    ) -> [RepoTrendAxisTick] {
+        guard end > start, maxTicks > 0 else { return [] }
+        let days = max(1, calendar.dateComponents([.day], from: start, to: end).day ?? 1)
+        let rawTicks: [RepoTrendAxisTick]
+
+        if days > 730 {
+            rawTicks = componentTicks(
+                start: start,
+                end: end,
+                component: .year,
+                step: 1,
+                calendar: calendar,
+                formatter: yearFormatter
+            )
+        } else if days > 62 {
+            rawTicks = componentTicks(
+                start: start,
+                end: end,
+                component: .month,
+                step: days > 370 ? 3 : (days > 180 ? 2 : 1),
+                calendar: calendar,
+                formatter: monthFormatter
+            )
+        } else {
+            rawTicks = dayTicks(
+                start: start,
+                end: end,
+                step: days > 21 ? 7 : (days > 10 ? 3 : 1),
+                calendar: calendar
+            )
+        }
+
+        return thin(rawTicks, maxCount: maxTicks)
+    }
+
+    private static func componentTicks(
+        start: Date,
+        end: Date,
+        component: Calendar.Component,
+        step: Int,
+        calendar: Calendar,
+        formatter: DateFormatter
+    ) -> [RepoTrendAxisTick] {
+        var components = calendar.dateComponents([.year, .month], from: start)
+        switch component {
+        case .year:
+            components.year = (components.year ?? 0) + 1
+            components.month = 1
+            components.day = 1
+        case .month:
+            components.month = (components.month ?? 0) + 1
+            components.day = 1
+        default:
+            return []
+        }
+
+        guard var date = calendar.date(from: components) else { return [] }
+        var ticks: [RepoTrendAxisTick] = []
+        while date < end {
+            ticks.append(RepoTrendAxisTick(date: date, label: formatter.string(from: date)))
+            guard let next = calendar.date(byAdding: component, value: step, to: date) else { break }
+            date = next
+        }
+        return ticks
+    }
+
+    private static func dayTicks(start: Date, end: Date, step: Int, calendar: Calendar) -> [RepoTrendAxisTick] {
+        guard var date = calendar.date(byAdding: .day, value: step, to: calendar.startOfDay(for: start)) else {
+            return []
+        }
+        var ticks: [RepoTrendAxisTick] = []
+        while date < end {
+            ticks.append(RepoTrendAxisTick(date: date, label: dayFormatter.string(from: date)))
+            guard let next = calendar.date(byAdding: .day, value: step, to: date) else { break }
+            date = next
+        }
+        return ticks
+    }
+
+    private static func thin(_ ticks: [RepoTrendAxisTick], maxCount: Int) -> [RepoTrendAxisTick] {
+        guard ticks.count > maxCount else { return ticks }
+        let stride = Int(ceil(Double(ticks.count) / Double(maxCount)))
+        return ticks.enumerated().compactMap { index, tick in
+            index % stride == 0 ? tick : nil
+        }
+    }
+
+    private static let yearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter
+    }()
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter
+    }()
+}
+
 enum RepoTrendBuilder {
     static func points(
         stars: Int,
