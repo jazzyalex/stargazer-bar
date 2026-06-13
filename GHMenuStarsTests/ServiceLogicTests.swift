@@ -1,5 +1,6 @@
 import XCTest
 import Security
+import AppKit
 @testable import GHMenuStars
 
 @MainActor
@@ -294,6 +295,42 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(RepoDeltaFormatter.metricLine(label: "Release downloads:", value: 42918, delta: 120), "Release downloads: 42,918  +120")
     }
 
+    func testStatusMenuKeepsSettingsOnlyActionsOutOfMenu() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 3, lastDownloads: 90, lastForks: 1)
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        let menu = StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
+        let titles = Self.menuTitles(in: menu)
+
+        XCTAssertFalse(titles.contains("Automatic Updates"))
+        XCTAssertFalse(titles.contains("Show in Menu Bar"))
+        XCTAssertFalse(titles.contains("Shown in Menu Bar"))
+    }
+
     func testDockActivationPolicySafety() {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: true), .accessory)
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: false), .regular)
@@ -387,5 +424,13 @@ final class ServiceLogicTests: XCTestCase {
 
         XCTAssertNil(try store.loadToken(allowUserInteraction: false))
         XCTAssertNotNil(capturedQuery[kSecUseAuthenticationContext as String])
+    }
+
+    private static func menuTitles(in menu: NSMenu) -> [String] {
+        menu.items.flatMap { item -> [String] in
+            let title = item.title.isEmpty ? [] : [item.title]
+            guard let submenu = item.submenu else { return title }
+            return title + menuTitles(in: submenu)
+        }
     }
 }

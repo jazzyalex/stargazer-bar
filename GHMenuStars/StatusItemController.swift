@@ -105,16 +105,6 @@ final class StatusItemController: NSObject {
         NSWorkspace.shared.open(AppExternalLinks.gitHubRepository)
     }
 
-    @objc func showRepoInMenuBar(_ sender: NSMenuItem) {
-        guard let repoID = sender.representedObject as? UUID else { return }
-        settingsStore.update { settings in
-            settings.selectedMenuBarRepoID = repoID
-            if !settings.menuBarDisplayMode.requiresSelectedRepo {
-                settings.menuBarDisplayMode = .selectedRepoStars
-            }
-        }
-    }
-
     @objc func setDisplayMode(_ sender: NSMenuItem) {
         guard let rawValue = sender.representedObject as? String,
               let mode = MenuBarDisplayMode(rawValue: rawValue) else { return }
@@ -137,10 +127,6 @@ final class StatusItemController: NSObject {
 
     @objc func checkForUpdates() {
         updaterController.checkForUpdates(nil)
-    }
-
-    @objc func toggleAutomaticUpdates() {
-        updaterController.toggleAutoUpdateEnabled()
     }
 
     @objc func quit() {

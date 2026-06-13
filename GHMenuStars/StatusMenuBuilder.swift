@@ -39,14 +39,6 @@ struct StatusMenuBuilder {
         menu.addItem(muteItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Settings…", #selector(StatusItemController.openSettings), target))
-        let automaticUpdatesItem = actionItem(
-            "Automatic Updates",
-            #selector(StatusItemController.toggleAutomaticUpdates),
-            target
-        )
-        automaticUpdatesItem.state = updaterController.autoUpdateEnabled ? .on : .off
-        automaticUpdatesItem.isEnabled = updaterController.canChangeAutoUpdatePreference
-        menu.addItem(automaticUpdatesItem)
         let updateTitle = updaterController.hasGentleReminder ? "Install Update…" : "Check for Updates…"
         let updateItem = actionItem(updateTitle, #selector(StatusItemController.checkForUpdates), target)
         updateItem.isEnabled = updaterController.canRequestUpdateCheck
@@ -60,15 +52,10 @@ struct StatusMenuBuilder {
     }
 
     private func repoSelectionItem(_ repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
-        let item = actionItem(
-            repoLine(repo),
-            #selector(StatusItemController.showRepoInMenuBar(_:)),
-            target,
-            representedObject: repo.id
-        )
+        let item = NSMenuItem(title: repoLine(repo), action: nil, keyEquivalent: "")
         item.attributedTitle = repoLineTitle(repo)
         item.state = isSelected(repo) ? .on : .off
-        item.submenu = trendMenu(for: repo, target: target)
+        item.submenu = trendMenu(for: repo)
         return item
     }
 
@@ -125,19 +112,10 @@ struct StatusMenuBuilder {
         repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id
     }
 
-    private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
+    private func trendMenu(for repo: TrackedRepo) -> NSMenu {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
-        submenu.addItem(NSMenuItem.separator())
-        let selectItem = actionItem(
-            isSelected(repo) ? "Shown in Menu Bar" : "Show in Menu Bar",
-            #selector(StatusItemController.showRepoInMenuBar(_:)),
-            target,
-            representedObject: repo.id
-        )
-        selectItem.state = isSelected(repo) ? .on : .off
-        submenu.addItem(selectItem)
         return submenu
     }
 
@@ -201,6 +179,11 @@ private final class RepoTrendView: NSView {
         drawGrid(in: plot)
 
         let points = trendPoints
+        guard !points.isEmpty else {
+            drawEmptyState(in: plot)
+            return
+        }
+
         let values = points.flatMap { [$0.stars, $0.forks] }
         let minValue = values.min() ?? 0
         let maxValue = max(values.max() ?? 1, minValue + 1)
@@ -217,10 +200,7 @@ private final class RepoTrendView: NSView {
         let currentForks = repo.lastForks ?? stored.last?.forks ?? 0
 
         if stored.isEmpty {
-            return [
-                RepoTrendPoint(date: start, stars: currentStars, forks: currentForks),
-                RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)
-            ]
+            return []
         }
 
         if stored.count == 1 {
@@ -318,4 +298,13 @@ private final class RepoTrendView: NSView {
         "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
     }
 
+    private func drawEmptyState(in plot: NSRect) {
+        "Loading GitHub history…".draw(
+            in: NSRect(x: plot.minX + 64, y: plot.midY - 8, width: 170, height: 16),
+            withAttributes: [
+                .font: NSFont.menuFont(ofSize: 11),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
+        )
+    }
 }

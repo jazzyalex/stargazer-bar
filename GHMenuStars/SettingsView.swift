@@ -518,7 +518,7 @@ struct SettingsView: View {
                 now: checkedAt
             )
         } catch {
-            return RepoTrendBuilder.points(stars: stars, forks: forks, starDates: [], forkDates: [], now: checkedAt)
+            return []
         }
     }
 

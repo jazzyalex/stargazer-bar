@@ -170,8 +170,14 @@ final class RepoPollingService {
     private func shouldRefreshTrend(for repo: TrackedRepo, stars: Int, forks: Int, checkedAt: Date) -> Bool {
         if repo.trendPoints.isEmpty { return true }
         if repo.lastStars != stars || repo.lastForks != forks { return true }
+        if isFlatTrend(repo.trendPoints), stars + forks > 0 { return true }
         guard let lastTrendDate = repo.trendPoints.last?.date else { return true }
         return !Calendar(identifier: .gregorian).isDate(lastTrendDate, inSameDayAs: checkedAt)
+    }
+
+    private func isFlatTrend(_ points: [RepoTrendPoint]) -> Bool {
+        guard let first = points.first else { return true }
+        return points.allSatisfy { $0.stars == first.stars && $0.forks == first.forks }
     }
 
     private func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
