@@ -121,7 +121,7 @@ struct StatusMenuBuilder {
 
     private func trendItem(for repo: TrackedRepo) -> NSMenuItem {
         let item = NSMenuItem()
-        item.view = RepoTrendView(repo: repo)
+        item.view = RepoTrendView(repo: repo, trendRange: settingsStore.settings.repoTrendRange)
         return item
     }
 
@@ -149,10 +149,12 @@ struct StatusMenuBuilder {
 
 private final class RepoTrendView: NSView {
     private let repo: TrackedRepo
+    private let trendRange: RepoTrendRange
     private let calendar = Calendar(identifier: .gregorian)
 
-    init(repo: TrackedRepo) {
+    init(repo: TrackedRepo, trendRange: RepoTrendRange) {
         self.repo = repo
+        self.trendRange = trendRange
         super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 142))
         wantsLayer = true
     }
@@ -172,11 +174,10 @@ private final class RepoTrendView: NSView {
             .font: NSFont.menuFont(ofSize: 11),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
-        "Last 12 months".draw(in: NSRect(x: 12, y: 114, width: 116, height: 16), withAttributes: titleAttributes)
+        trendRange.chartTitle.draw(in: NSRect(x: 12, y: 114, width: 116, height: 16), withAttributes: titleAttributes)
 
         drawLegend()
-        let plot = NSRect(x: 14, y: 24, width: 282, height: 82)
-        drawGrid(in: plot)
+        let plot = NSRect(x: 44, y: 24, width: 252, height: 82)
 
         let points = trendPoints
         guard !points.isEmpty else {
@@ -187,15 +188,19 @@ private final class RepoTrendView: NSView {
         let values = points.flatMap { [$0.stars, $0.forks] }
         let minValue = values.min() ?? 0
         let maxValue = max(values.max() ?? 1, minValue + 1)
-        drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue)
-        drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue)
-        drawRangeLabels(in: plot, minValue: minValue, maxValue: maxValue)
+        let start = chartStart(for: points)
+        let end = Date()
+        drawGrid(in: plot)
+        drawScale(in: plot, minValue: minValue, maxValue: maxValue)
+        drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
+        drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
+        drawRangeLabels(in: plot)
     }
 
     private var trendPoints: [RepoTrendPoint] {
         let now = Date()
-        let start = calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
-        let stored = repo.trendPoints.filter { $0.date >= start }.sorted { $0.date < $1.date }
+        let stored = repo.trendPoints.sorted { $0.date < $1.date }
+        let start = trendRange.startDate(now: now, calendar: calendar)
         let currentStars = repo.lastStars ?? stored.last?.stars ?? 0
         let currentForks = repo.lastForks ?? stored.last?.forks ?? 0
 
@@ -203,23 +208,43 @@ private final class RepoTrendView: NSView {
             return []
         }
 
-        if stored.count == 1 {
+        guard let start else {
+            if let last = stored.last, !calendar.isDate(last.date, inSameDayAs: now) {
+                return stored + [RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)]
+            }
+            return stored
+        }
+
+        var scoped = stored.filter { $0.date >= start }
+        if let previous = stored.last(where: { $0.date < start }) {
+            scoped.insert(RepoTrendPoint(date: start, stars: previous.stars, forks: previous.forks), at: 0)
+        } else if scoped.first?.date != start {
+            scoped.insert(RepoTrendPoint(date: start, stars: scoped.first?.stars ?? currentStars, forks: scoped.first?.forks ?? currentForks), at: 0)
+        }
+
+        if scoped.count == 1 {
             return [
-                RepoTrendPoint(date: start, stars: stored[0].stars, forks: stored[0].forks),
+                RepoTrendPoint(date: start, stars: scoped[0].stars, forks: scoped[0].forks),
                 RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)
             ]
         }
 
-        if let last = stored.last, !calendar.isDate(last.date, inSameDayAs: now) {
-            return stored + [RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)]
+        if let last = scoped.last, !calendar.isDate(last.date, inSameDayAs: now) {
+            return scoped + [RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)]
         }
-        return stored
+        return scoped
     }
 
-    private func xPosition(for date: Date, in plot: NSRect) -> CGFloat {
+    private func chartStart(for points: [RepoTrendPoint]) -> Date {
         let now = Date()
-        let start = calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
-        let span = max(1, now.timeIntervalSince(start))
+        if let start = trendRange.startDate(now: now, calendar: calendar) {
+            return start
+        }
+        return points.first?.date ?? now
+    }
+
+    private func xPosition(for date: Date, in plot: NSRect, start: Date, end: Date) -> CGFloat {
+        let span = max(1, end.timeIntervalSince(start))
         let progress = min(1, max(0, date.timeIntervalSince(start) / span))
         return plot.minX + plot.width * CGFloat(progress)
     }
@@ -236,12 +261,14 @@ private final class RepoTrendView: NSView {
         color: NSColor,
         plot: NSRect,
         minValue: Int,
-        maxValue: Int
+        maxValue: Int,
+        start: Date,
+        end: Date
     ) {
         let path = NSBezierPath()
         for (index, point) in points.enumerated() {
             let position = NSPoint(
-                x: xPosition(for: point.date, in: plot),
+                x: xPosition(for: point.date, in: plot, start: start, end: end),
                 y: yPosition(for: point[keyPath: metric], in: plot, minValue: minValue, maxValue: maxValue)
             )
             index == 0 ? path.move(to: position) : path.line(to: position)
@@ -268,6 +295,23 @@ private final class RepoTrendView: NSView {
         }
     }
 
+    private func drawScale(in plot: NSRect, minValue: Int, maxValue: Int) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ]
+        let middle = (minValue + maxValue) / 2
+        let ticks: [(Int, CGFloat)] = [
+            (maxValue, plot.maxY - 6),
+            (middle, plot.midY - 5),
+            (minValue, plot.minY - 5)
+        ]
+        for (value, y) in ticks {
+            let text = NumberFormatter.menuInteger.string(from: NSNumber(value: value)) ?? "\(value)"
+            text.draw(in: NSRect(x: 6, y: y, width: 34, height: 11), withAttributes: attributes)
+        }
+    }
+
     private func drawLegend() {
         drawLegendItem("Stars", color: .systemYellow, x: 172)
         drawLegendItem("Forks", color: .systemBlue, x: 232)
@@ -285,16 +329,12 @@ private final class RepoTrendView: NSView {
         )
     }
 
-    private func drawRangeLabels(in plot: NSRect, minValue: Int, maxValue: Int) {
+    private func drawRangeLabels(in plot: NSRect) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
             .foregroundColor: NSColor.tertiaryLabelColor
         ]
-        let maxText = NumberFormatter.menuInteger.string(from: NSNumber(value: maxValue)) ?? "\(maxValue)"
-        let minText = NumberFormatter.menuInteger.string(from: NSNumber(value: minValue)) ?? "\(minValue)"
-        maxText.draw(in: NSRect(x: plot.minX, y: plot.maxY + 2, width: 78, height: 11), withAttributes: attributes)
-        minText.draw(in: NSRect(x: plot.minX + 34, y: plot.minY - 15, width: 78, height: 11), withAttributes: attributes)
-        "1y".draw(in: NSRect(x: plot.minX, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
+        trendRange.axisLabel.draw(in: NSRect(x: plot.minX, y: plot.minY - 15, width: 32, height: 11), withAttributes: attributes)
         "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
     }
 

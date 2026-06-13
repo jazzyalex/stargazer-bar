@@ -110,6 +110,42 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertTrue(MockURLProtocol.requestedAccepts.allSatisfy { $0 == "application/vnd.github.star+json" })
     }
 
+    func testAllStargazerHistoryFollowsPaginationForward() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+        let formatter = ISO8601DateFormatter()
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo/stargazers?per_page=100": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=2>; rel="next", <https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=3>; rel="last""#
+                ],
+                data: Data(#"[{"starred_at":"2024-01-01T00:00:00Z","user":{"login":"old"}}]"#.utf8)
+            ),
+            "/repos/owner/repo/stargazers?per_page=100&page=2": MockURLProtocol.Response(
+                data: Data(#"[{"starred_at":"2025-01-01T00:00:00Z","user":{"login":"middle"}}]"#.utf8)
+            ),
+            "/repos/owner/repo/stargazers?per_page=100&page=3": MockURLProtocol.Response(
+                data: Data(#"[{"starred_at":"2026-01-03T00:00:00Z","user":{"login":"new"}}]"#.utf8)
+            )
+        ]
+
+        let dates = try await client.fetchStargazerDates(owner: "owner", name: "repo")
+
+        XCTAssertEqual(dates, [
+            formatter.date(from: "2024-01-01T00:00:00Z")!,
+            formatter.date(from: "2025-01-01T00:00:00Z")!,
+            formatter.date(from: "2026-01-03T00:00:00Z")!
+        ])
+        XCTAssertEqual(MockURLProtocol.requestedPaths, [
+            "/repos/owner/repo/stargazers?per_page=100",
+            "/repos/owner/repo/stargazers?per_page=100&page=2",
+            "/repos/owner/repo/stargazers?per_page=100&page=3"
+        ])
+    }
+
     func testForkHistoryFollowsNewestPaginationUntilOlderThanWindow() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]

@@ -139,6 +139,10 @@ final class GitHubClient {
     }
 
     func fetchRecentStargazerDates(owner: String, name: String, since: Date) async throws -> [Date] {
+        try await fetchStargazerDates(owner: owner, name: name, since: since)
+    }
+
+    func fetchStargazerDates(owner: String, name: String, since: Date? = nil) async throws -> [Date] {
         let basePath = "/repos/\(owner)/\(name)/stargazers?per_page=100"
         let firstPage: GitHubHTTPResult<[GitHubStargazer]> = try await request(
             path: basePath,
@@ -146,12 +150,17 @@ final class GitHubClient {
             requiresAuth: false,
             accept: "application/vnd.github.star+json"
         )
-        var dates = firstPage.value.map(\.starredAt).filter { $0 >= since }
+        var dates = firstPage.value.map(\.starredAt).filter { date in
+            since.map { date >= $0 } ?? true
+        }
         guard let lastPage = Self.pageNumber(from: firstPage.lastPagePath), lastPage > 1 else {
             return dates.sorted()
         }
 
-        for page in stride(from: lastPage, through: 2, by: -1) {
+        let pages = since == nil
+            ? Array(2...lastPage)
+            : Array(stride(from: lastPage, through: 2, by: -1))
+        for page in pages {
             let result: GitHubHTTPResult<[GitHubStargazer]> = try await request(
                 path: "\(basePath)&page=\(page)",
                 etag: nil,
@@ -159,8 +168,10 @@ final class GitHubClient {
                 accept: "application/vnd.github.star+json"
             )
             let pageDates = result.value.map(\.starredAt)
-            dates.append(contentsOf: pageDates.filter { $0 >= since })
-            if !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
+            dates.append(contentsOf: pageDates.filter { date in
+                since.map { date >= $0 } ?? true
+            })
+            if let since, !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
                 break
             }
         }
@@ -169,6 +180,10 @@ final class GitHubClient {
     }
 
     func fetchRecentForkDates(owner: String, name: String, since: Date) async throws -> [Date] {
+        try await fetchForkDates(owner: owner, name: name, since: since)
+    }
+
+    func fetchForkDates(owner: String, name: String, since: Date? = nil) async throws -> [Date] {
         var path: String? = "/repos/\(owner)/\(name)/forks?sort=newest&per_page=100"
         var dates: [Date] = []
 
@@ -179,8 +194,10 @@ final class GitHubClient {
                 requiresAuth: false
             )
             let pageDates = result.value.map(\.createdAt)
-            dates.append(contentsOf: pageDates.filter { $0 >= since })
-            if !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
+            dates.append(contentsOf: pageDates.filter { date in
+                since.map { date >= $0 } ?? true
+            })
+            if let since, !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
                 break
             }
             path = result.nextPagePath

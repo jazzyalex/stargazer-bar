@@ -186,6 +186,15 @@ struct SettingsView: View {
                     }
                     .disabled(repoStore.trackedRepos.isEmpty)
                 }
+
+                Picker("Trend range", selection: Binding(
+                    get: { settingsStore.settings.repoTrendRange },
+                    set: { newValue in settingsStore.update { $0.repoTrendRange = newValue } }
+                )) {
+                    ForEach(RepoTrendRange.allCases) { range in
+                        Text(range.displayName).tag(range)
+                    }
+                }
             }
             .padding(8)
         }
@@ -472,7 +481,8 @@ struct SettingsView: View {
                         lastSuccessfulCheckAt: checkedAt,
                         etagRepo: repoResult.etag,
                         etagReleases: releasesResult.etag,
-                        trendPoints: trendPoints
+                        trendPoints: trendPoints,
+                        trendRange: trendPoints.isEmpty ? nil : .all
                     )
                     try repoStore.upsertTrackedRepo(repo)
                     if settingsStore.settings.selectedMenuBarRepoID == nil {
@@ -502,19 +512,16 @@ struct SettingsView: View {
         forks: Int,
         checkedAt: Date
     ) async -> [RepoTrendPoint] {
-        guard let since = Calendar(identifier: .gregorian).date(byAdding: .day, value: -365, to: checkedAt) else {
-            return []
-        }
-
         do {
-            async let starDates = gitHubClient.fetchRecentStargazerDates(owner: owner, name: name, since: since)
-            async let forkDates = gitHubClient.fetchRecentForkDates(owner: owner, name: name, since: since)
+            async let starDates = gitHubClient.fetchStargazerDates(owner: owner, name: name)
+            async let forkDates = gitHubClient.fetchForkDates(owner: owner, name: name)
             let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
             return RepoTrendBuilder.points(
                 stars: stars,
                 forks: forks,
                 starDates: resolvedStarDates,
                 forkDates: resolvedForkDates,
+                range: .all,
                 now: checkedAt
             )
         } catch {

@@ -12,11 +12,15 @@ enum RepoTrendBuilder {
         forks: Int,
         starDates: [Date],
         forkDates: [Date],
+        range: RepoTrendRange = .twelveMonths,
         now: Date = Date(),
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) -> [RepoTrendPoint] {
         let end = calendar.startOfDay(for: now)
-        let start = calendar.date(byAdding: .day, value: -365, to: end) ?? end.addingTimeInterval(-365 * 86_400)
+        let firstEventDate = (starDates + forkDates).min().map { calendar.startOfDay(for: $0) }
+        let start = range.startDate(now: end, calendar: calendar)
+            ?? firstEventDate
+            ?? end
         let recentStarDays = countsByDay(starDates, from: start, through: now, calendar: calendar)
         let recentForkDays = countsByDay(forkDates, from: start, through: now, calendar: calendar)
         let baselineStars = max(0, stars - recentStarDays.values.reduce(0, +))
@@ -77,6 +81,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var etagReleases: String?
     var starSound: StarSound
     var trendPoints: [RepoTrendPoint]
+    var trendRange: RepoTrendRange?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -98,6 +103,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case etagReleases
         case starSound
         case trendPoints
+        case trendRange
     }
 
     init(
@@ -119,7 +125,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagRepo: String? = nil,
         etagReleases: String? = nil,
         starSound: StarSound = .glass,
-        trendPoints: [RepoTrendPoint] = []
+        trendPoints: [RepoTrendPoint] = [],
+        trendRange: RepoTrendRange? = nil
     ) {
         self.id = id
         self.owner = owner
@@ -140,6 +147,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.etagReleases = etagReleases
         self.starSound = starSound
         self.trendPoints = trendPoints
+        self.trendRange = trendRange
     }
 
     init(from decoder: Decoder) throws {
@@ -163,6 +171,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagReleases = try container.decodeIfPresent(String.self, forKey: .etagReleases)
         starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
+        trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
     }
 
 }

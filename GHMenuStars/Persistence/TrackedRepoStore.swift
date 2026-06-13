@@ -55,6 +55,7 @@ final class TrackedRepoStore: ObservableObject {
             existing.etagReleases = repo.etagReleases ?? existing.etagReleases
             if !repo.trendPoints.isEmpty {
                 existing.trendPoints = repo.trendPoints
+                existing.trendRange = repo.trendRange
             }
             trackedRepos[index] = existing
         } else {
@@ -116,6 +117,7 @@ final class TrackedRepoStore: ObservableObject {
         repo.etagReleases = snapshot.releasesETag ?? repo.etagReleases
         if let trendPoints = snapshot.trendPoints {
             repo.trendPoints = trendPoints
+            repo.trendRange = snapshot.trendRange
         }
         trackedRepos[index] = repo
         lastDelta = delta

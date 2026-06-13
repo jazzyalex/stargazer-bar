@@ -194,6 +194,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(reloaded.settings.menuBarDisplayMode, .selectedRepoStars)
         XCTAssertEqual(reloaded.settings.starSoundThreshold, .one)
         XCTAssertEqual(reloaded.settings.celebrationMode, .subtle)
+        XCTAssertEqual(reloaded.settings.repoTrendRange, .all)
     }
 
     func testSettingsMigrateFromLegacyBundleDefaults() {
@@ -247,6 +248,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.settings.menuBarDisplayMode, .selectedRepoStars)
         XCTAssertNil(store.settings.selectedMenuBarRepoID)
         XCTAssertEqual(store.settings.starSoundThreshold, .one)
+        XCTAssertEqual(store.settings.repoTrendRange, .all)
     }
 
     func testStarSoundThresholds() {

@@ -42,6 +42,49 @@ enum CelebrationMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum RepoTrendRange: String, Codable, CaseIterable, Identifiable {
+    case all
+    case twelveMonths
+    case oneMonth
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all: return "All"
+        case .twelveMonths: return "12 Months"
+        case .oneMonth: return "1 Month"
+        }
+    }
+
+    var chartTitle: String {
+        switch self {
+        case .all: return "All time"
+        case .twelveMonths: return "Last 12 months"
+        case .oneMonth: return "Last 30 days"
+        }
+    }
+
+    var axisLabel: String {
+        switch self {
+        case .all: return "all"
+        case .twelveMonths: return "1y"
+        case .oneMonth: return "1m"
+        }
+    }
+
+    func startDate(now: Date, calendar: Calendar) -> Date? {
+        switch self {
+        case .all:
+            return nil
+        case .twelveMonths:
+            return calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
+        case .oneMonth:
+            return calendar.date(byAdding: .day, value: -30, to: now) ?? now.addingTimeInterval(-30 * 86_400)
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable {
     var refreshInterval: RefreshInterval = .tenMinutes
     var hideDockIcon: Bool = true
@@ -54,6 +97,7 @@ struct AppSettings: Codable, Equatable {
     var gitHubOAuthClientID: String = ""
     var menuBarDisplayMode: MenuBarDisplayMode = .selectedRepoStars
     var selectedMenuBarRepoID: UUID?
+    var repoTrendRange: RepoTrendRange = .all
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -67,6 +111,7 @@ struct AppSettings: Codable, Equatable {
         case gitHubOAuthClientID
         case menuBarDisplayMode
         case selectedMenuBarRepoID
+        case repoTrendRange
     }
 
     init() {}
@@ -85,6 +130,7 @@ struct AppSettings: Codable, Equatable {
         gitHubOAuthClientID = try container.decode(String.self, forKey: .gitHubOAuthClientID)
         menuBarDisplayMode = try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .selectedRepoStars
         selectedMenuBarRepoID = try container.decodeIfPresent(UUID.self, forKey: .selectedMenuBarRepoID)
+        repoTrendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .repoTrendRange) ?? .all
     }
 }
 
