@@ -403,6 +403,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Automatic Updates"))
         XCTAssertFalse(titles.contains("Show in Menu Bar"))
         XCTAssertFalse(titles.contains("Shown in Menu Bar"))
+        XCTAssertFalse(titles.contains("Debug: Show Growth Prompt"))
         XCTAssertTrue(titles.contains("Share Milestone"))
         XCTAssertTrue(titles.contains("Copy Stars Text"))
         XCTAssertTrue(titles.contains("Copy Downloads Text"))

@@ -5,6 +5,8 @@ import os
 import re
 from typing import Dict, List, Optional
 
+STAR_CTA_URL = "https://github.com/jazzyalex/stargazer-bar"
+
 
 def read_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as handle:
@@ -64,6 +66,10 @@ def render_html(version: str, groups: Dict[str, List[str]], github_url: str) -> 
             parts.append(f"<h3>{html.escape(heading)}</h3>")
             parts.append(f"<ul>\n{items}\n</ul>")
 
+    parts.append(
+        f'<p>If Stargazer Bar helps, please <a href="{html.escape(STAR_CTA_URL)}">star it on GitHub</a> '
+        "so other maintainers can find it.</p>"
+    )
     parts.append(f'<p>Full release notes: <a href="{html.escape(github_url)}">{html.escape(github_url)}</a></p>')
     return "\n".join(parts).strip() + "\n"
 
@@ -78,6 +84,7 @@ def render_text(version: str, groups: Dict[str, List[str]], github_url: str) -> 
         out.append("")
     if len(out) == 2:
         out.extend(["Changes:", "- Small bug fixes and stability improvements.", ""])
+    out.append(f"Star Stargazer Bar on GitHub: {STAR_CTA_URL}")
     out.append(f"Full release notes: {github_url}")
     return "\n".join(out).rstrip() + "\n"
 

@@ -2,12 +2,15 @@
 
 ## Unreleased
 
+## [0.2.3] - 2026-06-13
+
 ### Features
 - Added a one-time growth prompt after a tracked repo gains its first detected star or at least 20 release downloads in one refresh, with actions to star Stargazer Bar, defer, or stop asking.
 - Added per-repo milestone sharing from the menu: copy star/download text, copy a generated square milestone image, or open an X compose window with the image copied to the pasteboard.
 
 ### Improvements
 - Added subtle About/README copy explaining that GitHub stars help other maintainers discover the app.
+- Added the GitHub star CTA to Sparkle and GitHub release notes.
 
 ## [0.2.2] - 2026-06-05
 

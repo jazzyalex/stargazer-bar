@@ -46,18 +46,6 @@ struct StatusMenuBuilder {
         let starItem = actionItem("★ Star", #selector(StatusItemController.openProjectForStar), target)
         starItem.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
         menu.addItem(starItem)
-#if DEBUG
-        if !repoStore.trackedRepos.isEmpty {
-            menu.addItem(NSMenuItem.separator())
-            let debugPromptItem = actionItem(
-                "Debug: Show Growth Prompt",
-                #selector(StatusItemController.debugShowGrowthPrompt),
-                target
-            )
-            debugPromptItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
-            menu.addItem(debugPromptItem)
-        }
-#endif
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Quit", #selector(StatusItemController.quit), target))
         return menu
