@@ -105,6 +105,31 @@ final class StatusItemController: NSObject {
         NSWorkspace.shared.open(AppExternalLinks.gitHubRepository)
     }
 
+    @objc func copyMilestoneText(_ sender: NSMenuItem) {
+        guard let share = milestoneShare(from: sender) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(MilestoneShareTextBuilder.text(for: share), forType: .string)
+    }
+
+    @objc func copyMilestoneImage(_ sender: NSMenuItem) {
+        guard let share = milestoneShare(from: sender) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([MilestoneShareCardRenderer.image(for: share)])
+    }
+
+    @objc func composeXPostWithMilestoneImage(_ sender: NSMenuItem) {
+        guard let share = milestoneShare(from: sender) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([MilestoneShareCardRenderer.image(for: share)])
+
+        var components = URLComponents(string: "https://twitter.com/intent/tweet")
+        components?.queryItems = [
+            URLQueryItem(name: "text", value: MilestoneShareTextBuilder.text(for: share))
+        ]
+        guard let url = components?.url else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     @objc func setDisplayMode(_ sender: NSMenuItem) {
         guard let rawValue = sender.representedObject as? String,
               let mode = MenuBarDisplayMode(rawValue: rawValue) else { return }
@@ -129,6 +154,14 @@ final class StatusItemController: NSObject {
         updaterController.checkForUpdates(nil)
     }
 
+#if DEBUG
+    @objc func debugShowGrowthPrompt() {
+        guard let repo = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) else { return }
+        let status = StarAskPromptPresenter.present(repo: repo, trigger: .starIncrease(1))
+        repoStore.markStarAskPrompt(repoID: repo.id, status: status)
+    }
+#endif
+
     @objc func quit() {
         NSApp.terminate(nil)
     }
@@ -147,4 +180,17 @@ final class StatusItemController: NSObject {
         guard let item = statusItem, let hosting else { return }
         item.length = max(44, hosting.fittingSize.width + 2)
     }
+
+    private func milestoneShare(from sender: NSMenuItem) -> RepoMilestoneShare? {
+        guard let request = sender.representedObject as? MilestoneShareRequest,
+              let repo = repoStore.trackedRepos.first(where: { $0.id == request.repoID }) else {
+            return nil
+        }
+        return RepoMilestoneShare.make(repo: repo, metric: request.metric)
+    }
+}
+
+struct MilestoneShareRequest: Equatable {
+    var repoID: UUID
+    var metric: MilestoneMetric
 }

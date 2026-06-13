@@ -143,6 +143,13 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func markStarAskPrompt(repoID: UUID, status: StarAskPromptStatus, at date: Date = Date()) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].starAskPromptStatus = status
+        trackedRepos[index].lastStarAskPromptedAt = date
+        saveAll()
+    }
+
     func setStarSound(_ sound: StarSound, for repoID: UUID) {
         guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
         trackedRepos[index].starSound = sound

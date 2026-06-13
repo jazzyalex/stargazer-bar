@@ -48,6 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         pollingService.start()
+
+#if DEBUG
+        if ProcessInfo.processInfo.environment["GH_MENU_STARS_SHOW_GROWTH_PROMPT"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                controller.debugShowGrowthPrompt()
+            }
+        }
+#endif
     }
 
     func applicationWillTerminate(_ notification: Notification) {

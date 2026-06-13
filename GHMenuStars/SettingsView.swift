@@ -290,11 +290,14 @@ struct SettingsView: View {
                     Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.1")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("Open source and local-only. Stars help other maintainers find it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     HStack(spacing: 12) {
                         SettingsLink("Project Page", url: AppExternalLinks.projectPage)
                         SettingsLink("GitHub", url: AppExternalLinks.gitHubRepository)
-                        SettingsLink("Star on GitHub", url: AppExternalLinks.gitHubRepository)
+                        SettingsLink("★ Star", url: AppExternalLinks.gitHubRepository)
                         SettingsLink("X", url: AppExternalLinks.xProfile)
                     }
                     .font(.caption)

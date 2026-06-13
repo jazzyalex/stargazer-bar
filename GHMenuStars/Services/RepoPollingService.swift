@@ -1,4 +1,29 @@
+import AppKit
 import Foundation
+
+enum StarAskPromptTrigger: Equatable {
+    case starIncrease(Int)
+    case downloadIncrease(Int)
+
+    static func trigger(for delta: RepoDelta) -> StarAskPromptTrigger? {
+        if delta.starsDelta > 0 {
+            return .starIncrease(delta.starsDelta)
+        }
+        if delta.downloadsDelta >= 20 {
+            return .downloadIncrease(delta.downloadsDelta)
+        }
+        return nil
+    }
+
+    var summary: String {
+        switch self {
+        case .starIncrease(let delta):
+            return "+\(NumberFormatter.menuInteger.string(from: NSNumber(value: delta)) ?? "\(delta)") star\(delta == 1 ? "" : "s") just landed."
+        case .downloadIncrease(let delta):
+            return "+\(NumberFormatter.menuInteger.string(from: NSNumber(value: delta)) ?? "\(delta)") release downloads since the last refresh."
+        }
+    }
+}
 
 @MainActor
 final class RepoPollingService {
@@ -202,6 +227,195 @@ final class RepoPollingService {
         }
         if settings.celebrationMode != .off {
             animationCoordinator.pulse(mode: settings.celebrationMode)
+        }
+        presentStarAskIfNeeded(delta: delta, repoID: repoID)
+    }
+
+    private func presentStarAskIfNeeded(delta: RepoDelta, repoID: UUID) {
+        guard let trigger = StarAskPromptTrigger.trigger(for: delta),
+              let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }),
+              repo.starAskPromptStatus.canPrompt else {
+            return
+        }
+
+        let status = StarAskPromptPresenter.present(repo: repo, trigger: trigger)
+        repoStore.markStarAskPrompt(repoID: repoID, status: status)
+    }
+}
+
+enum StarAskPromptPresenter {
+    @MainActor
+    static func present(repo: TrackedRepo, trigger: StarAskPromptTrigger) -> StarAskPromptStatus {
+        let controller = StarAskPromptWindowController(repo: repo, trigger: trigger)
+        NSApp.activate(ignoringOtherApps: true)
+        let status = controller.showModal()
+        if status == .starred {
+            NSWorkspace.shared.open(AppExternalLinks.gitHubRepository)
+        }
+        return status
+    }
+}
+
+private final class StarAskPromptWindowController: NSWindowController, NSWindowDelegate {
+    private var status: StarAskPromptStatus = .later
+
+    init(repo: TrackedRepo, trigger: StarAskPromptTrigger) {
+        let contentView = StarAskPromptContentView(repo: repo, trigger: trigger)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 202),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Stargazer Bar"
+        window.contentView = contentView
+        window.isReleasedWhenClosed = false
+        window.center()
+        super.init(window: window)
+        window.delegate = self
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    func showModal() -> StarAskPromptStatus {
+        guard let window else { return .later }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.runModal(for: window)
+        window.orderOut(nil)
+        return status
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        NSApp.stopModal()
+    }
+
+    fileprivate func choose(_ status: StarAskPromptStatus) {
+        self.status = status
+        window?.close()
+    }
+}
+
+private final class StarAskPromptContentView: NSView {
+    private let repo: TrackedRepo
+    private let trigger: StarAskPromptTrigger
+
+    init(repo: TrackedRepo, trigger: StarAskPromptTrigger) {
+        self.repo = repo
+        self.trigger = trigger
+        super.init(frame: NSRect(x: 0, y: 0, width: 440, height: 202))
+        build()
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    private func build() {
+        let iconView = NSImageView(image: NSApp.applicationIconImage)
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = textField(
+            "Nice, \(repo.displayName) is growing",
+            font: .systemFont(ofSize: 15, weight: .semibold),
+            color: .labelColor
+        )
+        let body = textField(
+            "\(trigger.summary)\n\nIf Stargazer Bar helped you catch it, a star helps other maintainers find the app.",
+            font: .systemFont(ofSize: 13),
+            color: .secondaryLabelColor
+        )
+
+        let starButton = button("Star", keyEquivalent: "\r", status: .starred)
+        let laterButton = button("Later", keyEquivalent: "\u{1b}", status: .later)
+        let dismissButton = button("Don't Ask Again", keyEquivalent: "", status: .dismissed)
+
+        let rightButtons = NSStackView(views: [laterButton, starButton])
+        rightButtons.orientation = .horizontal
+        rightButtons.alignment = .centerY
+        rightButtons.spacing = 8
+        rightButtons.distribution = .fill
+        rightButtons.translatesAutoresizingMaskIntoConstraints = false
+        dismissButton.translatesAutoresizingMaskIntoConstraints = false
+
+        stack.addArrangedSubview(title)
+        stack.addArrangedSubview(body)
+        addSubview(iconView)
+        addSubview(stack)
+        addSubview(dismissButton)
+        addSubview(rightButtons)
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
+            iconView.topAnchor.constraint(equalTo: topAnchor, constant: 24),
+            iconView.widthAnchor.constraint(equalToConstant: 44),
+            iconView.heightAnchor.constraint(equalToConstant: 44),
+
+            stack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: rightButtons.topAnchor, constant: -18),
+
+            dismissButton.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            dismissButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
+
+            rightButtons.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
+            rightButtons.bottomAnchor.constraint(equalTo: dismissButton.bottomAnchor)
+        ])
+    }
+
+    private func textField(_ text: String, font: NSFont, color: NSColor) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = font
+        field.textColor = color
+        field.lineBreakMode = .byWordWrapping
+        field.maximumNumberOfLines = 0
+        field.preferredMaxLayoutWidth = 326
+        return field
+    }
+
+    private func button(_ title: String, keyEquivalent: String, status: StarAskPromptStatus) -> NSButton {
+        let button = NSButton(title: title, target: self, action: #selector(choose(_:)))
+        button.bezelStyle = .rounded
+        button.keyEquivalent = keyEquivalent
+        button.tag = tag(for: status)
+        if status == .starred {
+            button.keyEquivalentModifierMask = []
+        }
+        return button
+    }
+
+    @objc private func choose(_ sender: NSButton) {
+        guard let status = status(for: sender.tag),
+              let controller = window?.windowController as? StarAskPromptWindowController else {
+            return
+        }
+        controller.choose(status)
+    }
+
+    private func tag(for status: StarAskPromptStatus) -> Int {
+        switch status {
+        case .notShown: return 0
+        case .later: return 1
+        case .starred: return 2
+        case .dismissed: return 3
+        }
+    }
+
+    private func status(for tag: Int) -> StarAskPromptStatus? {
+        switch tag {
+        case 1: return .later
+        case 2: return .starred
+        case 3: return .dismissed
+        default: return nil
         }
     }
 }

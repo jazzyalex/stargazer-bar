@@ -47,6 +47,8 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 
 - ⭐ &nbsp;Live star counts for multiple public repos in your menu bar — no browser tab required
 - 📦 &nbsp;Release download totals from GitHub's latest releases API page (up to 100 releases)
+- 📈 &nbsp;Per-repo star and fork trend charts directly in the menu
+- 🖼️ &nbsp;Copy milestone text or a square share image when a repo passes a rounded download/star mark
 - 🔔 &nbsp;Per-repository star sounds, so each tracked project can have its own update cue
 - 🔑 &nbsp;Track any public repo manually without a GitHub account; sign-in only powers the repo picker
 - 🔄 &nbsp;Sparkle auto-updates, EdDSA-signed and notarized
@@ -115,5 +117,5 @@ This builds the Release app, signs with Developer ID, packages a DMG and Sparkle
 [BSD 3-Clause](LICENSE) · See [Third-Party Notices](ThirdPartyNotices.md)
 
 <div align="center">
-  <sub>Made with care for people who like their tools small and quiet.</sub>
+  <sub>Made with care for people who like their tools small and quiet. If it helps, a GitHub star helps others find it.</sub>
 </div>

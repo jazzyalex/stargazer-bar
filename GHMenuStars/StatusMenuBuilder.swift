@@ -43,9 +43,21 @@ struct StatusMenuBuilder {
         let updateItem = actionItem(updateTitle, #selector(StatusItemController.checkForUpdates), target)
         updateItem.isEnabled = updaterController.canRequestUpdateCheck
         menu.addItem(updateItem)
-        let starItem = actionItem("Star on GitHub", #selector(StatusItemController.openProjectForStar), target)
+        let starItem = actionItem("★ Star", #selector(StatusItemController.openProjectForStar), target)
         starItem.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
         menu.addItem(starItem)
+#if DEBUG
+        if !repoStore.trackedRepos.isEmpty {
+            menu.addItem(NSMenuItem.separator())
+            let debugPromptItem = actionItem(
+                "Debug: Show Growth Prompt",
+                #selector(StatusItemController.debugShowGrowthPrompt),
+                target
+            )
+            debugPromptItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
+            menu.addItem(debugPromptItem)
+        }
+#endif
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Quit", #selector(StatusItemController.quit), target))
         return menu
@@ -55,7 +67,7 @@ struct StatusMenuBuilder {
         let item = NSMenuItem(title: repoLine(repo), action: nil, keyEquivalent: "")
         item.attributedTitle = repoLineTitle(repo)
         item.state = isSelected(repo) ? .on : .off
-        item.submenu = trendMenu(for: repo)
+        item.submenu = trendMenu(for: repo, target: target)
         return item
     }
 
@@ -112,16 +124,60 @@ struct StatusMenuBuilder {
         repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id
     }
 
-    private func trendMenu(for repo: TrackedRepo) -> NSMenu {
+    private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
+        submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(shareMenuItem(for: repo, target: target))
         return submenu
     }
 
     private func trendItem(for repo: TrackedRepo) -> NSMenuItem {
         let item = NSMenuItem()
         item.view = RepoTrendView(repo: repo, trendRange: settingsStore.settings.repoTrendRange)
+        return item
+    }
+
+    private func shareMenuItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
+        let item = NSMenuItem(title: "Share Milestone", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+
+        for metric in [MilestoneMetric.stars, .downloads] {
+            let request = MilestoneShareRequest(repoID: repo.id, metric: metric)
+            let copyItem = actionItem(
+                "Copy \(metric.displayName) Text",
+                #selector(StatusItemController.copyMilestoneText(_:)),
+                target,
+                representedObject: request
+            )
+            copyItem.isEnabled = RepoMilestoneShare.make(repo: repo, metric: metric) != nil
+            submenu.addItem(copyItem)
+        }
+
+        submenu.addItem(NSMenuItem.separator())
+
+        let preferredMetric: MilestoneMetric = RepoMilestoneShare.make(repo: repo, metric: .downloads) == nil ? .stars : .downloads
+        let preferredRequest = MilestoneShareRequest(repoID: repo.id, metric: preferredMetric)
+        let imageItem = actionItem(
+            "Copy Milestone Image",
+            #selector(StatusItemController.copyMilestoneImage(_:)),
+            target,
+            representedObject: preferredRequest
+        )
+        imageItem.isEnabled = RepoMilestoneShare.make(repo: repo, metric: preferredMetric) != nil
+        submenu.addItem(imageItem)
+
+        let xItem = actionItem(
+            "Compose X Post + Copy Image",
+            #selector(StatusItemController.composeXPostWithMilestoneImage(_:)),
+            target,
+            representedObject: preferredRequest
+        )
+        xItem.isEnabled = imageItem.isEnabled
+        submenu.addItem(xItem)
+
+        item.submenu = submenu
         return item
     }
 

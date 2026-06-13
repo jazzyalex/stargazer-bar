@@ -11,6 +11,20 @@ struct RepoTrendAxisTick: Equatable {
     var label: String
 }
 
+enum StarAskPromptStatus: String, Codable, Equatable {
+    case notShown
+    case later
+    case starred
+    case dismissed
+
+    var canPrompt: Bool {
+        switch self {
+        case .notShown, .later: return true
+        case .starred, .dismissed: return false
+        }
+    }
+}
+
 enum RepoTrendAxisTickBuilder {
     static func ticks(
         start: Date,
@@ -199,6 +213,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var starSound: StarSound
     var trendPoints: [RepoTrendPoint]
     var trendRange: RepoTrendRange?
+    var starAskPromptStatus: StarAskPromptStatus
+    var lastStarAskPromptedAt: Date?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -221,6 +237,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case starSound
         case trendPoints
         case trendRange
+        case starAskPromptStatus
+        case lastStarAskPromptedAt
     }
 
     init(
@@ -243,7 +261,9 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagReleases: String? = nil,
         starSound: StarSound = .glass,
         trendPoints: [RepoTrendPoint] = [],
-        trendRange: RepoTrendRange? = nil
+        trendRange: RepoTrendRange? = nil,
+        starAskPromptStatus: StarAskPromptStatus = .notShown,
+        lastStarAskPromptedAt: Date? = nil
     ) {
         self.id = id
         self.owner = owner
@@ -265,6 +285,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.starSound = starSound
         self.trendPoints = trendPoints
         self.trendRange = trendRange
+        self.starAskPromptStatus = starAskPromptStatus
+        self.lastStarAskPromptedAt = lastStarAskPromptedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -289,6 +311,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
         trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
+        starAskPromptStatus = try container.decodeIfPresent(StarAskPromptStatus.self, forKey: .starAskPromptStatus) ?? .notShown
+        lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
     }
 
 }

@@ -287,6 +287,56 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(StarSoundThreshold.hundred.isMet(starsDelta: 100, downloadsDelta: 0, downloads: 0))
     }
 
+    func testStarAskPromptTriggerQualifiesOnlyForMeaningfulGrowth() {
+        XCTAssertEqual(
+            StarAskPromptTrigger.trigger(for: RepoDelta(starsDelta: 1, downloadsDelta: 0)),
+            .starIncrease(1)
+        )
+        XCTAssertNil(StarAskPromptTrigger.trigger(for: RepoDelta(starsDelta: 0, downloadsDelta: 19)))
+        XCTAssertEqual(
+            StarAskPromptTrigger.trigger(for: RepoDelta(starsDelta: 0, downloadsDelta: 20)),
+            .downloadIncrease(20)
+        )
+    }
+
+    func testStorePersistsStarAskPromptStatusPerRepo() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        let promptedAt = Date()
+        store.setTrackedRepo(repo)
+
+        store.markStarAskPrompt(repoID: repo.id, status: .dismissed, at: promptedAt)
+
+        XCTAssertEqual(store.trackedRepos.first?.starAskPromptStatus, .dismissed)
+        XCTAssertEqual(store.trackedRepos.first?.lastStarAskPromptedAt, promptedAt)
+        XCTAssertFalse(store.trackedRepos.first?.starAskPromptStatus.canPrompt ?? true)
+    }
+
+    func testMilestoneRoundingUsesPresetAndHundreds() {
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 9), 9)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 50), 50)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 99), 50)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 605), 600)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 1_250), 1_000)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 22_400), 20_000)
+    }
+
+    func testMilestoneShareTextIncludesRoundedAndCurrentCount() {
+        let share = RepoMilestoneShare(
+            repoDisplayName: "owner/repo",
+            metric: .downloads,
+            currentValue: 605,
+            milestoneValue: 600
+        )
+
+        let text = MilestoneShareTextBuilder.text(for: share)
+
+        XCTAssertTrue(text.contains("owner/repo"))
+        XCTAssertTrue(text.contains("600+ downloads (605 now)"))
+        XCTAssertTrue(text.contains("Stargazer Bar"))
+    }
+
     func testRateLimitParsing() {
         let reset = Int(Date().addingTimeInterval(600).timeIntervalSince1970)
         let state = RateLimitState.from(headers: [
@@ -353,6 +403,10 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Automatic Updates"))
         XCTAssertFalse(titles.contains("Show in Menu Bar"))
         XCTAssertFalse(titles.contains("Shown in Menu Bar"))
+        XCTAssertTrue(titles.contains("Share Milestone"))
+        XCTAssertTrue(titles.contains("Copy Stars Text"))
+        XCTAssertTrue(titles.contains("Copy Downloads Text"))
+        XCTAssertTrue(titles.contains("Compose X Post + Copy Image"))
     }
 
     func testDockActivationPolicySafety() {
