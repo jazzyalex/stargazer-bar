@@ -7,4 +7,5 @@ struct RepoSnapshot: Equatable {
     var checkedAt: Date
     var repoETag: String?
     var releasesETag: String?
+    var trendPoints: [RepoTrendPoint]? = nil
 }

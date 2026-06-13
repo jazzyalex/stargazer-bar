@@ -452,6 +452,14 @@ struct SettingsView: View {
                 guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
                 let releasesResult = try await gitHubClient.fetchReleases(owner: owner, name: name, etag: nil)
                 let downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
+                let checkedAt = Date()
+                let trendPoints = await fetchTrendPoints(
+                    owner: owner,
+                    name: name,
+                    stars: repoResult.value.stargazersCount,
+                    forks: repoResult.value.forksCount,
+                    checkedAt: checkedAt
+                )
                 try await MainActor.run {
                     let repo = TrackedRepo(
                         owner: owner,
@@ -460,10 +468,11 @@ struct SettingsView: View {
                         lastStars: repoResult.value.stargazersCount,
                         lastDownloads: downloads,
                         lastForks: repoResult.value.forksCount,
-                        lastCheckedAt: Date(),
-                        lastSuccessfulCheckAt: Date(),
+                        lastCheckedAt: checkedAt,
+                        lastSuccessfulCheckAt: checkedAt,
                         etagRepo: repoResult.etag,
-                        etagReleases: releasesResult.etag
+                        etagReleases: releasesResult.etag,
+                        trendPoints: trendPoints
                     )
                     try repoStore.upsertTrackedRepo(repo)
                     if settingsStore.settings.selectedMenuBarRepoID == nil {
@@ -483,6 +492,33 @@ struct SettingsView: View {
                     isValidating = false
                 }
             }
+        }
+    }
+
+    private func fetchTrendPoints(
+        owner: String,
+        name: String,
+        stars: Int,
+        forks: Int,
+        checkedAt: Date
+    ) async -> [RepoTrendPoint] {
+        guard let since = Calendar(identifier: .gregorian).date(byAdding: .day, value: -365, to: checkedAt) else {
+            return []
+        }
+
+        do {
+            async let starDates = gitHubClient.fetchRecentStargazerDates(owner: owner, name: name, since: since)
+            async let forkDates = gitHubClient.fetchRecentForkDates(owner: owner, name: name, since: since)
+            let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
+            return RepoTrendBuilder.points(
+                stars: stars,
+                forks: forks,
+                starDates: resolvedStarDates,
+                forkDates: resolvedForkDates,
+                now: checkedAt
+            )
+        } catch {
+            return RepoTrendBuilder.points(stars: stars, forks: forks, starDates: [], forkDates: [], now: checkedAt)
         }
     }
 

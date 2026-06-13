@@ -6,6 +6,57 @@ struct RepoTrendPoint: Codable, Equatable {
     var forks: Int
 }
 
+enum RepoTrendBuilder {
+    static func points(
+        stars: Int,
+        forks: Int,
+        starDates: [Date],
+        forkDates: [Date],
+        now: Date = Date(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) -> [RepoTrendPoint] {
+        let end = calendar.startOfDay(for: now)
+        let start = calendar.date(byAdding: .day, value: -365, to: end) ?? end.addingTimeInterval(-365 * 86_400)
+        let recentStarDays = countsByDay(starDates, from: start, through: now, calendar: calendar)
+        let recentForkDays = countsByDay(forkDates, from: start, through: now, calendar: calendar)
+        let baselineStars = max(0, stars - recentStarDays.values.reduce(0, +))
+        let baselineForks = max(0, forks - recentForkDays.values.reduce(0, +))
+
+        var points: [RepoTrendPoint] = []
+        var runningStars = baselineStars
+        var runningForks = baselineForks
+        var day = start
+
+        while day <= end {
+            runningStars += recentStarDays[day] ?? 0
+            runningForks += recentForkDays[day] ?? 0
+            points.append(RepoTrendPoint(date: day, stars: runningStars, forks: runningForks))
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
+        if var last = points.last {
+            last.stars = stars
+            last.forks = forks
+            points[points.count - 1] = last
+        }
+
+        return points
+    }
+
+    private static func countsByDay(
+        _ dates: [Date],
+        from start: Date,
+        through end: Date,
+        calendar: Calendar
+    ) -> [Date: Int] {
+        dates.reduce(into: [:]) { counts, date in
+            guard date >= start, date <= end else { return }
+            counts[calendar.startOfDay(for: date), default: 0] += 1
+        }
+    }
+}
+
 struct TrackedRepo: Codable, Identifiable, Equatable {
     var id: UUID
     var owner: String
@@ -114,16 +165,4 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
     }
 
-    mutating func recordTrendPoint(stars: Int, forks: Int, at date: Date) {
-        let calendar = Calendar(identifier: .gregorian)
-        let day = calendar.startOfDay(for: date)
-        let point = RepoTrendPoint(date: day, stars: stars, forks: forks)
-        trendPoints.removeAll { calendar.isDate($0.date, inSameDayAs: day) }
-        trendPoints.append(point)
-
-        let cutoff = calendar.date(byAdding: .day, value: -370, to: day) ?? day.addingTimeInterval(-370 * 86_400)
-        trendPoints = trendPoints
-            .filter { $0.date >= cutoff }
-            .sorted { $0.date < $1.date }
-    }
 }

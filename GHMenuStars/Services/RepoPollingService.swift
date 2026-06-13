@@ -112,13 +112,21 @@ final class RepoPollingService {
                 downloads = repo.lastDownloads ?? 0
             }
 
+            let checkedAt = Date()
+            let trendPoints = await fetchTrendPointsIfNeeded(
+                for: repo,
+                stars: stars,
+                forks: forks,
+                checkedAt: checkedAt
+            )
             let snapshot = RepoSnapshot(
                 stars: stars,
                 releaseDownloads: downloads,
                 forks: forks,
-                checkedAt: Date(),
+                checkedAt: checkedAt,
                 repoETag: repoETag,
-                releasesETag: releasesETag
+                releasesETag: releasesETag,
+                trendPoints: trendPoints
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)
@@ -129,6 +137,41 @@ final class RepoPollingService {
         } catch {
             repoStore.markChecked(repoID: repo.id)
         }
+    }
+
+    private func fetchTrendPointsIfNeeded(
+        for repo: TrackedRepo,
+        stars: Int,
+        forks: Int,
+        checkedAt: Date
+    ) async -> [RepoTrendPoint]? {
+        guard shouldRefreshTrend(for: repo, stars: stars, forks: forks, checkedAt: checkedAt),
+              let since = Calendar(identifier: .gregorian).date(byAdding: .day, value: -365, to: checkedAt)
+        else {
+            return nil
+        }
+
+        do {
+            async let starDates = gitHubClient.fetchRecentStargazerDates(owner: repo.owner, name: repo.name, since: since)
+            async let forkDates = gitHubClient.fetchRecentForkDates(owner: repo.owner, name: repo.name, since: since)
+            let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
+            return RepoTrendBuilder.points(
+                stars: stars,
+                forks: forks,
+                starDates: resolvedStarDates,
+                forkDates: resolvedForkDates,
+                now: checkedAt
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private func shouldRefreshTrend(for repo: TrackedRepo, stars: Int, forks: Int, checkedAt: Date) -> Bool {
+        if repo.trendPoints.isEmpty { return true }
+        if repo.lastStars != stars || repo.lastForks != forks { return true }
+        guard let lastTrendDate = repo.trendPoints.last?.date else { return true }
+        return !Calendar(identifier: .gregorian).isDate(lastTrendDate, inSameDayAs: checkedAt)
     }
 
     private func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {

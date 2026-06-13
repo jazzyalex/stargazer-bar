@@ -67,6 +67,22 @@ struct GitHubReleaseAsset: Decodable, Equatable {
     }
 }
 
+struct GitHubStargazer: Decodable, Equatable {
+    var starredAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case starredAt = "starred_at"
+    }
+}
+
+struct GitHubFork: Decodable, Equatable {
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case createdAt = "created_at"
+    }
+}
+
 struct GitHubRepoSummary: Decodable, Identifiable, Equatable {
     struct Owner: Decodable, Equatable {
         var login: String
@@ -90,6 +106,7 @@ struct GitHubHTTPResult<T> {
     var etag: String?
     var rateLimitState: RateLimitState?
     var nextPagePath: String?
+    var lastPagePath: String?
 }
 
 final class GitHubClient {
@@ -100,7 +117,9 @@ final class GitHubClient {
     init(session: URLSession = .shared, tokenProvider: @escaping () -> String? = { nil }) {
         self.session = session
         self.tokenProvider = tokenProvider
-        self.decoder = JSONDecoder()
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
     }
 
     func fetchRepo(owner: String, name: String, etag: String?) async throws -> GitHubHTTPResult<GitHubRepoResponse> {
@@ -117,6 +136,57 @@ final class GitHubClient {
             etag: etag,
             requiresAuth: false
         )
+    }
+
+    func fetchRecentStargazerDates(owner: String, name: String, since: Date) async throws -> [Date] {
+        let basePath = "/repos/\(owner)/\(name)/stargazers?per_page=100"
+        let firstPage: GitHubHTTPResult<[GitHubStargazer]> = try await request(
+            path: basePath,
+            etag: nil,
+            requiresAuth: false,
+            accept: "application/vnd.github.star+json"
+        )
+        var dates = firstPage.value.map(\.starredAt).filter { $0 >= since }
+        guard let lastPage = Self.pageNumber(from: firstPage.lastPagePath), lastPage > 1 else {
+            return dates.sorted()
+        }
+
+        for page in stride(from: lastPage, through: 2, by: -1) {
+            let result: GitHubHTTPResult<[GitHubStargazer]> = try await request(
+                path: "\(basePath)&page=\(page)",
+                etag: nil,
+                requiresAuth: false,
+                accept: "application/vnd.github.star+json"
+            )
+            let pageDates = result.value.map(\.starredAt)
+            dates.append(contentsOf: pageDates.filter { $0 >= since })
+            if !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
+                break
+            }
+        }
+
+        return dates.sorted()
+    }
+
+    func fetchRecentForkDates(owner: String, name: String, since: Date) async throws -> [Date] {
+        var path: String? = "/repos/\(owner)/\(name)/forks?sort=newest&per_page=100"
+        var dates: [Date] = []
+
+        while let currentPath = path {
+            let result: GitHubHTTPResult<[GitHubFork]> = try await request(
+                path: currentPath,
+                etag: nil,
+                requiresAuth: false
+            )
+            let pageDates = result.value.map(\.createdAt)
+            dates.append(contentsOf: pageDates.filter { $0 >= since })
+            if !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
+                break
+            }
+            path = result.nextPagePath
+        }
+
+        return dates.sorted()
     }
 
     func fetchAccessiblePublicRepos() async throws -> [GitHubRepoSummary] {
@@ -136,12 +206,17 @@ final class GitHubClient {
         return repos
     }
 
-    private func request<T: Decodable>(path: String, etag: String?, requiresAuth: Bool) async throws -> GitHubHTTPResult<T> {
+    private func request<T: Decodable>(
+        path: String,
+        etag: String?,
+        requiresAuth: Bool,
+        accept: String = "application/vnd.github+json"
+    ) async throws -> GitHubHTTPResult<T> {
         guard let url = URL(string: "https://api.github.com\(path)") else {
             throw GitHubError.transport("Invalid URL")
         }
         var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue(accept, forHTTPHeaderField: "Accept")
         request.setValue("GHMenuStars/0.1", forHTTPHeaderField: "User-Agent")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         if let etag {
@@ -172,7 +247,8 @@ final class GitHubClient {
                     value: value,
                     etag: http.value(forHTTPHeaderField: "ETag"),
                     rateLimitState: rate,
-                    nextPagePath: Self.nextPagePath(from: http)
+                    nextPagePath: Self.pagePath(from: http, relation: "next"),
+                    lastPagePath: Self.pagePath(from: http, relation: "last")
                 )
             } catch {
                 throw GitHubError.decoding
@@ -196,14 +272,14 @@ final class GitHubClient {
         }
     }
 
-    private static func nextPagePath(from response: HTTPURLResponse) -> String? {
+    private static func pagePath(from response: HTTPURLResponse, relation: String) -> String? {
         guard let linkHeader = response.value(forHTTPHeaderField: "Link") else { return nil }
 
         for rawLink in Self.linkHeaderEntries(from: linkHeader) {
             let parts = rawLink.split(separator: ";").map {
                 String($0).trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            guard parts.contains(#"rel="next""#),
+            guard parts.contains("rel=\"\(relation)\""),
                   let urlPart = parts.first,
                   urlPart.hasPrefix("<"),
                   urlPart.hasSuffix(">") else {
@@ -224,6 +300,14 @@ final class GitHubClient {
         }
 
         return nil
+    }
+
+    private static func pageNumber(from path: String?) -> Int? {
+        guard let path,
+              let components = URLComponents(string: "https://api.github.com\(path)") else {
+            return nil
+        }
+        return components.queryItems?.first(where: { $0.name == "page" })?.value.flatMap(Int.init)
     }
 
     private static func linkHeaderEntries(from header: String) -> [String] {

@@ -21,31 +21,64 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.trackedRepos.first?.lastStarsDelta, 3)
         XCTAssertEqual(store.trackedRepos.first?.lastDownloadsDelta, 10)
         XCTAssertEqual(store.trackedRepos.first?.lastForksDelta, 2)
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.count, 1)
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.first?.stars, 13)
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.first?.forks, 4)
+        XCTAssertEqual(store.trackedRepos.first?.trendPoints, [])
     }
 
-    func testTrendHistoryStoresOnePointPerDay() {
+    func testTrendBuilderUsesGitHubEventDatesForLastYear() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 13, hour: 9))!
+        let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -365, to: now)!)
+        let points = RepoTrendBuilder.points(
+            stars: 10,
+            forks: 4,
+            starDates: [
+                calendar.date(byAdding: .day, value: 10, to: start)!,
+                calendar.date(byAdding: .day, value: 300, to: start)!
+            ],
+            forkDates: [
+                calendar.date(byAdding: .day, value: 30, to: start)!
+            ],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(points.first, RepoTrendPoint(date: start, stars: 8, forks: 3))
+        XCTAssertEqual(points.last?.stars, 10)
+        XCTAssertEqual(points.last?.forks, 4)
+        XCTAssertEqual(points.count, 366)
+    }
+
+    func testStoreReplacesTrendFromSnapshotWithoutAccumulating() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
         let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 10, lastForks: 1)
         store.setTrackedRepo(repo)
+
         let calendar = Calendar(identifier: .gregorian)
         let day = calendar.date(from: DateComponents(year: 2026, month: 6, day: 13, hour: 9))!
+        let trend = [
+            RepoTrendPoint(date: day.addingTimeInterval(-86_400), stars: 11, forks: 2),
+            RepoTrendPoint(date: day, stars: 12, forks: 3)
+        ]
 
         _ = store.apply(
-            snapshot: RepoSnapshot(stars: 11, releaseDownloads: 0, forks: 2, checkedAt: day, repoETag: nil, releasesETag: nil),
+            snapshot: RepoSnapshot(
+                stars: 12,
+                releaseDownloads: 0,
+                forks: 3,
+                checkedAt: day,
+                repoETag: nil,
+                releasesETag: nil,
+                trendPoints: trend
+            ),
             to: repo.id
         )
         _ = store.apply(
-            snapshot: RepoSnapshot(stars: 12, releaseDownloads: 0, forks: 3, checkedAt: day.addingTimeInterval(3600), repoETag: nil, releasesETag: nil),
+            snapshot: RepoSnapshot(stars: 13, releaseDownloads: 0, forks: 4, checkedAt: day.addingTimeInterval(3600), repoETag: nil, releasesETag: nil),
             to: repo.id
         )
 
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.count, 1)
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.first?.stars, 12)
-        XCTAssertEqual(store.trackedRepos.first?.trendPoints.first?.forks, 3)
+        XCTAssertEqual(store.trackedRepos.first?.trendPoints, trend)
     }
 
     func testUpsertAddsMultipleReposAndPreservesExistingIdentity() throws {

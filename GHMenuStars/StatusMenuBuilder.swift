@@ -201,11 +201,6 @@ private final class RepoTrendView: NSView {
         drawGrid(in: plot)
 
         let points = trendPoints
-        guard points.count > 1 else {
-            drawEmptyState(in: plot)
-            return
-        }
-
         let values = points.flatMap { [$0.stars, $0.forks] }
         let minValue = values.min() ?? 0
         let maxValue = max(values.max() ?? 1, minValue + 1)
@@ -218,9 +213,25 @@ private final class RepoTrendView: NSView {
         let now = Date()
         let start = calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
         let stored = repo.trendPoints.filter { $0.date >= start }.sorted { $0.date < $1.date }
-        guard !stored.isEmpty else {
-            guard let stars = repo.lastStars, let forks = repo.lastForks else { return [] }
-            return [RepoTrendPoint(date: now, stars: stars, forks: forks)]
+        let currentStars = repo.lastStars ?? stored.last?.stars ?? 0
+        let currentForks = repo.lastForks ?? stored.last?.forks ?? 0
+
+        if stored.isEmpty {
+            return [
+                RepoTrendPoint(date: start, stars: currentStars, forks: currentForks),
+                RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)
+            ]
+        }
+
+        if stored.count == 1 {
+            return [
+                RepoTrendPoint(date: start, stars: stored[0].stars, forks: stored[0].forks),
+                RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)
+            ]
+        }
+
+        if let last = stored.last, !calendar.isDate(last.date, inSameDayAs: now) {
+            return stored + [RepoTrendPoint(date: now, stars: currentStars, forks: currentForks)]
         }
         return stored
     }
@@ -307,13 +318,4 @@ private final class RepoTrendView: NSView {
         "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
     }
 
-    private func drawEmptyState(in plot: NSRect) {
-        "Trend starts after the next refresh.".draw(
-            in: NSRect(x: plot.minX + 34, y: plot.midY - 8, width: 220, height: 16),
-            withAttributes: [
-                .font: NSFont.menuFont(ofSize: 11),
-                .foregroundColor: NSColor.secondaryLabelColor
-            ]
-        )
-    }
 }

@@ -75,6 +75,69 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(result.value.fullName, "owner/repo")
         XCTAssertEqual(tokenProviderCallCount, 0)
     }
+
+    func testStargazerHistoryUsesStarAcceptAndWalksBackFromLastPage() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let since = formatter.date(from: "2025-06-13T00:00:00Z")!
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo/stargazers?per_page=100": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=2>; rel="next", <https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=3>; rel="last""#
+                ],
+                data: Data(#"[{"starred_at":"2024-01-01T00:00:00Z","user":{"login":"old"}}]"#.utf8)
+            ),
+            "/repos/owner/repo/stargazers?per_page=100&page=3": MockURLProtocol.Response(
+                data: Data(#"[{"starred_at":"2026-01-03T00:00:00Z","user":{"login":"new"}}]"#.utf8)
+            ),
+            "/repos/owner/repo/stargazers?per_page=100&page=2": MockURLProtocol.Response(
+                data: Data(#"[{"starred_at":"2024-12-31T00:00:00Z","user":{"login":"older"}}]"#.utf8)
+            )
+        ]
+
+        let dates = try await client.fetchRecentStargazerDates(owner: "owner", name: "repo", since: since)
+
+        XCTAssertEqual(dates, [formatter.date(from: "2026-01-03T00:00:00Z")!])
+        XCTAssertEqual(MockURLProtocol.requestedPaths, [
+            "/repos/owner/repo/stargazers?per_page=100",
+            "/repos/owner/repo/stargazers?per_page=100&page=3",
+            "/repos/owner/repo/stargazers?per_page=100&page=2"
+        ])
+        XCTAssertTrue(MockURLProtocol.requestedAccepts.allSatisfy { $0 == "application/vnd.github.star+json" })
+    }
+
+    func testForkHistoryFollowsNewestPaginationUntilOlderThanWindow() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let since = formatter.date(from: "2025-06-13T00:00:00Z")!
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo/forks?sort=newest&per_page=100": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/forks?sort=newest&per_page=100&page=2>; rel="next""#
+                ],
+                data: Data(#"[{"created_at":"2026-04-01T00:00:00Z","full_name":"fork/new"}]"#.utf8)
+            ),
+            "/repos/owner/repo/forks?sort=newest&per_page=100&page=2": MockURLProtocol.Response(
+                data: Data(#"[{"created_at":"2024-12-31T00:00:00Z","full_name":"fork/old"}]"#.utf8)
+            )
+        ]
+
+        let dates = try await client.fetchRecentForkDates(owner: "owner", name: "repo", since: since)
+
+        XCTAssertEqual(dates, [formatter.date(from: "2026-04-01T00:00:00Z")!])
+        XCTAssertEqual(MockURLProtocol.requestedPaths, [
+            "/repos/owner/repo/forks?sort=newest&per_page=100",
+            "/repos/owner/repo/forks?sort=newest&per_page=100&page=2"
+        ])
+    }
 }
 
 private final class MockURLProtocol: URLProtocol {
@@ -86,6 +149,7 @@ private final class MockURLProtocol: URLProtocol {
 
     static var responses: [String: Response] = [:]
     static var requestedPaths: [String] = []
+    static var requestedAccepts: [String] = []
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -103,6 +167,7 @@ private final class MockURLProtocol: URLProtocol {
 
         let key = Self.pathAndQuery(for: url)
         Self.requestedPaths.append(key)
+        Self.requestedAccepts.append(request.value(forHTTPHeaderField: "Accept") ?? "")
 
         guard let response = Self.responses[key],
               let httpResponse = HTTPURLResponse(
@@ -125,6 +190,7 @@ private final class MockURLProtocol: URLProtocol {
     static func reset() {
         responses = [:]
         requestedPaths = []
+        requestedAccepts = []
     }
 
     private static func pathAndQuery(for url: URL) -> String {
