@@ -53,12 +53,19 @@ final class TrackedRepoStore: ObservableObject {
             existing.lastSuccessfulCheckAt = repo.lastSuccessfulCheckAt ?? existing.lastSuccessfulCheckAt
             existing.etagRepo = repo.etagRepo ?? existing.etagRepo
             existing.etagReleases = repo.etagReleases ?? existing.etagReleases
+            if let stars = repo.lastStars, let forks = repo.lastForks {
+                existing.recordTrendPoint(stars: stars, forks: forks, at: repo.lastSuccessfulCheckAt ?? Date())
+            }
             trackedRepos[index] = existing
         } else {
             guard trackedRepos.count < Self.maximumTrackedRepos else {
                 throw TrackedRepoStoreError.maximumReached(Self.maximumTrackedRepos)
             }
-            trackedRepos.append(repo)
+            var newRepo = repo
+            if let stars = newRepo.lastStars, let forks = newRepo.lastForks {
+                newRepo.recordTrendPoint(stars: stars, forks: forks, at: newRepo.lastSuccessfulCheckAt ?? Date())
+            }
+            trackedRepos.append(newRepo)
         }
         rateLimitState = nil
         saveAll()
@@ -111,6 +118,7 @@ final class TrackedRepoStore: ObservableObject {
         repo.lastForksDelta = delta.forksDelta
         repo.etagRepo = snapshot.repoETag ?? repo.etagRepo
         repo.etagReleases = snapshot.releasesETag ?? repo.etagReleases
+        repo.recordTrendPoint(stars: snapshot.stars, forks: snapshot.forks, at: snapshot.checkedAt)
         trackedRepos[index] = repo
         lastDelta = delta
         rateLimitState = nil

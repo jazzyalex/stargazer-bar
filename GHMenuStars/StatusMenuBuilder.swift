@@ -28,9 +28,6 @@ struct StatusMenuBuilder {
         let openItem = actionItem("Open Selected on GitHub", #selector(StatusItemController.openGitHub), target)
         openItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
         menu.addItem(openItem)
-        let starItem = actionItem("Star on GitHub", #selector(StatusItemController.openProjectForStar), target)
-        starItem.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
-        menu.addItem(starItem)
         menu.addItem(displayModeItem(target: target))
         menu.addItem(NSMenuItem.separator())
         let muteItem = actionItem(
@@ -54,6 +51,9 @@ struct StatusMenuBuilder {
         let updateItem = actionItem(updateTitle, #selector(StatusItemController.checkForUpdates), target)
         updateItem.isEnabled = updaterController.canRequestUpdateCheck
         menu.addItem(updateItem)
+        let starItem = actionItem("Star on GitHub", #selector(StatusItemController.openProjectForStar), target)
+        starItem.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
+        menu.addItem(starItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Quit", #selector(StatusItemController.quit), target))
         return menu
@@ -68,9 +68,7 @@ struct StatusMenuBuilder {
         )
         item.attributedTitle = repoLineTitle(repo)
         item.state = isSelected(repo) ? .on : .off
-        if isSelected(repo) {
-            item.submenu = snapshotMenu(for: repo)
-        }
+        item.submenu = trendMenu(for: repo, target: target)
         return item
     }
 
@@ -127,27 +125,25 @@ struct StatusMenuBuilder {
         repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id
     }
 
-    private func snapshotMenu(for repo: TrackedRepo) -> NSMenu {
+    private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
-        submenu.addItem(metricItem(title: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta, maxValue: snapshotMaxValue(for: repo)))
-        submenu.addItem(metricItem(title: "Downloads", value: repo.lastDownloads, delta: repo.lastDownloadsDelta, maxValue: snapshotMaxValue(for: repo)))
-        submenu.addItem(metricItem(title: "Forks", value: repo.lastForks, delta: repo.lastForksDelta, maxValue: snapshotMaxValue(for: repo)))
+        submenu.addItem(trendItem(for: repo))
+        submenu.addItem(NSMenuItem.separator())
+        let selectItem = actionItem(
+            isSelected(repo) ? "Shown in Menu Bar" : "Show in Menu Bar",
+            #selector(StatusItemController.showRepoInMenuBar(_:)),
+            target,
+            representedObject: repo.id
+        )
+        selectItem.state = isSelected(repo) ? .on : .off
+        submenu.addItem(selectItem)
         return submenu
     }
 
-    private func snapshotMaxValue(for repo: TrackedRepo) -> Int {
-        max(repo.lastStars ?? 0, repo.lastDownloads ?? 0, repo.lastForks ?? 0, 1)
-    }
-
-    private func metricItem(title: String, value: Int?, delta: Int?, maxValue: Int) -> NSMenuItem {
+    private func trendItem(for repo: TrackedRepo) -> NSMenuItem {
         let item = NSMenuItem()
-        item.view = SnapshotMetricView(
-            title: title,
-            value: value,
-            delta: delta,
-            maxValue: maxValue
-        )
+        item.view = RepoTrendView(repo: repo)
         return item
     }
 
@@ -173,18 +169,13 @@ struct StatusMenuBuilder {
     }
 }
 
-private final class SnapshotMetricView: NSView {
-    private let title: String
-    private let value: Int?
-    private let delta: Int?
-    private let maxValue: Int
+private final class RepoTrendView: NSView {
+    private let repo: TrackedRepo
+    private let calendar = Calendar(identifier: .gregorian)
 
-    init(title: String, value: Int?, delta: Int?, maxValue: Int) {
-        self.title = title
-        self.value = value
-        self.delta = delta
-        self.maxValue = max(1, maxValue)
-        super.init(frame: NSRect(x: 0, y: 0, width: 300, height: 28))
+    init(repo: TrackedRepo) {
+        self.repo = repo
+        super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 142))
         wantsLayer = true
     }
 
@@ -193,53 +184,136 @@ private final class SnapshotMetricView: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 300, height: 28)
+        NSSize(width: 310, height: 142)
     }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let labelAttributes: [NSAttributedString.Key: Any] = [
+        let titleAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.menuFont(ofSize: 11),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
-        title.draw(
-            in: NSRect(x: 12, y: 7, width: 74, height: 14),
-            withAttributes: labelAttributes
-        )
+        "Last 12 months".draw(in: NSRect(x: 12, y: 114, width: 116, height: 16), withAttributes: titleAttributes)
 
-        let barFrame = NSRect(x: 88, y: 9, width: 92, height: 8)
-        NSColor.separatorColor.withAlphaComponent(0.5).setFill()
-        NSBezierPath(roundedRect: barFrame, xRadius: 4, yRadius: 4).fill()
+        drawLegend()
+        let plot = NSRect(x: 14, y: 24, width: 282, height: 82)
+        drawGrid(in: plot)
 
-        if let value {
-            let ratio = sqrt(CGFloat(value) / CGFloat(maxValue))
-            let fillWidth = max(4, min(barFrame.width, barFrame.width * ratio))
-            let fillFrame = NSRect(x: barFrame.minX, y: barFrame.minY, width: fillWidth, height: barFrame.height)
-            NSColor.systemYellow.setFill()
-            NSBezierPath(roundedRect: fillFrame, xRadius: 4, yRadius: 4).fill()
+        let points = trendPoints
+        guard points.count > 1 else {
+            drawEmptyState(in: plot)
+            return
         }
 
-        let valueText = formattedValue
-        let valueAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: NSColor.labelColor
-        ]
-        valueText.draw(
-            in: NSRect(x: 190, y: 7, width: 96, height: 14),
-            withAttributes: valueAttributes
+        let values = points.flatMap { [$0.stars, $0.forks] }
+        let minValue = values.min() ?? 0
+        let maxValue = max(values.max() ?? 1, minValue + 1)
+        drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue)
+        drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue)
+        drawRangeLabels(in: plot, minValue: minValue, maxValue: maxValue)
+    }
+
+    private var trendPoints: [RepoTrendPoint] {
+        let now = Date()
+        let start = calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
+        let stored = repo.trendPoints.filter { $0.date >= start }.sorted { $0.date < $1.date }
+        guard !stored.isEmpty else {
+            guard let stars = repo.lastStars, let forks = repo.lastForks else { return [] }
+            return [RepoTrendPoint(date: now, stars: stars, forks: forks)]
+        }
+        return stored
+    }
+
+    private func xPosition(for date: Date, in plot: NSRect) -> CGFloat {
+        let now = Date()
+        let start = calendar.date(byAdding: .day, value: -365, to: now) ?? now.addingTimeInterval(-365 * 86_400)
+        let span = max(1, now.timeIntervalSince(start))
+        let progress = min(1, max(0, date.timeIntervalSince(start) / span))
+        return plot.minX + plot.width * CGFloat(progress)
+    }
+
+    private func yPosition(for value: Int, in plot: NSRect, minValue: Int, maxValue: Int) -> CGFloat {
+        let span = max(1, maxValue - minValue)
+        let progress = CGFloat(value - minValue) / CGFloat(span)
+        return plot.minY + plot.height * progress
+    }
+
+    private func drawLine(
+        points: [RepoTrendPoint],
+        metric: KeyPath<RepoTrendPoint, Int>,
+        color: NSColor,
+        plot: NSRect,
+        minValue: Int,
+        maxValue: Int
+    ) {
+        let path = NSBezierPath()
+        for (index, point) in points.enumerated() {
+            let position = NSPoint(
+                x: xPosition(for: point.date, in: plot),
+                y: yPosition(for: point[keyPath: metric], in: plot, minValue: minValue, maxValue: maxValue)
+            )
+            index == 0 ? path.move(to: position) : path.line(to: position)
+        }
+        path.lineWidth = 1.8
+        color.setStroke()
+        path.stroke()
+    }
+
+    private func drawGrid(in plot: NSRect) {
+        NSColor.separatorColor.withAlphaComponent(0.55).setStroke()
+        let frame = NSBezierPath(roundedRect: plot, xRadius: 5, yRadius: 5)
+        frame.lineWidth = 1
+        frame.stroke()
+
+        NSColor.separatorColor.withAlphaComponent(0.35).setStroke()
+        for step in 1...2 {
+            let y = plot.minY + plot.height * CGFloat(step) / 3
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: plot.minX, y: y))
+            line.line(to: NSPoint(x: plot.maxX, y: y))
+            line.lineWidth = 0.6
+            line.stroke()
+        }
+    }
+
+    private func drawLegend() {
+        drawLegendItem("Stars", color: .systemYellow, x: 172)
+        drawLegendItem("Forks", color: .systemBlue, x: 232)
+    }
+
+    private func drawLegendItem(_ title: String, color: NSColor, x: CGFloat) {
+        color.setFill()
+        NSBezierPath(roundedRect: NSRect(x: x, y: 119, width: 8, height: 8), xRadius: 2, yRadius: 2).fill()
+        title.draw(
+            in: NSRect(x: x + 12, y: 115, width: 42, height: 14),
+            withAttributes: [
+                .font: NSFont.menuFont(ofSize: 10),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
         )
     }
 
-    private var formattedValue: String {
-        let base: String
-        if let value {
-            base = NumberFormatter.menuInteger.string(from: NSNumber(value: value)) ?? "\(value)"
-        } else {
-            base = "--"
-        }
-        guard let delta, delta > 0 else { return base }
-        let formattedDelta = NumberFormatter.menuInteger.string(from: NSNumber(value: delta)) ?? "\(delta)"
-        return "\(base) +\(formattedDelta)"
+    private func drawRangeLabels(in plot: NSRect, minValue: Int, maxValue: Int) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ]
+        let maxText = NumberFormatter.menuInteger.string(from: NSNumber(value: maxValue)) ?? "\(maxValue)"
+        let minText = NumberFormatter.menuInteger.string(from: NSNumber(value: minValue)) ?? "\(minValue)"
+        maxText.draw(in: NSRect(x: plot.minX, y: plot.maxY + 2, width: 78, height: 11), withAttributes: attributes)
+        minText.draw(in: NSRect(x: plot.minX + 34, y: plot.minY - 15, width: 78, height: 11), withAttributes: attributes)
+        "1y".draw(in: NSRect(x: plot.minX, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
+        "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
+    }
+
+    private func drawEmptyState(in plot: NSRect) {
+        "Trend starts after the next refresh.".draw(
+            in: NSRect(x: plot.minX + 34, y: plot.midY - 8, width: 220, height: 16),
+            withAttributes: [
+                .font: NSFont.menuFont(ofSize: 11),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
+        )
     }
 }

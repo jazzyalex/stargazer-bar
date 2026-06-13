@@ -1,5 +1,11 @@
 import Foundation
 
+struct RepoTrendPoint: Codable, Equatable {
+    var date: Date
+    var stars: Int
+    var forks: Int
+}
+
 struct TrackedRepo: Codable, Identifiable, Equatable {
     var id: UUID
     var owner: String
@@ -19,6 +25,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var etagRepo: String?
     var etagReleases: String?
     var starSound: StarSound
+    var trendPoints: [RepoTrendPoint]
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -39,6 +46,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case etagRepo
         case etagReleases
         case starSound
+        case trendPoints
     }
 
     init(
@@ -59,7 +67,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         lastForksDelta: Int? = nil,
         etagRepo: String? = nil,
         etagReleases: String? = nil,
-        starSound: StarSound = .glass
+        starSound: StarSound = .glass,
+        trendPoints: [RepoTrendPoint] = []
     ) {
         self.id = id
         self.owner = owner
@@ -79,6 +88,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.etagRepo = etagRepo
         self.etagReleases = etagReleases
         self.starSound = starSound
+        self.trendPoints = trendPoints
     }
 
     init(from decoder: Decoder) throws {
@@ -101,5 +111,19 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagRepo = try container.decodeIfPresent(String.self, forKey: .etagRepo)
         etagReleases = try container.decodeIfPresent(String.self, forKey: .etagReleases)
         starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
+        trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
+    }
+
+    mutating func recordTrendPoint(stars: Int, forks: Int, at date: Date) {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = calendar.startOfDay(for: date)
+        let point = RepoTrendPoint(date: day, stars: stars, forks: forks)
+        trendPoints.removeAll { calendar.isDate($0.date, inSameDayAs: day) }
+        trendPoints.append(point)
+
+        let cutoff = calendar.date(byAdding: .day, value: -370, to: day) ?? day.addingTimeInterval(-370 * 86_400)
+        trendPoints = trendPoints
+            .filter { $0.date >= cutoff }
+            .sorted { $0.date < $1.date }
     }
 }
