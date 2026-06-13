@@ -62,13 +62,24 @@ enum StarSoundThreshold: Int, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .one: return "1+ star"
-        case .ten: return "10+ stars"
-        case .hundred: return "100+ stars"
+        case .one: return "1+ star or 10 downloads"
+        case .ten: return "10+ stars or 100 downloads"
+        case .hundred: return "100+ stars or 1,000 downloads"
         }
     }
 
+    var downloadMilestone: Int { rawValue * 10 }
+
     func isMet(by delta: Int) -> Bool {
         delta >= rawValue
+    }
+
+    func isMet(starsDelta: Int, downloadsDelta: Int, downloads: Int) -> Bool {
+        if isMet(by: starsDelta) {
+            return true
+        }
+        guard downloadsDelta > 0 else { return false }
+        let previousDownloads = max(0, downloads - downloadsDelta)
+        return downloads / downloadMilestone > previousDownloads / downloadMilestone
     }
 }

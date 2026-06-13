@@ -223,11 +223,26 @@ struct SettingsView: View {
                 get: { settingsStore.settings.notifyOnStarIncrease },
                 set: { newValue in settingsStore.update { $0.notifyOnStarIncrease = newValue } }
             ))
-            Toggle("Play sound", isOn: Binding(
+            Picker("Celebrations", selection: Binding(
+                get: { settingsStore.settings.celebrationMode },
+                set: { newValue in
+                    settingsStore.update { settings in
+                        settings.celebrationMode = newValue
+                        settings.animateOnStarIncrease = newValue != .off
+                    }
+                }
+            )) {
+                ForEach(CelebrationMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Toggle("Play milestone sound", isOn: Binding(
                 get: { settingsStore.settings.playSoundOnStarIncrease },
                 set: { newValue in settingsStore.update { $0.playSoundOnStarIncrease = newValue } }
             ))
-            Picker("Play sound when", selection: Binding(
+            .disabled(settingsStore.settings.celebrationMode == .off)
+            Picker("Sound milestone", selection: Binding(
                 get: { settingsStore.settings.starSoundThreshold },
                 set: { newValue in settingsStore.update { $0.starSoundThreshold = newValue } }
             )) {
@@ -235,11 +250,7 @@ struct SettingsView: View {
                     Text(threshold.displayName).tag(threshold)
                 }
             }
-            .disabled(!settingsStore.settings.playSoundOnStarIncrease)
-            Toggle("Animate menu-bar counter", isOn: Binding(
-                get: { settingsStore.settings.animateOnStarIncrease },
-                set: { newValue in settingsStore.update { $0.animateOnStarIncrease = newValue } }
-            ))
+            .disabled(!settingsStore.settings.playSoundOnStarIncrease || settingsStore.settings.celebrationMode == .off)
         }
         .padding(.top, 4)
     }
@@ -448,6 +459,7 @@ struct SettingsView: View {
                         source: source,
                         lastStars: repoResult.value.stargazersCount,
                         lastDownloads: downloads,
+                        lastForks: repoResult.value.forksCount,
                         lastCheckedAt: Date(),
                         lastSuccessfulCheckAt: Date(),
                         etagRepo: repoResult.etag,
@@ -657,7 +669,8 @@ private struct RepositoryRow: View {
     private var metricsText: String {
         let stars = RepoDeltaFormatter.metricLine(label: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta)
         let downloads = RepoDeltaFormatter.metricLine(label: "Downloads", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
-        return "\(stars)  \(downloads)"
+        let forks = RepoDeltaFormatter.metricLine(label: "Forks", value: repo.lastForks, delta: repo.lastForksDelta)
+        return "\(stars)  \(downloads)  \(forks)"
     }
 }
 

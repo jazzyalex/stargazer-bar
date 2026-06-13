@@ -68,6 +68,9 @@ struct StatusMenuBuilder {
         )
         item.attributedTitle = repoLineTitle(repo)
         item.state = isSelected(repo) ? .on : .off
+        if isSelected(repo) {
+            item.submenu = snapshotMenu(for: repo)
+        }
         return item
     }
 
@@ -124,6 +127,30 @@ struct StatusMenuBuilder {
         repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id
     }
 
+    private func snapshotMenu(for repo: TrackedRepo) -> NSMenu {
+        let submenu = NSMenu()
+        submenu.addItem(titleItem(repo.displayName))
+        submenu.addItem(metricItem(title: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta, maxValue: snapshotMaxValue(for: repo)))
+        submenu.addItem(metricItem(title: "Downloads", value: repo.lastDownloads, delta: repo.lastDownloadsDelta, maxValue: snapshotMaxValue(for: repo)))
+        submenu.addItem(metricItem(title: "Forks", value: repo.lastForks, delta: repo.lastForksDelta, maxValue: snapshotMaxValue(for: repo)))
+        return submenu
+    }
+
+    private func snapshotMaxValue(for repo: TrackedRepo) -> Int {
+        max(repo.lastStars ?? 0, repo.lastDownloads ?? 0, repo.lastForks ?? 0, 1)
+    }
+
+    private func metricItem(title: String, value: Int?, delta: Int?, maxValue: Int) -> NSMenuItem {
+        let item = NSMenuItem()
+        item.view = SnapshotMetricView(
+            title: title,
+            value: value,
+            delta: delta,
+            maxValue: maxValue
+        )
+        return item
+    }
+
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         if let imageName {
@@ -143,5 +170,76 @@ struct StatusMenuBuilder {
         item.target = target
         item.representedObject = representedObject
         return item
+    }
+}
+
+private final class SnapshotMetricView: NSView {
+    private let title: String
+    private let value: Int?
+    private let delta: Int?
+    private let maxValue: Int
+
+    init(title: String, value: Int?, delta: Int?, maxValue: Int) {
+        self.title = title
+        self.value = value
+        self.delta = delta
+        self.maxValue = max(1, maxValue)
+        super.init(frame: NSRect(x: 0, y: 0, width: 300, height: 28))
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: 300, height: 28)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let labelAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.menuFont(ofSize: 11),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        title.draw(
+            in: NSRect(x: 12, y: 7, width: 74, height: 14),
+            withAttributes: labelAttributes
+        )
+
+        let barFrame = NSRect(x: 88, y: 9, width: 92, height: 8)
+        NSColor.separatorColor.withAlphaComponent(0.5).setFill()
+        NSBezierPath(roundedRect: barFrame, xRadius: 4, yRadius: 4).fill()
+
+        if let value {
+            let ratio = sqrt(CGFloat(value) / CGFloat(maxValue))
+            let fillWidth = max(4, min(barFrame.width, barFrame.width * ratio))
+            let fillFrame = NSRect(x: barFrame.minX, y: barFrame.minY, width: fillWidth, height: barFrame.height)
+            NSColor.systemYellow.setFill()
+            NSBezierPath(roundedRect: fillFrame, xRadius: 4, yRadius: 4).fill()
+        }
+
+        let valueText = formattedValue
+        let valueAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: NSColor.labelColor
+        ]
+        valueText.draw(
+            in: NSRect(x: 190, y: 7, width: 96, height: 14),
+            withAttributes: valueAttributes
+        )
+    }
+
+    private var formattedValue: String {
+        let base: String
+        if let value {
+            base = NumberFormatter.menuInteger.string(from: NSNumber(value: value)) ?? "\(value)"
+        } else {
+            base = "--"
+        }
+        guard let delta, delta > 0 else { return base }
+        let formattedDelta = NumberFormatter.menuInteger.string(from: NSNumber(value: delta)) ?? "\(delta)"
+        return "\(base) +\(formattedDelta)"
     }
 }

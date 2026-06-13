@@ -88,14 +88,18 @@ final class RepoPollingService {
             var repoETag = repo.etagRepo
             var releasesETag = repo.etagReleases
             let stars: Int
+            let forks: Int
             do {
-                let repoResult = try await gitHubClient.fetchRepo(owner: repo.owner, name: repo.name, etag: repo.etagRepo)
+                let repoETagForRequest = repo.lastForks == nil ? nil : repo.etagRepo
+                let repoResult = try await gitHubClient.fetchRepo(owner: repo.owner, name: repo.name, etag: repoETagForRequest)
                 guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
                 stars = repoResult.value.stargazersCount
+                forks = repoResult.value.forksCount
                 repoETag = repoResult.etag ?? repoETag
                 repoStore.updateRateLimit(repoResult.rateLimitState)
             } catch GitHubError.notModified {
                 stars = repo.lastStars ?? 0
+                forks = repo.lastForks ?? 0
             }
 
             let downloads: Int
@@ -111,6 +115,7 @@ final class RepoPollingService {
             let snapshot = RepoSnapshot(
                 stars: stars,
                 releaseDownloads: downloads,
+                forks: forks,
                 checkedAt: Date(),
                 repoETag: repoETag,
                 releasesETag: releasesETag
@@ -127,21 +132,27 @@ final class RepoPollingService {
     }
 
     private func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
-        guard delta.hasStarIncrease else { return }
+        guard delta.hasCelebrationIncrease else { return }
         let settings = settingsStore.settings
         guard !settings.isMuted else { return }
-        if settings.notifyOnStarIncrease,
+        if delta.hasStarIncrease,
+           settings.notifyOnStarIncrease,
            repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {
             notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
             repoStore.markNotified(repoID: repoID, stars: stars, downloads: nil)
         }
         if settings.playSoundOnStarIncrease,
-           settings.starSoundThreshold.isMet(by: delta.starsDelta),
+           settings.celebrationMode != .off,
+           settings.starSoundThreshold.isMet(
+                starsDelta: delta.starsDelta,
+                downloadsDelta: delta.downloadsDelta,
+                downloads: downloads
+           ),
            let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) {
             soundService.play(repo.starSound)
         }
-        if settings.animateOnStarIncrease {
-            animationCoordinator.pulse()
+        if settings.celebrationMode != .off {
+            animationCoordinator.pulse(mode: settings.celebrationMode)
         }
     }
 }

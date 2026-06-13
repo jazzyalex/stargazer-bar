@@ -7,19 +7,20 @@ final class ServiceLogicTests: XCTestCase {
     func testDeltaDetectionAndNotificationDedupeState() {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
-        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 10, lastDownloads: 20)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 10, lastDownloads: 20, lastForks: 2)
         store.setTrackedRepo(repo)
 
         let delta = store.apply(
-            snapshot: RepoSnapshot(stars: 13, releaseDownloads: 30, checkedAt: Date(), repoETag: "r", releasesETag: "rel"),
+            snapshot: RepoSnapshot(stars: 13, releaseDownloads: 30, forks: 4, checkedAt: Date(), repoETag: "r", releasesETag: "rel"),
             to: repo.id
         )
 
-        XCTAssertEqual(delta, RepoDelta(starsDelta: 3, downloadsDelta: 10))
+        XCTAssertEqual(delta, RepoDelta(starsDelta: 3, downloadsDelta: 10, forksDelta: 2))
         store.markNotified(repoID: repo.id, stars: 13, downloads: nil)
         XCTAssertEqual(store.trackedRepos.first?.lastNotifiedStars, 13)
         XCTAssertEqual(store.trackedRepos.first?.lastStarsDelta, 3)
         XCTAssertEqual(store.trackedRepos.first?.lastDownloadsDelta, 10)
+        XCTAssertEqual(store.trackedRepos.first?.lastForksDelta, 2)
     }
 
     func testUpsertAddsMultipleReposAndPreservesExistingIdentity() throws {
@@ -133,6 +134,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(reloaded.settings.isMuted)
         XCTAssertEqual(reloaded.settings.menuBarDisplayMode, .selectedRepoStars)
         XCTAssertEqual(reloaded.settings.starSoundThreshold, .one)
+        XCTAssertEqual(reloaded.settings.celebrationMode, .subtle)
     }
 
     func testSettingsMigrateFromLegacyBundleDefaults() {
@@ -156,6 +158,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(store.settings.hideDockIcon)
         XCTAssertTrue(store.settings.isMuted)
         XCTAssertEqual(store.settings.gitHubOAuthClientID, "legacy-client")
+        XCTAssertEqual(store.settings.celebrationMode, .off)
         XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.AppSettings.v1"))
     }
 
@@ -179,6 +182,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(store.settings.notifyOnStarIncrease)
         XCTAssertTrue(store.settings.playSoundOnStarIncrease)
         XCTAssertFalse(store.settings.animateOnStarIncrease)
+        XCTAssertEqual(store.settings.celebrationMode, .off)
         XCTAssertFalse(store.settings.isMuted)
         XCTAssertEqual(store.settings.gitHubOAuthClientID, "saved-client")
         XCTAssertEqual(store.settings.menuBarDisplayMode, .selectedRepoStars)
@@ -192,6 +196,12 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(StarSoundThreshold.ten.isMet(by: 10))
         XCTAssertFalse(StarSoundThreshold.hundred.isMet(by: 99))
         XCTAssertTrue(StarSoundThreshold.hundred.isMet(by: 100))
+
+        XCTAssertFalse(StarSoundThreshold.one.isMet(starsDelta: 0, downloadsDelta: 2, downloads: 9))
+        XCTAssertTrue(StarSoundThreshold.one.isMet(starsDelta: 0, downloadsDelta: 1, downloads: 10))
+        XCTAssertFalse(StarSoundThreshold.ten.isMet(starsDelta: 0, downloadsDelta: 30, downloads: 90))
+        XCTAssertTrue(StarSoundThreshold.ten.isMet(starsDelta: 0, downloadsDelta: 20, downloads: 100))
+        XCTAssertTrue(StarSoundThreshold.hundred.isMet(starsDelta: 100, downloadsDelta: 0, downloads: 0))
     }
 
     func testRateLimitParsing() {
@@ -209,7 +219,7 @@ final class ServiceLogicTests: XCTestCase {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let legacyDefaults = UserDefaults(suiteName: "GHMenuStarsTests.Legacy.\(UUID().uuidString)")!
         let repo = TrackedRepo(owner: "old", name: "repo", source: .manual, lastStars: 42, lastDownloads: 7)
-        let delta = RepoDelta(starsDelta: 2, downloadsDelta: 1)
+        let delta = RepoDelta(starsDelta: 2, downloadsDelta: 1, forksDelta: 0)
         legacyDefaults.set(try JSONEncoder().encode([repo]), forKey: "GHMenuStars.TrackedRepos.v1")
         legacyDefaults.set(try JSONEncoder().encode(delta), forKey: "GHMenuStars.LastDelta.v1")
 

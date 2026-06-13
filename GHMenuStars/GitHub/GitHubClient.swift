@@ -42,11 +42,13 @@ enum GitHubError: Error, Equatable {
 struct GitHubRepoResponse: Decodable, Equatable {
     var fullName: String
     var stargazersCount: Int
+    var forksCount: Int
     var `private`: Bool
 
     enum CodingKeys: String, CodingKey {
         case fullName = "full_name"
         case stargazersCount = "stargazers_count"
+        case forksCount = "forks_count"
         case `private`
     }
 }

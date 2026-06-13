@@ -48,6 +48,7 @@ final class TrackedRepoStore: ObservableObject {
             existing.source = repo.source
             existing.lastStars = repo.lastStars ?? existing.lastStars
             existing.lastDownloads = repo.lastDownloads ?? existing.lastDownloads
+            existing.lastForks = repo.lastForks ?? existing.lastForks
             existing.lastCheckedAt = repo.lastCheckedAt ?? existing.lastCheckedAt
             existing.lastSuccessfulCheckAt = repo.lastSuccessfulCheckAt ?? existing.lastSuccessfulCheckAt
             existing.etagRepo = repo.etagRepo ?? existing.etagRepo
@@ -97,14 +98,17 @@ final class TrackedRepoStore: ObservableObject {
         var repo = trackedRepos[index]
         let delta = RepoDelta(
             starsDelta: max(0, snapshot.stars - (repo.lastStars ?? snapshot.stars)),
-            downloadsDelta: max(0, snapshot.releaseDownloads - (repo.lastDownloads ?? snapshot.releaseDownloads))
+            downloadsDelta: max(0, snapshot.releaseDownloads - (repo.lastDownloads ?? snapshot.releaseDownloads)),
+            forksDelta: max(0, snapshot.forks - (repo.lastForks ?? snapshot.forks))
         )
         repo.lastStars = snapshot.stars
         repo.lastDownloads = snapshot.releaseDownloads
+        repo.lastForks = snapshot.forks
         repo.lastCheckedAt = snapshot.checkedAt
         repo.lastSuccessfulCheckAt = snapshot.checkedAt
         repo.lastStarsDelta = delta.starsDelta
         repo.lastDownloadsDelta = delta.downloadsDelta
+        repo.lastForksDelta = delta.forksDelta
         repo.etagRepo = snapshot.repoETag ?? repo.etagRepo
         repo.etagReleases = snapshot.releasesETag ?? repo.etagReleases
         trackedRepos[index] = repo

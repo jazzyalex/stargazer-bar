@@ -8,10 +8,11 @@ final class GitHubModelTests: XCTestCase {
     }
 
     func testRepoJSONDecoding() throws {
-        let data = Data(#"{"full_name":"owner/repo","stargazers_count":1248,"private":false}"#.utf8)
+        let data = Data(#"{"full_name":"owner/repo","stargazers_count":1248,"forks_count":42,"private":false}"#.utf8)
         let repo = try JSONDecoder().decode(GitHubRepoResponse.self, from: data)
         XCTAssertEqual(repo.fullName, "owner/repo")
         XCTAssertEqual(repo.stargazersCount, 1248)
+        XCTAssertEqual(repo.forksCount, 42)
         XCTAssertFalse(repo.private)
     }
 
@@ -65,7 +66,7 @@ final class GitHubModelTests: XCTestCase {
 
         MockURLProtocol.responses = [
             "/repos/owner/repo": MockURLProtocol.Response(
-                data: Data(#"{"full_name":"owner/repo","stargazers_count":12,"private":false}"#.utf8)
+                data: Data(#"{"full_name":"owner/repo","stargazers_count":12,"forks_count":3,"private":false}"#.utf8)
             )
         ]
 
