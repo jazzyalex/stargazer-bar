@@ -99,6 +99,10 @@ private struct GitHubWorkflowRunsResponse: Decodable, Equatable {
     }
 }
 
+private struct GitHubCommitSummary: Decodable, Equatable {
+    var sha: String
+}
+
 private struct GitHubWorkflowRun: Decodable, Equatable {
     var workflowID: Int?
     var name: String?
@@ -259,19 +263,67 @@ final class GitHubClient {
         return repos
     }
 
-    func fetchMaintainerRadar(owner: String, name: String) async -> RepoMaintainerRadar {
+    func fetchMaintainerRadar(
+        owner: String,
+        name: String,
+        activityWindow: MaintainerRadarActivityWindow,
+        now: Date = Date()
+    ) async -> RepoMaintainerRadar {
+        let activityStart = activityWindow.startDate(now: now)
         async let openPullRequests = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:pr is:open")
+        async let newPullRequests = optionalActivityCount(
+            owner: owner,
+            name: name,
+            kind: .pullRequest,
+            since: activityStart
+        )
+        async let newIssues = optionalActivityCount(
+            owner: owner,
+            name: name,
+            kind: .issue,
+            since: activityStart
+        )
         async let unansweredIssues = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:issue is:open comments:0")
+        async let recentCommits = optionalCommitCount(owner: owner, name: name, since: activityStart)
         async let workflowFailure = optionalLatestFailedWorkflow(owner: owner, name: name)
-        let (pullRequests, issues, workflow) = await (openPullRequests, unansweredIssues, workflowFailure)
+        let (pullRequests, freshPullRequests, freshIssues, needsReply, commits, workflow) = await (
+            openPullRequests,
+            newPullRequests,
+            newIssues,
+            unansweredIssues,
+            recentCommits,
+            workflowFailure
+        )
 
         return RepoMaintainerRadar(
             openPullRequests: pullRequests,
-            unansweredIssues: issues,
+            newPullRequests: freshPullRequests,
+            newIssues: freshIssues,
+            unansweredIssues: needsReply,
+            recentCommits: commits,
+            activityWindow: activityStart == nil ? nil : activityWindow,
             latestFailedWorkflow: workflow.failure,
             workflowChecked: workflow.checked,
-            checkedAt: Date()
+            checkedAt: now
         )
+    }
+
+    private enum ActivityKind {
+        case issue
+        case pullRequest
+
+        var searchQualifier: String {
+            switch self {
+            case .issue: return "is:issue"
+            case .pullRequest: return "is:pr"
+            }
+        }
+    }
+
+    private func optionalActivityCount(owner: String, name: String, kind: ActivityKind, since: Date?) async -> Int? {
+        guard let since else { return nil }
+        let query = "repo:\(owner)/\(name) \(kind.searchQualifier) is:open created:>=\(Self.searchDateFormatter.string(from: since))"
+        return await optionalSearchIssueCount(query: query)
     }
 
     private func optionalSearchIssueCount(query: String) async -> Int? {
@@ -292,6 +344,30 @@ final class GitHubClient {
             requiresAuth: false
         )
         return result.value.totalCount
+    }
+
+    private func optionalCommitCount(owner: String, name: String, since: Date?) async -> Int? {
+        guard let since else { return nil }
+        do {
+            return try await commitCount(owner: owner, name: name, since: since)
+        } catch {
+            return nil
+        }
+    }
+
+    private func commitCount(owner: String, name: String, since: Date) async throws -> Int {
+        let result: GitHubHTTPResult<[GitHubCommitSummary]> = try await request(
+            path: Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
+                URLQueryItem(name: "since", value: ISO8601DateFormatter().string(from: since)),
+                URLQueryItem(name: "per_page", value: "1")
+            ]),
+            etag: nil,
+            requiresAuth: false
+        )
+        if let lastPage = Self.pageNumber(from: result.lastPagePath) {
+            return lastPage
+        }
+        return result.value.count
     }
 
     private func optionalLatestFailedWorkflow(owner: String, name: String) async -> (checked: Bool, failure: RepoWorkflowFailure?) {
@@ -471,4 +547,13 @@ final class GitHubClient {
         components.queryItems = queryItems
         return components.string ?? path
     }
+
+    private static let searchDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        return formatter
+    }()
 }

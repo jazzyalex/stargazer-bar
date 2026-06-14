@@ -420,6 +420,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Show in Menu Bar"))
         XCTAssertFalse(titles.contains("Shown in Menu Bar"))
         XCTAssertFalse(titles.contains("Debug: Show Growth Prompt"))
+        XCTAssertFalse(titles.contains("Open Selected on GitHub"))
         XCTAssertTrue(titles.contains("Share Selected Milestone"))
         XCTAssertTrue(titles.contains("Share Milestone"))
         XCTAssertTrue(titles.contains("Copy Stars Text"))
@@ -482,7 +483,11 @@ final class ServiceLogicTests: XCTestCase {
             source: .manual,
             maintainerRadar: RepoMaintainerRadar(
                 openPullRequests: 2,
+                newPullRequests: 1,
+                newIssues: 3,
                 unansweredIssues: 5,
+                recentCommits: 7,
+                activityWindow: .oneDay,
                 latestFailedWorkflow: RepoWorkflowFailure(name: "Tests", url: "https://github.com/owner/repo/actions/runs/1"),
                 workflowChecked: true,
                 checkedAt: Date()
@@ -515,11 +520,14 @@ final class ServiceLogicTests: XCTestCase {
         ).build(target: controller)
         let titles = Self.menuTitles(in: menu)
 
-        XCTAssertTrue(titles.contains("Maintainer Radar: 8 items"))
+        XCTAssertFalse(titles.contains("Maintainer Radar: 8 items"))
         XCTAssertTrue(titles.contains("CI failing: Tests"))
+        XCTAssertTrue(titles.contains("1 new PR last 24h"))
+        XCTAssertTrue(titles.contains("3 new issues last 24h"))
+        XCTAssertTrue(titles.contains("7 commits last 24h"))
         XCTAssertTrue(titles.contains("2 open PRs"))
-        XCTAssertTrue(titles.contains("5 unanswered issues"))
-        XCTAssertTrue(titles.contains("Discussion topics"))
+        XCTAssertTrue(titles.contains("5 issues need first reply"))
+        XCTAssertTrue(titles.contains("Open Discussions"))
         XCTAssertEqual(
             (Self.menuItem(titled: "2 open PRs", in: menu)?.representedObject as? URL)?.absoluteString,
             "https://github.com/owner/repo/pulls?q=is:pr%20is:open"

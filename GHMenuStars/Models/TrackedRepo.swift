@@ -13,17 +13,27 @@ struct RepoWorkflowFailure: Codable, Equatable {
 
 struct RepoMaintainerRadar: Codable, Equatable {
     var openPullRequests: Int?
+    var newPullRequests: Int?
+    var newIssues: Int?
     var unansweredIssues: Int?
+    var recentCommits: Int?
+    var activityWindow: MaintainerRadarActivityWindow?
     var latestFailedWorkflow: RepoWorkflowFailure?
     var workflowChecked: Bool
     var checkedAt: Date
 
     var hasData: Bool {
-        openPullRequests != nil || unansweredIssues != nil || workflowChecked
+        openPullRequests != nil ||
+            newPullRequests != nil ||
+            newIssues != nil ||
+            unansweredIssues != nil ||
+            recentCommits != nil ||
+            workflowChecked
     }
 
     var attentionCount: Int {
-        (openPullRequests ?? 0) +
+        (newPullRequests ?? 0) +
+            (newIssues ?? 0) +
             (unansweredIssues ?? 0) +
             (latestFailedWorkflow == nil ? 0 : 1)
     }

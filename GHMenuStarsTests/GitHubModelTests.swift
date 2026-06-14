@@ -193,13 +193,13 @@ final class GitHubModelTests: XCTestCase {
             )
         ]
 
-        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo")
+        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
 
         XCTAssertEqual(radar.openPullRequests, 2)
         XCTAssertEqual(radar.unansweredIssues, 5)
         XCTAssertEqual(radar.latestFailedWorkflow, RepoWorkflowFailure(name: "CI", url: "https://github.com/owner/repo/actions/runs/1"))
         XCTAssertTrue(radar.workflowChecked)
-        XCTAssertEqual(radar.attentionCount, 8)
+        XCTAssertEqual(radar.attentionCount, 6)
     }
 
     func testMaintainerRadarIgnoresOlderWorkflowFailureAfterNewerSuccess() async throws {
@@ -220,11 +220,58 @@ final class GitHubModelTests: XCTestCase {
             )
         ]
 
-        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo")
+        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
 
         XCTAssertNil(radar.latestFailedWorkflow)
         XCTAssertTrue(radar.workflowChecked)
         XCTAssertEqual(radar.attentionCount, 0)
+    }
+
+    func testMaintainerRadarFetchesActivityWindowCounts() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-06-14T12:00:00Z")!
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":9,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open%20created:%3E%3D2026-06-13T12:00:00Z&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":2,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20created:%3E%3D2026-06-13T12:00:00Z&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":3,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":4,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/commits?since=2026-06-13T12:00:00Z&per_page=1": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/commits?since=2026-06-13T12:00:00Z&per_page=1&page=7>; rel="last""#
+                ],
+                data: Data(#"[{"sha":"abc"}]"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        let radar = await client.fetchMaintainerRadar(
+            owner: "owner",
+            name: "repo",
+            activityWindow: .oneDay,
+            now: now
+        )
+
+        XCTAssertEqual(radar.openPullRequests, 9)
+        XCTAssertEqual(radar.newPullRequests, 2)
+        XCTAssertEqual(radar.newIssues, 3)
+        XCTAssertEqual(radar.unansweredIssues, 4)
+        XCTAssertEqual(radar.recentCommits, 7)
+        XCTAssertEqual(radar.activityWindow, .oneDay)
     }
 }
 

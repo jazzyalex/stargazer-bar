@@ -25,9 +25,6 @@ struct StatusMenuBuilder {
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("Check Now", #selector(StatusItemController.checkNow), target))
-        let openItem = actionItem("Open Selected on GitHub", #selector(StatusItemController.openGitHub), target)
-        openItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
-        menu.addItem(openItem)
         if let shareItem = selectedShareMenuItem(target: target) {
             menu.addItem(shareItem)
         }
@@ -120,7 +117,7 @@ struct StatusMenuBuilder {
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(maintainerRadarMenuItem(for: repo, target: target))
+        addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
         submenu.addItem(shareMenuItem(title: "Share Milestone", for: repo, target: target))
         submenu.addItem(openRepoItem(repo, target: target))
@@ -189,17 +186,11 @@ struct StatusMenuBuilder {
             RepoMilestoneShare.make(repo: repo, metric: .downloads) != nil
     }
 
-    private func maintainerRadarMenuItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
-        let radar = repo.maintainerRadar
-        let item = NSMenuItem(title: maintainerRadarTitle(for: radar), action: nil, keyEquivalent: "")
-        item.image = NSImage(systemSymbolName: maintainerRadarImageName(for: radar), accessibilityDescription: nil)
-        let submenu = NSMenu()
-
-        guard let radar, radar.hasData else {
+    private func addMaintainerRadarItems(to submenu: NSMenu, for repo: TrackedRepo, target: StatusItemController) {
+        guard let radar = repo.maintainerRadar, radar.hasData else {
             submenu.addItem(titleItem("Check Now to load radar", imageName: "arrow.clockwise"))
             submenu.addItem(discussionsItem(for: repo, target: target))
-            item.submenu = submenu
-            return item
+            return
         }
 
         if let workflow = radar.latestFailedWorkflow {
@@ -211,6 +202,38 @@ struct StatusMenuBuilder {
             ))
         } else if radar.workflowChecked {
             submenu.addItem(titleItem("CI clear", imageName: "checkmark.circle"))
+        }
+
+        let activityWindow = settingsStore.settings.maintainerRadarActivityWindow
+        if let window = radar.activityWindow, window == activityWindow {
+            let label = window.menuLabel
+            let since = window.startDate(now: radar.checkedAt)
+            if let newPullRequests = radar.newPullRequests {
+                submenu.addItem(urlItem(
+                    "\(newPullRequests) new \(newPullRequests == 1 ? "PR" : "PRs") \(label)",
+                    imageName: newPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
+                    url: gitHubURL(for: repo, path: "/pulls", query: activityQuery(kind: "is:pr", since: since)),
+                    target: target
+                ))
+            }
+
+            if let newIssues = radar.newIssues {
+                submenu.addItem(urlItem(
+                    "\(newIssues) new \(newIssues == 1 ? "issue" : "issues") \(label)",
+                    imageName: newIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
+                    url: gitHubURL(for: repo, path: "/issues", query: activityQuery(kind: "is:issue", since: since)),
+                    target: target
+                ))
+            }
+
+            if let recentCommits = radar.recentCommits {
+                submenu.addItem(urlItem(
+                    "\(recentCommits) \(recentCommits == 1 ? "commit" : "commits") \(label)",
+                    imageName: recentCommits == 0 ? "checkmark.circle" : "point.3.connected.trianglepath.dotted",
+                    url: gitHubURL(for: repo, path: "/commits"),
+                    target: target
+                ))
+            }
         }
 
         if let openPullRequests = radar.openPullRequests {
@@ -225,7 +248,7 @@ struct StatusMenuBuilder {
 
         if let unansweredIssues = radar.unansweredIssues {
             submenu.addItem(urlItem(
-                "\(unansweredIssues) unanswered \(unansweredIssues == 1 ? "issue" : "issues")",
+                "\(unansweredIssues) \(unansweredIssues == 1 ? "issue" : "issues") need first reply",
                 imageName: unansweredIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
                 url: gitHubURL(for: repo, path: "/issues", query: "is:issue is:open comments:0"),
                 target: target,
@@ -236,27 +259,11 @@ struct StatusMenuBuilder {
         submenu.addItem(discussionsItem(for: repo, target: target))
         submenu.addItem(NSMenuItem.separator())
         submenu.addItem(titleItem("Updated \(RelativeDateTimeFormatter.menu.string(for: radar.checkedAt) ?? "recently")"))
-        item.submenu = submenu
-        return item
-    }
-
-    private func maintainerRadarTitle(for radar: RepoMaintainerRadar?) -> String {
-        guard let radar, radar.hasData else { return "Maintainer Radar" }
-        let count = radar.attentionCount
-        if count == 0 {
-            return "Maintainer Radar: Clear"
-        }
-        return "Maintainer Radar: \(count) \(count == 1 ? "item" : "items")"
-    }
-
-    private func maintainerRadarImageName(for radar: RepoMaintainerRadar?) -> String {
-        guard let radar, radar.hasData else { return "dot.radiowaves.left.and.right" }
-        return radar.attentionCount == 0 ? "checkmark.circle" : "exclamationmark.circle"
     }
 
     private func discussionsItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
         urlItem(
-            "Discussion topics",
+            "Open Discussions",
             imageName: "bubble.left.and.bubble.right",
             url: gitHubURL(for: repo, path: "/discussions"),
             target: target
@@ -300,6 +307,20 @@ struct StatusMenuBuilder {
         }
         return components.url
     }
+
+    private func activityQuery(kind: String, since: Date?) -> String {
+        guard let since else { return "\(kind) is:open" }
+        return "\(kind) is:open created:>=\(Self.searchDateFormatter.string(from: since))"
+    }
+
+    private static let searchDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        return formatter
+    }()
 
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")

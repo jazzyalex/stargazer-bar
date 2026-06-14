@@ -144,7 +144,11 @@ final class RepoPollingService {
                 forks: forks,
                 checkedAt: checkedAt
             )
-            async let maintainerRadar = gitHubClient.fetchMaintainerRadar(owner: repo.owner, name: repo.name)
+            async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
+                owner: repo.owner,
+                name: repo.name,
+                activityWindow: settingsStore.settings.maintainerRadarActivityWindow
+            )
             let resolvedTrendPoints = await trendPoints
             let resolvedMaintainerRadar = await maintainerRadar
             let radarSnapshot = resolvedMaintainerRadar.hasData ? resolvedMaintainerRadar : nil

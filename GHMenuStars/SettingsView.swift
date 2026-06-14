@@ -195,6 +195,15 @@ struct SettingsView: View {
                         Text(range.displayName).tag(range)
                     }
                 }
+
+                Picker("Radar activity", selection: Binding(
+                    get: { settingsStore.settings.maintainerRadarActivityWindow },
+                    set: { newValue in settingsStore.update { $0.maintainerRadarActivityWindow = newValue } }
+                )) {
+                    ForEach(MaintainerRadarActivityWindow.allCases) { window in
+                        Text(window.displayName).tag(window)
+                    }
+                }
             }
             .padding(8)
         }

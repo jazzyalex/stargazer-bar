@@ -85,6 +85,41 @@ enum RepoTrendRange: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum MaintainerRadarActivityWindow: String, Codable, CaseIterable, Identifiable {
+    case off
+    case oneHour
+    case oneDay
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .off: return "Off"
+        case .oneHour: return "1 Hour"
+        case .oneDay: return "24 Hours"
+        }
+    }
+
+    var menuLabel: String {
+        switch self {
+        case .off: return ""
+        case .oneHour: return "last hour"
+        case .oneDay: return "last 24h"
+        }
+    }
+
+    func startDate(now: Date = Date()) -> Date? {
+        switch self {
+        case .off:
+            return nil
+        case .oneHour:
+            return now.addingTimeInterval(-3_600)
+        case .oneDay:
+            return now.addingTimeInterval(-86_400)
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable {
     var refreshInterval: RefreshInterval = .tenMinutes
     var hideDockIcon: Bool = true
@@ -98,6 +133,7 @@ struct AppSettings: Codable, Equatable {
     var menuBarDisplayMode: MenuBarDisplayMode = .selectedRepoStars
     var selectedMenuBarRepoID: UUID?
     var repoTrendRange: RepoTrendRange = .all
+    var maintainerRadarActivityWindow: MaintainerRadarActivityWindow = .oneDay
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -112,6 +148,7 @@ struct AppSettings: Codable, Equatable {
         case menuBarDisplayMode
         case selectedMenuBarRepoID
         case repoTrendRange
+        case maintainerRadarActivityWindow
     }
 
     init() {}
@@ -131,6 +168,7 @@ struct AppSettings: Codable, Equatable {
         menuBarDisplayMode = try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .selectedRepoStars
         selectedMenuBarRepoID = try container.decodeIfPresent(UUID.self, forKey: .selectedMenuBarRepoID)
         repoTrendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .repoTrendRange) ?? .all
+        maintainerRadarActivityWindow = try container.decodeIfPresent(MaintainerRadarActivityWindow.self, forKey: .maintainerRadarActivityWindow) ?? .oneDay
     }
 }
 
