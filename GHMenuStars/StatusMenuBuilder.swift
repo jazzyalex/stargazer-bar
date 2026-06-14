@@ -310,17 +310,12 @@ struct StatusMenuBuilder {
 
     private func activityQuery(kind: String, since: Date?) -> String {
         guard let since else { return "\(kind) is:open" }
-        return "\(kind) is:open created:>=\(Self.searchDateFormatter.string(from: since))"
+        return "\(kind) is:open created:>=\(Self.iso8601String(from: since))"
     }
 
-    private static let searchDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        return formatter
-    }()
+    private static func iso8601String(from date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
+    }
 
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")

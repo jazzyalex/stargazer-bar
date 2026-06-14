@@ -322,7 +322,7 @@ final class GitHubClient {
 
     private func optionalActivityCount(owner: String, name: String, kind: ActivityKind, since: Date?) async -> Int? {
         guard let since else { return nil }
-        let query = "repo:\(owner)/\(name) \(kind.searchQualifier) is:open created:>=\(Self.searchDateFormatter.string(from: since))"
+        let query = "repo:\(owner)/\(name) \(kind.searchQualifier) is:open created:>=\(Self.iso8601String(from: since))"
         return await optionalSearchIssueCount(query: query)
     }
 
@@ -341,7 +341,8 @@ final class GitHubClient {
                 URLQueryItem(name: "per_page", value: "1")
             ]),
             etag: nil,
-            requiresAuth: false
+            requiresAuth: false,
+            allowsOptionalAuth: true
         )
         return result.value.totalCount
     }
@@ -362,7 +363,8 @@ final class GitHubClient {
                 URLQueryItem(name: "per_page", value: "1")
             ]),
             etag: nil,
-            requiresAuth: false
+            requiresAuth: false,
+            allowsOptionalAuth: true
         )
         if let lastPage = Self.pageNumber(from: result.lastPagePath) {
             return lastPage
@@ -382,7 +384,8 @@ final class GitHubClient {
         let result: GitHubHTTPResult<GitHubWorkflowRunsResponse> = try await request(
             path: "/repos/\(owner)/\(name)/actions/runs?per_page=20",
             etag: nil,
-            requiresAuth: false
+            requiresAuth: false,
+            allowsOptionalAuth: true
         )
         let runs = result.value.workflowRuns.sorted {
             ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
@@ -410,7 +413,8 @@ final class GitHubClient {
         path: String,
         etag: String?,
         requiresAuth: Bool,
-        accept: String = "application/vnd.github+json"
+        accept: String = "application/vnd.github+json",
+        allowsOptionalAuth: Bool = false
     ) async throws -> GitHubHTTPResult<T> {
         guard let url = URL(string: "https://api.github.com\(path)") else {
             throw GitHubError.transport("Invalid URL")
@@ -422,10 +426,13 @@ final class GitHubClient {
         if let etag {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
-        if requiresAuth, let token = tokenProvider() {
+        if requiresAuth {
+            guard let token = tokenProvider() else {
+                throw GitHubError.missingToken
+            }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else if requiresAuth {
-            throw GitHubError.missingToken
+        } else if allowsOptionalAuth, let token = tokenProvider() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response): (Data, URLResponse)
@@ -548,12 +555,7 @@ final class GitHubClient {
         return components.string ?? path
     }
 
-    private static let searchDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        return formatter
-    }()
+    private static func iso8601String(from date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
+    }
 }

@@ -76,6 +76,30 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(tokenProviderCallCount, 0)
     }
 
+    func testMaintainerRadarUsesOptionalTokenForPublicEndpoints() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session, tokenProvider: { "token" })
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
+
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations.count, 3)
+        XCTAssertTrue(MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer token" })
+    }
+
     func testStargazerHistoryUsesStarAcceptAndWalksBackFromLastPage() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -285,6 +309,8 @@ private final class MockURLProtocol: URLProtocol {
     static var responses: [String: Response] = [:]
     static var requestedPaths: [String] = []
     static var requestedAccepts: [String] = []
+    static var requestedAuthorizations: [String?] = []
+    private static let lock = NSLock()
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -301,8 +327,11 @@ private final class MockURLProtocol: URLProtocol {
         }
 
         let key = Self.pathAndQuery(for: url)
+        Self.lock.lock()
         Self.requestedPaths.append(key)
         Self.requestedAccepts.append(request.value(forHTTPHeaderField: "Accept") ?? "")
+        Self.requestedAuthorizations.append(request.value(forHTTPHeaderField: "Authorization"))
+        Self.lock.unlock()
 
         guard let response = Self.responses[key],
               let httpResponse = HTTPURLResponse(
@@ -323,9 +352,12 @@ private final class MockURLProtocol: URLProtocol {
     override func stopLoading() {}
 
     static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
         responses = [:]
         requestedPaths = []
         requestedAccepts = []
+        requestedAuthorizations = []
     }
 
     private static func pathAndQuery(for url: URL) -> String {
