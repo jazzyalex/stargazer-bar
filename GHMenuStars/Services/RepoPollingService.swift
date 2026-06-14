@@ -268,6 +268,7 @@ private final class StarAskPromptWindowController: NSWindowController, NSWindowD
             defer: false
         )
         window.title = "Stargazer Bar"
+        window.backgroundColor = .windowBackgroundColor
         window.contentView = contentView
         window.isReleasedWhenClosed = false
         window.center()
@@ -310,6 +311,21 @@ private final class StarAskPromptContentView: NSView {
 
     required init?(coder: NSCoder) {
         nil
+    }
+
+    override var isOpaque: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        dirtyRect.fill()
+        super.draw(dirtyRect)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 
     private func build() {

@@ -13,6 +13,8 @@ final class StatusItemController: NSObject {
     private let animationCoordinator: AnimationCoordinator
     private var cancellables: Set<AnyCancellable> = []
     private var lengthUpdateScheduled = false
+    private var copyFeedbackWindow: NSWindow?
+    private var copyFeedbackDismissal: DispatchWorkItem?
 
     var isAvailable: Bool { statusItem?.button != nil }
 
@@ -109,18 +111,21 @@ final class StatusItemController: NSObject {
         guard let share = milestoneShare(from: sender) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(MilestoneShareTextBuilder.text(for: share), forType: .string)
+        showCopyFeedback("Copied \(share.metric.displayName.lowercased()) text")
     }
 
     @objc func copyMilestoneImage(_ sender: NSMenuItem) {
         guard let share = milestoneShare(from: sender) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([MilestoneShareCardRenderer.image(for: share)])
+        showCopyFeedback("Copied \(share.metric.displayName.lowercased()) image")
     }
 
     @objc func composeXPostWithMilestoneImage(_ sender: NSMenuItem) {
         guard let share = milestoneShare(from: sender) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([MilestoneShareCardRenderer.image(for: share)])
+        showCopyFeedback("Copied image for X")
 
         var components = URLComponents(string: "https://twitter.com/intent/tweet")
         components?.queryItems = [
@@ -179,6 +184,76 @@ final class StatusItemController: NSObject {
     private func updateLength() {
         guard let item = statusItem, let hosting else { return }
         item.length = max(44, hosting.fittingSize.width + 2)
+    }
+
+    private func showCopyFeedback(_ message: String) {
+        copyFeedbackDismissal?.cancel()
+        copyFeedbackWindow?.close()
+
+        let label = NSTextField(labelWithString: message)
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.textColor = .labelColor
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        let effectView = NSVisualEffectView()
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.addSubview(label)
+
+        let window = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 210, height: 38),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = effectView
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.level = .statusBar
+        window.collectionBehavior = [.canJoinAllSpaces, .transient]
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: effectView.leadingAnchor, constant: 14),
+            label.trailingAnchor.constraint(equalTo: effectView.trailingAnchor, constant: -14),
+            label.centerYAnchor.constraint(equalTo: effectView.centerYAnchor)
+        ])
+
+        positionFeedbackWindow(window)
+        window.orderFront(nil)
+        copyFeedbackWindow = window
+
+        let dismissal = DispatchWorkItem { [weak self, weak window] in
+            window?.close()
+            if self?.copyFeedbackWindow === window {
+                self?.copyFeedbackWindow = nil
+            }
+        }
+        copyFeedbackDismissal = dismissal
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.35, execute: dismissal)
+    }
+
+    private func positionFeedbackWindow(_ window: NSWindow) {
+        guard let button = statusItem?.button,
+              let sourceWindow = button.window else {
+            window.center()
+            return
+        }
+
+        let buttonRect = button.convert(button.bounds, to: nil)
+        let screenRect = sourceWindow.convertToScreen(buttonRect)
+        var frame = window.frame
+        frame.origin.x = screenRect.midX - frame.width / 2
+        frame.origin.y = screenRect.minY - frame.height - 8
+
+        if let visibleFrame = sourceWindow.screen?.visibleFrame {
+            frame.origin.x = min(max(frame.origin.x, visibleFrame.minX + 8), visibleFrame.maxX - frame.width - 8)
+            frame.origin.y = max(frame.origin.y, visibleFrame.minY + 8)
+        }
+        window.setFrame(frame, display: true)
     }
 
     private func milestoneShare(from sender: NSMenuItem) -> RepoMilestoneShare? {

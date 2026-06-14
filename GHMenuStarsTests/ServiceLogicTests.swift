@@ -390,6 +390,7 @@ final class ServiceLogicTests: XCTestCase {
         let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual, lastStars: 3, lastDownloads: 90, lastForks: 1)
         repoStore.setTrackedRepo(repo)
         let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        settingsStore.update { $0.selectedMenuBarRepoID = repo.id }
         let updaterController = UpdaterController()
         let pollingService = RepoPollingService(
             repoStore: repoStore,
@@ -419,6 +420,7 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Show in Menu Bar"))
         XCTAssertFalse(titles.contains("Shown in Menu Bar"))
         XCTAssertFalse(titles.contains("Debug: Show Growth Prompt"))
+        XCTAssertTrue(titles.contains("Share Selected Milestone"))
         XCTAssertTrue(titles.contains("Share Milestone"))
         XCTAssertTrue(titles.contains("Copy Stars Text"))
         XCTAssertTrue(titles.contains("Copy Stars Image"))
@@ -435,6 +437,40 @@ final class ServiceLogicTests: XCTestCase {
             (Self.menuItem(titled: "Compose X Downloads Post + Copy Image", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
             .downloads
         )
+    }
+
+    func testStatusMenuHidesTopLevelShareWhenSelectedRepoHasNoMetrics() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        settingsStore.update { $0.selectedMenuBarRepoID = repo.id }
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        let menu = StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
+
+        XCTAssertFalse(Self.menuTitles(in: menu).contains("Share Selected Milestone"))
     }
 
     func testDockActivationPolicySafety() {

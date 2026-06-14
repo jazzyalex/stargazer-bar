@@ -28,6 +28,9 @@ struct StatusMenuBuilder {
         let openItem = actionItem("Open Selected on GitHub", #selector(StatusItemController.openGitHub), target)
         openItem.isEnabled = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID) != nil
         menu.addItem(openItem)
+        if let shareItem = selectedShareMenuItem(target: target) {
+            menu.addItem(shareItem)
+        }
         menu.addItem(displayModeItem(target: target))
         menu.addItem(NSMenuItem.separator())
         let muteItem = actionItem(
@@ -117,7 +120,7 @@ struct StatusMenuBuilder {
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(shareMenuItem(for: repo, target: target))
+        submenu.addItem(shareMenuItem(title: "Share Milestone", for: repo, target: target))
         return submenu
     }
 
@@ -127,8 +130,16 @@ struct StatusMenuBuilder {
         return item
     }
 
-    private func shareMenuItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
-        let item = NSMenuItem(title: "Share Milestone", action: nil, keyEquivalent: "")
+    private func selectedShareMenuItem(target: StatusItemController) -> NSMenuItem? {
+        guard let repo = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID),
+              canShareMilestone(for: repo) else {
+            return nil
+        }
+        return shareMenuItem(title: "Share Selected Milestone", for: repo, target: target)
+    }
+
+    private func shareMenuItem(title: String, for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         let submenu = NSMenu()
 
         for (index, metric) in [MilestoneMetric.stars, .downloads].enumerated() {
@@ -170,6 +181,11 @@ struct StatusMenuBuilder {
         return item
     }
 
+    private func canShareMilestone(for repo: TrackedRepo) -> Bool {
+        RepoMilestoneShare.make(repo: repo, metric: .stars) != nil ||
+            RepoMilestoneShare.make(repo: repo, metric: .downloads) != nil
+    }
+
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         if let imageName {
@@ -202,6 +218,7 @@ private final class RepoTrendView: NSView {
         self.trendRange = trendRange
         super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 142))
         wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
     }
 
     required init?(coder: NSCoder) {
@@ -210,6 +227,10 @@ private final class RepoTrendView: NSView {
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: 310, height: 142)
+    }
+
+    override var isOpaque: Bool {
+        false
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -346,7 +367,7 @@ private final class RepoTrendView: NSView {
         let lineColor = NSColor.separatorColor.withAlphaComponent(0.28)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .regular),
-            .foregroundColor: NSColor.tertiaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor
         ]
 
         for tick in ticks {
@@ -368,7 +389,7 @@ private final class RepoTrendView: NSView {
     private func drawScale(in plot: NSRect, minValue: Int, maxValue: Int) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
-            .foregroundColor: NSColor.tertiaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor
         ]
         let middle = (minValue + maxValue) / 2
         let ticks: [(Int, CGFloat)] = [
@@ -402,7 +423,7 @@ private final class RepoTrendView: NSView {
     private func drawRangeLabels(in plot: NSRect) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
-            .foregroundColor: NSColor.tertiaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor
         ]
         trendRange.axisLabel.draw(in: NSRect(x: plot.minX - 2, y: plot.minY - 23, width: 32, height: 11), withAttributes: attributes)
         "now".draw(in: NSRect(x: plot.maxX - 26, y: plot.minY - 15, width: 28, height: 11), withAttributes: attributes)
