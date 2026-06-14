@@ -314,12 +314,27 @@ final class ServiceLogicTests: XCTestCase {
     }
 
     func testMilestoneRoundingUsesPresetAndHundreds() {
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 3), 3)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 9), 9)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 50), 50)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 99), 50)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 605), 600)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 631), 600)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 1_250), 1_000)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 22_400), 20_000)
+    }
+
+    func testMilestoneShareKeepsRequestedMetric() {
+        let smallRepo = TrackedRepo(owner: "owner", name: "small", source: .manual, lastStars: 3, lastDownloads: 50)
+        let largerRepo = TrackedRepo(owner: "owner", name: "larger", source: .manual, lastStars: 631, lastDownloads: 5_000)
+
+        let smallStars = RepoMilestoneShare.make(repo: smallRepo, metric: .stars)
+        XCTAssertEqual(smallStars?.metric, .stars)
+        XCTAssertEqual(smallStars?.milestoneValue, 3)
+
+        let largerStars = RepoMilestoneShare.make(repo: largerRepo, metric: .stars)
+        XCTAssertEqual(largerStars?.metric, .stars)
+        XCTAssertEqual(largerStars?.milestoneValue, 600)
     }
 
     func testMilestoneShareTextIncludesRoundedAndCurrentCount() {
@@ -406,8 +421,20 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Debug: Show Growth Prompt"))
         XCTAssertTrue(titles.contains("Share Milestone"))
         XCTAssertTrue(titles.contains("Copy Stars Text"))
+        XCTAssertTrue(titles.contains("Copy Stars Image"))
         XCTAssertTrue(titles.contains("Copy Downloads Text"))
-        XCTAssertTrue(titles.contains("Compose X Post + Copy Image"))
+        XCTAssertTrue(titles.contains("Copy Downloads Image"))
+        XCTAssertTrue(titles.contains("Compose X Stars Post + Copy Image"))
+        XCTAssertTrue(titles.contains("Compose X Downloads Post + Copy Image"))
+        XCTAssertFalse(titles.contains("Compose X Post + Copy Image"))
+        XCTAssertEqual(
+            (Self.menuItem(titled: "Compose X Stars Post + Copy Image", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
+            .stars
+        )
+        XCTAssertEqual(
+            (Self.menuItem(titled: "Compose X Downloads Post + Copy Image", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
+            .downloads
+        )
     }
 
     func testDockActivationPolicySafety() {
@@ -511,5 +538,17 @@ final class ServiceLogicTests: XCTestCase {
             guard let submenu = item.submenu else { return title }
             return title + menuTitles(in: submenu)
         }
+    }
+
+    private static func menuItem(titled expectedTitle: String, in menu: NSMenu) -> NSMenuItem? {
+        for item in menu.items {
+            if item.title == expectedTitle {
+                return item
+            }
+            if let submenu = item.submenu, let match = menuItem(titled: expectedTitle, in: submenu) {
+                return match
+            }
+        }
+        return nil
     }
 }

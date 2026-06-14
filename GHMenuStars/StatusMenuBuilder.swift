@@ -131,39 +131,40 @@ struct StatusMenuBuilder {
         let item = NSMenuItem(title: "Share Milestone", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
 
-        for metric in [MilestoneMetric.stars, .downloads] {
+        for (index, metric) in [MilestoneMetric.stars, .downloads].enumerated() {
+            if index > 0 {
+                submenu.addItem(NSMenuItem.separator())
+            }
+
             let request = MilestoneShareRequest(repoID: repo.id, metric: metric)
+            let isEnabled = RepoMilestoneShare.make(repo: repo, metric: metric) != nil
             let copyItem = actionItem(
                 "Copy \(metric.displayName) Text",
                 #selector(StatusItemController.copyMilestoneText(_:)),
                 target,
                 representedObject: request
             )
-            copyItem.isEnabled = RepoMilestoneShare.make(repo: repo, metric: metric) != nil
+            copyItem.isEnabled = isEnabled
             submenu.addItem(copyItem)
+
+            let imageItem = actionItem(
+                "Copy \(metric.displayName) Image",
+                #selector(StatusItemController.copyMilestoneImage(_:)),
+                target,
+                representedObject: request
+            )
+            imageItem.isEnabled = isEnabled
+            submenu.addItem(imageItem)
+
+            let xItem = actionItem(
+                "Compose X \(metric.displayName) Post + Copy Image",
+                #selector(StatusItemController.composeXPostWithMilestoneImage(_:)),
+                target,
+                representedObject: request
+            )
+            xItem.isEnabled = isEnabled
+            submenu.addItem(xItem)
         }
-
-        submenu.addItem(NSMenuItem.separator())
-
-        let preferredMetric: MilestoneMetric = RepoMilestoneShare.make(repo: repo, metric: .downloads) == nil ? .stars : .downloads
-        let preferredRequest = MilestoneShareRequest(repoID: repo.id, metric: preferredMetric)
-        let imageItem = actionItem(
-            "Copy Milestone Image",
-            #selector(StatusItemController.copyMilestoneImage(_:)),
-            target,
-            representedObject: preferredRequest
-        )
-        imageItem.isEnabled = RepoMilestoneShare.make(repo: repo, metric: preferredMetric) != nil
-        submenu.addItem(imageItem)
-
-        let xItem = actionItem(
-            "Compose X Post + Copy Image",
-            #selector(StatusItemController.composeXPostWithMilestoneImage(_:)),
-            target,
-            representedObject: preferredRequest
-        )
-        xItem.isEnabled = imageItem.isEnabled
-        submenu.addItem(xItem)
 
         item.submenu = submenu
         return item
