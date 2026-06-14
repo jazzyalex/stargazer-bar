@@ -100,14 +100,22 @@ private struct GitHubWorkflowRunsResponse: Decodable, Equatable {
 }
 
 private struct GitHubWorkflowRun: Decodable, Equatable {
+    var workflowID: Int?
     var name: String?
     var displayTitle: String?
     var htmlURL: String
+    var status: String?
+    var conclusion: String?
+    var createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
+        case workflowID = "workflow_id"
         case name
         case displayTitle = "display_title"
         case htmlURL = "html_url"
+        case status
+        case conclusion
+        case createdAt = "created_at"
     }
 }
 
@@ -296,15 +304,30 @@ final class GitHubClient {
 
     private func latestFailedWorkflow(owner: String, name: String) async throws -> RepoWorkflowFailure? {
         let result: GitHubHTTPResult<GitHubWorkflowRunsResponse> = try await request(
-            path: "/repos/\(owner)/\(name)/actions/runs?status=failure&per_page=1",
+            path: "/repos/\(owner)/\(name)/actions/runs?per_page=20",
             etag: nil,
             requiresAuth: false
         )
-        guard let run = result.value.workflowRuns.first else { return nil }
-        return RepoWorkflowFailure(
-            name: run.displayTitle ?? run.name ?? "Workflow failure",
-            url: run.htmlURL
-        )
+        let runs = result.value.workflowRuns.sorted {
+            ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+        }
+        var seenWorkflowKeys = Set<String>()
+        for run in runs {
+            let key = run.workflowID.map(String.init) ?? run.name ?? run.htmlURL
+            guard !seenWorkflowKeys.contains(key) else { continue }
+            seenWorkflowKeys.insert(key)
+            guard Self.isFailingWorkflowConclusion(run.conclusion) else { continue }
+            return RepoWorkflowFailure(
+                name: run.name ?? run.displayTitle ?? "Workflow failure",
+                url: run.htmlURL
+            )
+        }
+        return nil
+    }
+
+    private static func isFailingWorkflowConclusion(_ conclusion: String?) -> Bool {
+        guard let conclusion else { return false }
+        return ["action_required", "failure", "startup_failure", "timed_out"].contains(conclusion)
     }
 
     private func request<T: Decodable>(

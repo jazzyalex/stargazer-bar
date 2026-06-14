@@ -188,8 +188,8 @@ final class GitHubModelTests: XCTestCase {
             "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
                 data: Data(#"{"total_count":5,"incomplete_results":false,"items":[]}"#.utf8)
             ),
-            "/repos/owner/repo/actions/runs?status=failure&per_page=1": MockURLProtocol.Response(
-                data: Data(#"{"total_count":1,"workflow_runs":[{"name":"CI","display_title":"Tests","html_url":"https://github.com/owner/repo/actions/runs/1"}]}"#.utf8)
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":1,"workflow_runs":[{"workflow_id":10,"name":"CI","display_title":"Tests","html_url":"https://github.com/owner/repo/actions/runs/1","status":"completed","conclusion":"failure","created_at":"2026-06-13T12:00:00Z"}]}"#.utf8)
             )
         ]
 
@@ -197,9 +197,34 @@ final class GitHubModelTests: XCTestCase {
 
         XCTAssertEqual(radar.openPullRequests, 2)
         XCTAssertEqual(radar.unansweredIssues, 5)
-        XCTAssertEqual(radar.latestFailedWorkflow, RepoWorkflowFailure(name: "Tests", url: "https://github.com/owner/repo/actions/runs/1"))
+        XCTAssertEqual(radar.latestFailedWorkflow, RepoWorkflowFailure(name: "CI", url: "https://github.com/owner/repo/actions/runs/1"))
         XCTAssertTrue(radar.workflowChecked)
         XCTAssertEqual(radar.attentionCount, 8)
+    }
+
+    func testMaintainerRadarIgnoresOlderWorkflowFailureAfterNewerSuccess() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":2,"workflow_runs":[{"workflow_id":10,"name":"CI","display_title":"Tests","html_url":"https://github.com/owner/repo/actions/runs/2","status":"completed","conclusion":"success","created_at":"2026-06-14T12:00:00Z"},{"workflow_id":10,"name":"CI","display_title":"Tests","html_url":"https://github.com/owner/repo/actions/runs/1","status":"completed","conclusion":"failure","created_at":"2026-06-13T12:00:00Z"}]}"#.utf8)
+            )
+        ]
+
+        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo")
+
+        XCTAssertNil(radar.latestFailedWorkflow)
+        XCTAssertTrue(radar.workflowChecked)
+        XCTAssertEqual(radar.attentionCount, 0)
     }
 }
 
