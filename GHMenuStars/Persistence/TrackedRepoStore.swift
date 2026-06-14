@@ -57,6 +57,7 @@ final class TrackedRepoStore: ObservableObject {
                 existing.trendPoints = repo.trendPoints
                 existing.trendRange = repo.trendRange
             }
+            existing.maintainerRadar = repo.maintainerRadar ?? existing.maintainerRadar
             trackedRepos[index] = existing
         } else {
             guard trackedRepos.count < Self.maximumTrackedRepos else {
@@ -118,6 +119,9 @@ final class TrackedRepoStore: ObservableObject {
         if let trendPoints = snapshot.trendPoints {
             repo.trendPoints = trendPoints
             repo.trendRange = snapshot.trendRange
+        }
+        if let maintainerRadar = snapshot.maintainerRadar {
+            repo.maintainerRadar = maintainerRadar
         }
         trackedRepos[index] = repo
         lastDelta = delta

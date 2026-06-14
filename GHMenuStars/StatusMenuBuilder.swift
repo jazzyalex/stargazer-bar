@@ -120,7 +120,10 @@ struct StatusMenuBuilder {
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
         submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(maintainerRadarMenuItem(for: repo, target: target))
+        submenu.addItem(NSMenuItem.separator())
         submenu.addItem(shareMenuItem(title: "Share Milestone", for: repo, target: target))
+        submenu.addItem(openRepoItem(repo, target: target))
         return submenu
     }
 
@@ -184,6 +187,118 @@ struct StatusMenuBuilder {
     private func canShareMilestone(for repo: TrackedRepo) -> Bool {
         RepoMilestoneShare.make(repo: repo, metric: .stars) != nil ||
             RepoMilestoneShare.make(repo: repo, metric: .downloads) != nil
+    }
+
+    private func maintainerRadarMenuItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
+        let radar = repo.maintainerRadar
+        let item = NSMenuItem(title: maintainerRadarTitle(for: radar), action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: maintainerRadarImageName(for: radar), accessibilityDescription: nil)
+        let submenu = NSMenu()
+
+        guard let radar, radar.hasData else {
+            submenu.addItem(titleItem("Check Now to load radar", imageName: "arrow.clockwise"))
+            submenu.addItem(discussionsItem(for: repo, target: target))
+            item.submenu = submenu
+            return item
+        }
+
+        if let workflow = radar.latestFailedWorkflow {
+            submenu.addItem(urlItem(
+                "CI failing: \(workflow.name)",
+                imageName: "xmark.circle.fill",
+                url: URL(string: workflow.url) ?? gitHubURL(for: repo, path: "/actions"),
+                target: target
+            ))
+        } else if radar.workflowChecked {
+            submenu.addItem(titleItem("CI clear", imageName: "checkmark.circle"))
+        }
+
+        if let openPullRequests = radar.openPullRequests {
+            submenu.addItem(urlItem(
+                "\(openPullRequests) open \(openPullRequests == 1 ? "PR" : "PRs")",
+                imageName: openPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
+                url: gitHubURL(for: repo, path: "/pulls", query: "is:pr is:open"),
+                target: target,
+                enabled: true
+            ))
+        }
+
+        if let unansweredIssues = radar.unansweredIssues {
+            submenu.addItem(urlItem(
+                "\(unansweredIssues) unanswered \(unansweredIssues == 1 ? "issue" : "issues")",
+                imageName: unansweredIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
+                url: gitHubURL(for: repo, path: "/issues", query: "is:issue is:open comments:0"),
+                target: target,
+                enabled: true
+            ))
+        }
+
+        submenu.addItem(discussionsItem(for: repo, target: target))
+        submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(titleItem("Updated \(RelativeDateTimeFormatter.menu.string(for: radar.checkedAt) ?? "recently")"))
+        item.submenu = submenu
+        return item
+    }
+
+    private func maintainerRadarTitle(for radar: RepoMaintainerRadar?) -> String {
+        guard let radar, radar.hasData else { return "Maintainer Radar" }
+        let count = radar.attentionCount
+        if count == 0 {
+            return "Maintainer Radar: Clear"
+        }
+        return "Maintainer Radar: \(count) \(count == 1 ? "item" : "items")"
+    }
+
+    private func maintainerRadarImageName(for radar: RepoMaintainerRadar?) -> String {
+        guard let radar, radar.hasData else { return "dot.radiowaves.left.and.right" }
+        return radar.attentionCount == 0 ? "checkmark.circle" : "exclamationmark.circle"
+    }
+
+    private func discussionsItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
+        urlItem(
+            "Discussion topics",
+            imageName: "bubble.left.and.bubble.right",
+            url: gitHubURL(for: repo, path: "/discussions"),
+            target: target
+        )
+    }
+
+    private func openRepoItem(_ repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
+        urlItem(
+            "Open on GitHub",
+            imageName: "safari",
+            url: gitHubURL(for: repo),
+            target: target
+        )
+    }
+
+    private func urlItem(
+        _ title: String,
+        imageName: String,
+        url: URL?,
+        target: StatusItemController,
+        enabled: Bool = true
+    ) -> NSMenuItem {
+        let item = actionItem(
+            title,
+            #selector(StatusItemController.openRepresentedURL(_:)),
+            target,
+            representedObject: url
+        )
+        item.image = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
+        item.isEnabled = enabled && url != nil
+        return item
+    }
+
+    private func gitHubURL(for repo: TrackedRepo, path: String = "", query: String? = nil) -> URL? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "github.com"
+        components.path = "/\(repo.owner)/\(repo.name)\(path)"
+        if let query {
+            components.queryItems = [URLQueryItem(name: "q", value: query)]
+        }
+        return components.url
     }
 
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {

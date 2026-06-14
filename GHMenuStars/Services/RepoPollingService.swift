@@ -138,12 +138,16 @@ final class RepoPollingService {
             }
 
             let checkedAt = Date()
-            let trendPoints = await fetchTrendPointsIfNeeded(
+            async let trendPoints = fetchTrendPointsIfNeeded(
                 for: repo,
                 stars: stars,
                 forks: forks,
                 checkedAt: checkedAt
             )
+            async let maintainerRadar = gitHubClient.fetchMaintainerRadar(owner: repo.owner, name: repo.name)
+            let resolvedTrendPoints = await trendPoints
+            let resolvedMaintainerRadar = await maintainerRadar
+            let radarSnapshot = resolvedMaintainerRadar.hasData ? resolvedMaintainerRadar : nil
             let snapshot = RepoSnapshot(
                 stars: stars,
                 releaseDownloads: downloads,
@@ -151,8 +155,9 @@ final class RepoPollingService {
                 checkedAt: checkedAt,
                 repoETag: repoETag,
                 releasesETag: releasesETag,
-                trendPoints: trendPoints,
-                trendRange: trendPoints == nil ? nil : .all
+                trendPoints: resolvedTrendPoints,
+                trendRange: resolvedTrendPoints == nil ? nil : .all,
+                maintainerRadar: radarSnapshot
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)

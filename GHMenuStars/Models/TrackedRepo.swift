@@ -6,6 +6,29 @@ struct RepoTrendPoint: Codable, Equatable {
     var forks: Int
 }
 
+struct RepoWorkflowFailure: Codable, Equatable {
+    var name: String
+    var url: String
+}
+
+struct RepoMaintainerRadar: Codable, Equatable {
+    var openPullRequests: Int?
+    var unansweredIssues: Int?
+    var latestFailedWorkflow: RepoWorkflowFailure?
+    var workflowChecked: Bool
+    var checkedAt: Date
+
+    var hasData: Bool {
+        openPullRequests != nil || unansweredIssues != nil || workflowChecked
+    }
+
+    var attentionCount: Int {
+        (openPullRequests ?? 0) +
+            (unansweredIssues ?? 0) +
+            (latestFailedWorkflow == nil ? 0 : 1)
+    }
+}
+
 struct RepoTrendAxisTick: Equatable {
     var date: Date
     var label: String
@@ -213,6 +236,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var starSound: StarSound
     var trendPoints: [RepoTrendPoint]
     var trendRange: RepoTrendRange?
+    var maintainerRadar: RepoMaintainerRadar?
     var starAskPromptStatus: StarAskPromptStatus
     var lastStarAskPromptedAt: Date?
 
@@ -237,6 +261,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case starSound
         case trendPoints
         case trendRange
+        case maintainerRadar
         case starAskPromptStatus
         case lastStarAskPromptedAt
     }
@@ -262,6 +287,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         starSound: StarSound = .glass,
         trendPoints: [RepoTrendPoint] = [],
         trendRange: RepoTrendRange? = nil,
+        maintainerRadar: RepoMaintainerRadar? = nil,
         starAskPromptStatus: StarAskPromptStatus = .notShown,
         lastStarAskPromptedAt: Date? = nil
     ) {
@@ -285,6 +311,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.starSound = starSound
         self.trendPoints = trendPoints
         self.trendRange = trendRange
+        self.maintainerRadar = maintainerRadar
         self.starAskPromptStatus = starAskPromptStatus
         self.lastStarAskPromptedAt = lastStarAskPromptedAt
     }
@@ -311,6 +338,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
         trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
+        maintainerRadar = try container.decodeIfPresent(RepoMaintainerRadar.self, forKey: .maintainerRadar)
         starAskPromptStatus = try container.decodeIfPresent(StarAskPromptStatus.self, forKey: .starAskPromptStatus) ?? .notShown
         lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
     }

@@ -107,6 +107,11 @@ final class StatusItemController: NSObject {
         NSWorkspace.shared.open(AppExternalLinks.gitHubRepository)
     }
 
+    @objc func openRepresentedURL(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     @objc func copyMilestoneText(_ sender: NSMenuItem) {
         guard let share = milestoneShare(from: sender) else { return }
         NSPasteboard.general.clearContents()

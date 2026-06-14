@@ -473,6 +473,59 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(Self.menuTitles(in: menu).contains("Share Selected Milestone"))
     }
 
+    func testStatusMenuShowsMaintainerRadarPerRepo() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(
+            owner: "owner",
+            name: "repo",
+            source: .manual,
+            maintainerRadar: RepoMaintainerRadar(
+                openPullRequests: 2,
+                unansweredIssues: 5,
+                latestFailedWorkflow: RepoWorkflowFailure(name: "Tests", url: "https://github.com/owner/repo/actions/runs/1"),
+                workflowChecked: true,
+                checkedAt: Date()
+            )
+        )
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        let menu = StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
+        let titles = Self.menuTitles(in: menu)
+
+        XCTAssertTrue(titles.contains("Maintainer Radar: 8 items"))
+        XCTAssertTrue(titles.contains("CI failing: Tests"))
+        XCTAssertTrue(titles.contains("2 open PRs"))
+        XCTAssertTrue(titles.contains("5 unanswered issues"))
+        XCTAssertTrue(titles.contains("Discussion topics"))
+        XCTAssertEqual(
+            (Self.menuItem(titled: "2 open PRs", in: menu)?.representedObject as? URL)?.absoluteString,
+            "https://github.com/owner/repo/pulls?q=is:pr%20is:open"
+        )
+    }
+
     func testDockActivationPolicySafety() {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: true), .accessory)
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: false), .regular)

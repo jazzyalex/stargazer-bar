@@ -83,6 +83,34 @@ struct GitHubFork: Decodable, Equatable {
     }
 }
 
+private struct GitHubSearchCount: Decodable, Equatable {
+    var totalCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case totalCount = "total_count"
+    }
+}
+
+private struct GitHubWorkflowRunsResponse: Decodable, Equatable {
+    var workflowRuns: [GitHubWorkflowRun]
+
+    enum CodingKeys: String, CodingKey {
+        case workflowRuns = "workflow_runs"
+    }
+}
+
+private struct GitHubWorkflowRun: Decodable, Equatable {
+    var name: String?
+    var displayTitle: String?
+    var htmlURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case displayTitle = "display_title"
+        case htmlURL = "html_url"
+    }
+}
+
 struct GitHubRepoSummary: Decodable, Identifiable, Equatable {
     struct Owner: Decodable, Equatable {
         var login: String
@@ -223,6 +251,62 @@ final class GitHubClient {
         return repos
     }
 
+    func fetchMaintainerRadar(owner: String, name: String) async -> RepoMaintainerRadar {
+        async let openPullRequests = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:pr is:open")
+        async let unansweredIssues = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:issue is:open comments:0")
+        async let workflowFailure = optionalLatestFailedWorkflow(owner: owner, name: name)
+        let (pullRequests, issues, workflow) = await (openPullRequests, unansweredIssues, workflowFailure)
+
+        return RepoMaintainerRadar(
+            openPullRequests: pullRequests,
+            unansweredIssues: issues,
+            latestFailedWorkflow: workflow.failure,
+            workflowChecked: workflow.checked,
+            checkedAt: Date()
+        )
+    }
+
+    private func optionalSearchIssueCount(query: String) async -> Int? {
+        do {
+            return try await searchIssueCount(query: query)
+        } catch {
+            return nil
+        }
+    }
+
+    private func searchIssueCount(query: String) async throws -> Int {
+        let result: GitHubHTTPResult<GitHubSearchCount> = try await request(
+            path: Self.path("/search/issues", queryItems: [
+                URLQueryItem(name: "q", value: query),
+                URLQueryItem(name: "per_page", value: "1")
+            ]),
+            etag: nil,
+            requiresAuth: false
+        )
+        return result.value.totalCount
+    }
+
+    private func optionalLatestFailedWorkflow(owner: String, name: String) async -> (checked: Bool, failure: RepoWorkflowFailure?) {
+        do {
+            return (true, try await latestFailedWorkflow(owner: owner, name: name))
+        } catch {
+            return (false, nil)
+        }
+    }
+
+    private func latestFailedWorkflow(owner: String, name: String) async throws -> RepoWorkflowFailure? {
+        let result: GitHubHTTPResult<GitHubWorkflowRunsResponse> = try await request(
+            path: "/repos/\(owner)/\(name)/actions/runs?status=failure&per_page=1",
+            etag: nil,
+            requiresAuth: false
+        )
+        guard let run = result.value.workflowRuns.first else { return nil }
+        return RepoWorkflowFailure(
+            name: run.displayTitle ?? run.name ?? "Workflow failure",
+            url: run.htmlURL
+        )
+    }
+
     private func request<T: Decodable>(
         path: String,
         etag: String?,
@@ -356,5 +440,12 @@ final class GitHubClient {
             entries.append(entry)
         }
         return entries
+    }
+
+    private static func path(_ path: String, queryItems: [URLQueryItem]) -> String {
+        var components = URLComponents()
+        components.path = path
+        components.queryItems = queryItems
+        return components.string ?? path
     }
 }

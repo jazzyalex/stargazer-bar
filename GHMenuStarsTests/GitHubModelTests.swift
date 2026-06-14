@@ -174,6 +174,33 @@ final class GitHubModelTests: XCTestCase {
             "/repos/owner/repo/forks?sort=newest&per_page=100&page=2"
         ])
     }
+
+    func testMaintainerRadarFetchesPublicCountsAndFailedWorkflow() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":2,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":5,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?status=failure&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":1,"workflow_runs":[{"name":"CI","display_title":"Tests","html_url":"https://github.com/owner/repo/actions/runs/1"}]}"#.utf8)
+            )
+        ]
+
+        let radar = await client.fetchMaintainerRadar(owner: "owner", name: "repo")
+
+        XCTAssertEqual(radar.openPullRequests, 2)
+        XCTAssertEqual(radar.unansweredIssues, 5)
+        XCTAssertEqual(radar.latestFailedWorkflow, RepoWorkflowFailure(name: "Tests", url: "https://github.com/owner/repo/actions/runs/1"))
+        XCTAssertTrue(radar.workflowChecked)
+        XCTAssertEqual(radar.attentionCount, 8)
+    }
 }
 
 private final class MockURLProtocol: URLProtocol {

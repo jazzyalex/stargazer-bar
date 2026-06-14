@@ -9,4 +9,5 @@ struct RepoSnapshot: Equatable {
     var releasesETag: String?
     var trendPoints: [RepoTrendPoint]? = nil
     var trendRange: RepoTrendRange? = nil
+    var maintainerRadar: RepoMaintainerRadar? = nil
 }
