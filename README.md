@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/og-banner.png" alt="Stargazer Bar — GitHub stars in your menu bar" width="780">
+<img src="docs/assets/og-banner.png" alt="Stargazer Bar — GitHub stars, trends, and maintainer radar in your menu bar" width="780">
 
 <h1>Stargazer Bar</h1>
 
@@ -48,6 +48,7 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 - ⭐ &nbsp;Live star counts for multiple public repos in your menu bar — no browser tab required
 - 📦 &nbsp;Release download totals from GitHub's latest releases API page (up to 100 releases)
 - 📈 &nbsp;Per-repo star and fork trend charts directly in the menu
+- 🧭 &nbsp;Maintainer radar for CI status, recent commits, new PRs/issues, and unanswered issues
 - 🖼️ &nbsp;Copy milestone text or a square share image when a repo passes a rounded download/star mark
 - 🔔 &nbsp;Per-repository star sounds, so each tracked project can have its own update cue
 - 🔑 &nbsp;Track any public repo manually without a GitHub account; sign-in only powers the repo picker
@@ -56,7 +57,7 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 - 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way
 
 <div align="center">
-  <img src="docs/assets/hero-stage.png" alt="Stargazer Bar menu showing multiple tracked repositories" width="560">
+  <img src="docs/assets/hero-stage.png" alt="Stargazer Bar menu showing multiple tracked repositories, a star/fork trend graph, and maintainer radar rows" width="560">
 </div>
 
 ## Privacy

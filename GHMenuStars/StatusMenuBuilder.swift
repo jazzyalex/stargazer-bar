@@ -209,50 +209,60 @@ struct StatusMenuBuilder {
             let label = window.menuLabel
             let since = window.startDate(now: radar.checkedAt)
             if let newPullRequests = radar.newPullRequests {
+                let count = Self.formattedCount(newPullRequests)
                 submenu.addItem(urlItem(
-                    "\(newPullRequests) new \(newPullRequests == 1 ? "PR" : "PRs") \(label)",
+                    "\(count) new \(newPullRequests == 1 ? "PR" : "PRs") \(label)",
                     imageName: newPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
                     url: gitHubURL(for: repo, path: "/pulls", query: activityQuery(kind: "is:pr", since: since)),
-                    target: target
+                    target: target,
+                    emphasizedText: newPullRequests > 0 ? count : nil
                 ))
             }
 
             if let newIssues = radar.newIssues {
+                let count = Self.formattedCount(newIssues)
                 submenu.addItem(urlItem(
-                    "\(newIssues) new \(newIssues == 1 ? "issue" : "issues") \(label)",
+                    "\(count) new \(newIssues == 1 ? "issue" : "issues") \(label)",
                     imageName: newIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
                     url: gitHubURL(for: repo, path: "/issues", query: activityQuery(kind: "is:issue", since: since)),
-                    target: target
+                    target: target,
+                    emphasizedText: newIssues > 0 ? count : nil
                 ))
             }
 
             if let recentCommits = radar.recentCommits {
+                let count = Self.formattedCount(recentCommits)
                 submenu.addItem(urlItem(
-                    "\(recentCommits) \(recentCommits == 1 ? "commit" : "commits") \(label)",
+                    "\(count) \(recentCommits == 1 ? "commit" : "commits") \(label)",
                     imageName: recentCommits == 0 ? "checkmark.circle" : "point.3.connected.trianglepath.dotted",
                     url: gitHubURL(for: repo, path: "/commits"),
-                    target: target
+                    target: target,
+                    emphasizedText: recentCommits > 0 ? count : nil
                 ))
             }
         }
 
         if let openPullRequests = radar.openPullRequests {
+            let count = Self.formattedCount(openPullRequests)
             submenu.addItem(urlItem(
-                "\(openPullRequests) open \(openPullRequests == 1 ? "PR" : "PRs")",
+                "\(count) open \(openPullRequests == 1 ? "PR" : "PRs")",
                 imageName: openPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
                 url: gitHubURL(for: repo, path: "/pulls", query: "is:pr is:open"),
                 target: target,
-                enabled: true
+                enabled: true,
+                emphasizedText: openPullRequests > 0 ? count : nil
             ))
         }
 
         if let unansweredIssues = radar.unansweredIssues {
+            let count = Self.formattedCount(unansweredIssues)
             submenu.addItem(urlItem(
-                "\(unansweredIssues) \(unansweredIssues == 1 ? "issue" : "issues") need first reply",
+                "\(count) \(unansweredIssues == 1 ? "issue" : "issues") need first reply",
                 imageName: unansweredIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
                 url: gitHubURL(for: repo, path: "/issues", query: "is:issue is:open comments:0"),
                 target: target,
-                enabled: true
+                enabled: true,
+                emphasizedText: unansweredIssues > 0 ? count : nil
             ))
         }
 
@@ -284,7 +294,8 @@ struct StatusMenuBuilder {
         imageName: String,
         url: URL?,
         target: StatusItemController,
-        enabled: Bool = true
+        enabled: Bool = true,
+        emphasizedText: String? = nil
     ) -> NSMenuItem {
         let item = actionItem(
             title,
@@ -292,6 +303,9 @@ struct StatusMenuBuilder {
             target,
             representedObject: url
         )
+        if let emphasizedText {
+            item.attributedTitle = Self.attributedMenuTitle(title, emphasizedText: emphasizedText)
+        }
         item.image = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
         item.isEnabled = enabled && url != nil
         return item
@@ -315,6 +329,24 @@ struct StatusMenuBuilder {
 
     private static func iso8601String(from date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
+    }
+
+    private static func formattedCount(_ count: Int) -> String {
+        NumberFormatter.menuInteger.string(from: NSNumber(value: count)) ?? "\(count)"
+    }
+
+    private static func attributedMenuTitle(_ title: String, emphasizedText: String) -> NSAttributedString {
+        let regularFont = NSFont.menuFont(ofSize: 0)
+        let boldFont = NSFont.boldSystemFont(ofSize: regularFont.pointSize)
+        let attributed = NSMutableAttributedString(
+            string: title,
+            attributes: [.font: regularFont]
+        )
+        let range = (title as NSString).range(of: emphasizedText)
+        if range.location != NSNotFound {
+            attributed.addAttribute(.font, value: boldFont, range: range)
+        }
+        return attributed
     }
 
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {

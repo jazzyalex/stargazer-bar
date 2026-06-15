@@ -50,6 +50,7 @@ struct KeychainTokenStore {
             let context = LAContext()
             context.interactionNotAllowed = true
             query[kSecUseAuthenticationContext as String] = context
+            query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUISkip
         }
         var result: AnyObject?
         let status = copyMatching(query as CFDictionary, &result)

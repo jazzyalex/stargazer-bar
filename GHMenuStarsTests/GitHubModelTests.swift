@@ -31,7 +31,11 @@ final class GitHubModelTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let session = URLSession(configuration: configuration)
-        let client = GitHubClient(session: session, tokenProvider: { "token" })
+        var tokenProviderCallCount = 0
+        let client = GitHubClient(session: session, tokenProvider: {
+            tokenProviderCallCount += 1
+            return "token"
+        })
 
         MockURLProtocol.responses = [
             "/user/repos?visibility=public&affiliation=owner,collaborator&sort=updated&per_page=100": MockURLProtocol.Response(
@@ -48,6 +52,7 @@ final class GitHubModelTests: XCTestCase {
         let repos = try await client.fetchAccessiblePublicRepos()
 
         XCTAssertEqual(repos.map(\.fullName), ["owner/one", "owner/two"])
+        XCTAssertEqual(tokenProviderCallCount, 2)
         XCTAssertEqual(MockURLProtocol.requestedPaths, [
             "/user/repos?visibility=public&affiliation=owner,collaborator&sort=updated&per_page=100",
             "/user/repos?visibility=public&affiliation=owner,collaborator&sort=updated&per_page=100&page=2"
@@ -80,7 +85,11 @@ final class GitHubModelTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let session = URLSession(configuration: configuration)
-        let client = GitHubClient(session: session, tokenProvider: { "token" })
+        var optionalTokenProviderCallCount = 0
+        let client = GitHubClient(session: session, optionalTokenProvider: {
+            optionalTokenProviderCallCount += 1
+            return "token"
+        })
 
         MockURLProtocol.responses = [
             "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
@@ -96,8 +105,37 @@ final class GitHubModelTests: XCTestCase {
 
         _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
 
+        XCTAssertEqual(optionalTokenProviderCallCount, 1)
         XCTAssertEqual(MockURLProtocol.requestedAuthorizations.count, 3)
         XCTAssertTrue(MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer token" })
+    }
+
+    func testMaintainerRadarDoesNotReadRequiredTokenProviderForOptionalAuth() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        var tokenProviderCallCount = 0
+        let client = GitHubClient(session: session, tokenProvider: {
+            tokenProviderCallCount += 1
+            return "token"
+        })
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
+
+        XCTAssertEqual(tokenProviderCallCount, 0)
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, [nil, nil, nil])
     }
 
     func testStargazerHistoryUsesStarAcceptAndWalksBackFromLastPage() async throws {

@@ -152,11 +152,17 @@ struct GitHubHTTPResult<T> {
 final class GitHubClient {
     private let session: URLSession
     private let tokenProvider: () -> String?
+    private let optionalTokenProvider: () -> String?
     private let decoder: JSONDecoder
 
-    init(session: URLSession = .shared, tokenProvider: @escaping () -> String? = { nil }) {
+    init(
+        session: URLSession = .shared,
+        tokenProvider: @escaping () -> String? = { nil },
+        optionalTokenProvider: @escaping () -> String? = { nil }
+    ) {
         self.session = session
         self.tokenProvider = tokenProvider
+        self.optionalTokenProvider = optionalTokenProvider
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
@@ -270,22 +276,40 @@ final class GitHubClient {
         now: Date = Date()
     ) async -> RepoMaintainerRadar {
         let activityStart = activityWindow.startDate(now: now)
-        async let openPullRequests = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:pr is:open")
+        let optionalAuthToken = optionalTokenProvider()
+        async let openPullRequests = optionalSearchIssueCount(
+            query: "repo:\(owner)/\(name) is:pr is:open",
+            optionalAuthToken: optionalAuthToken
+        )
         async let newPullRequests = optionalActivityCount(
             owner: owner,
             name: name,
             kind: .pullRequest,
-            since: activityStart
+            since: activityStart,
+            optionalAuthToken: optionalAuthToken
         )
         async let newIssues = optionalActivityCount(
             owner: owner,
             name: name,
             kind: .issue,
-            since: activityStart
+            since: activityStart,
+            optionalAuthToken: optionalAuthToken
         )
-        async let unansweredIssues = optionalSearchIssueCount(query: "repo:\(owner)/\(name) is:issue is:open comments:0")
-        async let recentCommits = optionalCommitCount(owner: owner, name: name, since: activityStart)
-        async let workflowFailure = optionalLatestFailedWorkflow(owner: owner, name: name)
+        async let unansweredIssues = optionalSearchIssueCount(
+            query: "repo:\(owner)/\(name) is:issue is:open comments:0",
+            optionalAuthToken: optionalAuthToken
+        )
+        async let recentCommits = optionalCommitCount(
+            owner: owner,
+            name: name,
+            since: activityStart,
+            optionalAuthToken: optionalAuthToken
+        )
+        async let workflowFailure = optionalLatestFailedWorkflow(
+            owner: owner,
+            name: name,
+            optionalAuthToken: optionalAuthToken
+        )
         let (pullRequests, freshPullRequests, freshIssues, needsReply, commits, workflow) = await (
             openPullRequests,
             newPullRequests,
@@ -320,21 +344,27 @@ final class GitHubClient {
         }
     }
 
-    private func optionalActivityCount(owner: String, name: String, kind: ActivityKind, since: Date?) async -> Int? {
+    private func optionalActivityCount(
+        owner: String,
+        name: String,
+        kind: ActivityKind,
+        since: Date?,
+        optionalAuthToken: String?
+    ) async -> Int? {
         guard let since else { return nil }
         let query = "repo:\(owner)/\(name) \(kind.searchQualifier) is:open created:>=\(Self.iso8601String(from: since))"
-        return await optionalSearchIssueCount(query: query)
+        return await optionalSearchIssueCount(query: query, optionalAuthToken: optionalAuthToken)
     }
 
-    private func optionalSearchIssueCount(query: String) async -> Int? {
+    private func optionalSearchIssueCount(query: String, optionalAuthToken: String?) async -> Int? {
         do {
-            return try await searchIssueCount(query: query)
+            return try await searchIssueCount(query: query, optionalAuthToken: optionalAuthToken)
         } catch {
             return nil
         }
     }
 
-    private func searchIssueCount(query: String) async throws -> Int {
+    private func searchIssueCount(query: String, optionalAuthToken: String?) async throws -> Int {
         let result: GitHubHTTPResult<GitHubSearchCount> = try await request(
             path: Self.path("/search/issues", queryItems: [
                 URLQueryItem(name: "q", value: query),
@@ -342,21 +372,26 @@ final class GitHubClient {
             ]),
             etag: nil,
             requiresAuth: false,
-            allowsOptionalAuth: true
+            optionalAuthToken: optionalAuthToken
         )
         return result.value.totalCount
     }
 
-    private func optionalCommitCount(owner: String, name: String, since: Date?) async -> Int? {
+    private func optionalCommitCount(
+        owner: String,
+        name: String,
+        since: Date?,
+        optionalAuthToken: String?
+    ) async -> Int? {
         guard let since else { return nil }
         do {
-            return try await commitCount(owner: owner, name: name, since: since)
+            return try await commitCount(owner: owner, name: name, since: since, optionalAuthToken: optionalAuthToken)
         } catch {
             return nil
         }
     }
 
-    private func commitCount(owner: String, name: String, since: Date) async throws -> Int {
+    private func commitCount(owner: String, name: String, since: Date, optionalAuthToken: String?) async throws -> Int {
         let result: GitHubHTTPResult<[GitHubCommitSummary]> = try await request(
             path: Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
                 URLQueryItem(name: "since", value: ISO8601DateFormatter().string(from: since)),
@@ -364,7 +399,7 @@ final class GitHubClient {
             ]),
             etag: nil,
             requiresAuth: false,
-            allowsOptionalAuth: true
+            optionalAuthToken: optionalAuthToken
         )
         if let lastPage = Self.pageNumber(from: result.lastPagePath) {
             return lastPage
@@ -372,20 +407,28 @@ final class GitHubClient {
         return result.value.count
     }
 
-    private func optionalLatestFailedWorkflow(owner: String, name: String) async -> (checked: Bool, failure: RepoWorkflowFailure?) {
+    private func optionalLatestFailedWorkflow(
+        owner: String,
+        name: String,
+        optionalAuthToken: String?
+    ) async -> (checked: Bool, failure: RepoWorkflowFailure?) {
         do {
-            return (true, try await latestFailedWorkflow(owner: owner, name: name))
+            return (true, try await latestFailedWorkflow(owner: owner, name: name, optionalAuthToken: optionalAuthToken))
         } catch {
             return (false, nil)
         }
     }
 
-    private func latestFailedWorkflow(owner: String, name: String) async throws -> RepoWorkflowFailure? {
+    private func latestFailedWorkflow(
+        owner: String,
+        name: String,
+        optionalAuthToken: String?
+    ) async throws -> RepoWorkflowFailure? {
         let result: GitHubHTTPResult<GitHubWorkflowRunsResponse> = try await request(
             path: "/repos/\(owner)/\(name)/actions/runs?per_page=20",
             etag: nil,
             requiresAuth: false,
-            allowsOptionalAuth: true
+            optionalAuthToken: optionalAuthToken
         )
         let runs = result.value.workflowRuns.sorted {
             ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
@@ -414,7 +457,7 @@ final class GitHubClient {
         etag: String?,
         requiresAuth: Bool,
         accept: String = "application/vnd.github+json",
-        allowsOptionalAuth: Bool = false
+        optionalAuthToken: String? = nil
     ) async throws -> GitHubHTTPResult<T> {
         guard let url = URL(string: "https://api.github.com\(path)") else {
             throw GitHubError.transport("Invalid URL")
@@ -431,7 +474,7 @@ final class GitHubClient {
                 throw GitHubError.missingToken
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else if allowsOptionalAuth, let token = tokenProvider() {
+        } else if let token = optionalAuthToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 

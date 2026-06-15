@@ -532,6 +532,63 @@ final class ServiceLogicTests: XCTestCase {
             (Self.menuItem(titled: "2 open PRs", in: menu)?.representedObject as? URL)?.absoluteString,
             "https://github.com/owner/repo/pulls?q=is:pr%20is:open"
         )
+        XCTAssertTrue(Self.menuItem(titled: "1 new PR last 24h", in: menu)?.hasBoldPrefix("1") == true)
+        XCTAssertTrue(Self.menuItem(titled: "3 new issues last 24h", in: menu)?.hasBoldPrefix("3") == true)
+        XCTAssertTrue(Self.menuItem(titled: "7 commits last 24h", in: menu)?.hasBoldPrefix("7") == true)
+        XCTAssertTrue(Self.menuItem(titled: "2 open PRs", in: menu)?.hasBoldPrefix("2") == true)
+        XCTAssertTrue(Self.menuItem(titled: "5 issues need first reply", in: menu)?.hasBoldPrefix("5") == true)
+    }
+
+    func testStatusMenuKeepsZeroRadarCountsRegular() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(
+            owner: "owner",
+            name: "repo",
+            source: .manual,
+            maintainerRadar: RepoMaintainerRadar(
+                openPullRequests: 0,
+                newPullRequests: 0,
+                newIssues: 0,
+                unansweredIssues: 0,
+                recentCommits: 0,
+                activityWindow: .oneDay,
+                latestFailedWorkflow: nil,
+                workflowChecked: true,
+                checkedAt: Date()
+            )
+        )
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        let menu = StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
+
+        XCTAssertFalse(Self.menuItem(titled: "0 new PRs last 24h", in: menu)?.hasBoldPrefix("0") == true)
+        XCTAssertFalse(Self.menuItem(titled: "0 new issues last 24h", in: menu)?.hasBoldPrefix("0") == true)
+        XCTAssertFalse(Self.menuItem(titled: "0 commits last 24h", in: menu)?.hasBoldPrefix("0") == true)
+        XCTAssertFalse(Self.menuItem(titled: "0 open PRs", in: menu)?.hasBoldPrefix("0") == true)
+        XCTAssertFalse(Self.menuItem(titled: "0 issues need first reply", in: menu)?.hasBoldPrefix("0") == true)
     }
 
     func testDockActivationPolicySafety() {
@@ -627,6 +684,7 @@ final class ServiceLogicTests: XCTestCase {
 
         XCTAssertNil(try store.loadToken(allowUserInteraction: false))
         XCTAssertNotNil(capturedQuery[kSecUseAuthenticationContext as String])
+        XCTAssertEqual(capturedQuery[kSecUseAuthenticationUI as String] as? String, kSecUseAuthenticationUISkip as String)
     }
 
     private static func menuTitles(in menu: NSMenu) -> [String] {
@@ -647,5 +705,16 @@ final class ServiceLogicTests: XCTestCase {
             }
         }
         return nil
+    }
+}
+
+private extension NSMenuItem {
+    func hasBoldPrefix(_ prefix: String) -> Bool {
+        guard let attributedTitle,
+              attributedTitle.string.hasPrefix(prefix),
+              let font = attributedTitle.attribute(.font, at: 0, effectiveRange: nil) as? NSFont else {
+            return false
+        }
+        return font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold)
     }
 }
