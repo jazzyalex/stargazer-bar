@@ -165,6 +165,12 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func clearExpiredRateLimit() {
+        guard let state = rateLimitState, !state.isLimited else { return }
+        rateLimitState = nil
+        saveAll()
+    }
+
     private func saveAll() {
         encode(trackedRepos, key: reposKey)
         encode(lastDelta, key: deltaKey)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.3.1] - 2026-06-14
+
+### Fixes
+- Use the saved GitHub token for background public repository polling so star counts, release downloads, trends, and maintainer radar use the higher authenticated API quota when connected.
+- Retry rate-limited refreshes at GitHub's reset time and clear expired rate-limit state before polling again.
+
 ## [0.3] - 2026-06-14
 
 ### Features

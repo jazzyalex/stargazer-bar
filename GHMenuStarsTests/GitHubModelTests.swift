@@ -79,6 +79,30 @@ final class GitHubModelTests: XCTestCase {
 
         XCTAssertEqual(result.value.fullName, "owner/repo")
         XCTAssertEqual(tokenProviderCallCount, 0)
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, [nil])
+    }
+
+    func testPublicRepoFetchUsesOptionalTokenWhenAvailable() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        var optionalTokenProviderCallCount = 0
+        let client = GitHubClient(session: session, optionalTokenProvider: {
+            optionalTokenProviderCallCount += 1
+            return "token"
+        })
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo": MockURLProtocol.Response(
+                data: Data(#"{"full_name":"owner/repo","stargazers_count":12,"forks_count":3,"private":false}"#.utf8)
+            )
+        ]
+
+        let result = try await client.fetchRepo(owner: "owner", name: "repo", etag: nil)
+
+        XCTAssertEqual(result.value.stargazersCount, 12)
+        XCTAssertEqual(optionalTokenProviderCallCount, 1)
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer token"])
     }
 
     func testMaintainerRadarUsesOptionalTokenForPublicEndpoints() async throws {

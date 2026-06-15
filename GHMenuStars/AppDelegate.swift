@@ -6,9 +6,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsStore = SettingsStore()
     private let repoStore = TrackedRepoStore()
     private let updaterController = UpdaterController()
-    private lazy var gitHubClient = GitHubClient(tokenProvider: {
-        KeychainTokenStore.loadGitHubOAuthToken()
-    })
+    private lazy var gitHubClient = GitHubClient(
+        tokenProvider: {
+            KeychainTokenStore.loadGitHubOAuthToken()
+        },
+        optionalTokenProvider: {
+            KeychainTokenStore.loadGitHubOAuthToken()
+        }
+    )
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,
         settingsStore: settingsStore,

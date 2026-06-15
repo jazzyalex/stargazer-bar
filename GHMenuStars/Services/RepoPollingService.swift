@@ -67,7 +67,11 @@ final class RepoPollingService {
         guard !isRefreshing else { return }
         let repos = repoStore.trackedRepos
         guard !repos.isEmpty else { return }
-        if let rate = repoStore.rateLimitState, rate.isLimited { return }
+        repoStore.clearExpiredRateLimit()
+        if let rate = repoStore.rateLimitState, rate.isLimited {
+            scheduleTimer()
+            return
+        }
 
         isRefreshing = true
         Task {
@@ -87,7 +91,11 @@ final class RepoPollingService {
     func refreshNow(repoID: UUID) {
         guard !isRefreshing else { return }
         guard let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) else { return }
-        if let rate = repoStore.rateLimitState, rate.isLimited { return }
+        repoStore.clearExpiredRateLimit()
+        if let rate = repoStore.rateLimitState, rate.isLimited {
+            scheduleTimer()
+            return
+        }
 
         isRefreshing = true
         Task {
@@ -103,15 +111,25 @@ final class RepoPollingService {
 
     private func scheduleTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: settingsStore.settings.refreshInterval.timeInterval, repeats: false) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: nextRefreshInterval(), repeats: false) { [weak self] _ in
             Task { @MainActor in self?.refreshNow() }
         }
+    }
+
+    private func nextRefreshInterval(now: Date = Date()) -> TimeInterval {
+        if let rate = repoStore.rateLimitState,
+           rate.isLimited,
+           let resetAt = rate.resetAt {
+            return max(5, resetAt.timeIntervalSince(now) + 1)
+        }
+        return settingsStore.settings.refreshInterval.timeInterval
     }
 
     private func refresh(repo: TrackedRepo) async {
         do {
             var repoETag = repo.etagRepo
             var releasesETag = repo.etagReleases
+            var latestRateLimitState: RateLimitState?
             let stars: Int
             let forks: Int
             do {
@@ -121,7 +139,7 @@ final class RepoPollingService {
                 stars = repoResult.value.stargazersCount
                 forks = repoResult.value.forksCount
                 repoETag = repoResult.etag ?? repoETag
-                repoStore.updateRateLimit(repoResult.rateLimitState)
+                latestRateLimitState = repoResult.rateLimitState ?? latestRateLimitState
             } catch GitHubError.notModified {
                 stars = repo.lastStars ?? 0
                 forks = repo.lastForks ?? 0
@@ -132,7 +150,7 @@ final class RepoPollingService {
                 let releasesResult = try await gitHubClient.fetchReleases(owner: repo.owner, name: repo.name, etag: repo.etagReleases)
                 downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
                 releasesETag = releasesResult.etag ?? releasesETag
-                repoStore.updateRateLimit(releasesResult.rateLimitState)
+                latestRateLimitState = releasesResult.rateLimitState ?? latestRateLimitState
             } catch GitHubError.notModified {
                 downloads = repo.lastDownloads ?? 0
             }
@@ -165,6 +183,9 @@ final class RepoPollingService {
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)
+            }
+            if let latestRateLimitState, latestRateLimitState.isLimited {
+                repoStore.updateRateLimit(latestRateLimitState)
             }
         } catch GitHubError.rateLimited(let state) {
             repoStore.updateRateLimit(state)

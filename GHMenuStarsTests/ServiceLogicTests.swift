@@ -363,6 +363,19 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(state?.isLimited == true)
     }
 
+    func testStoreClearsOnlyExpiredRateLimit() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+
+        store.updateRateLimit(RateLimitState(limit: 60, remaining: 0, resetAt: Date().addingTimeInterval(60)))
+        store.clearExpiredRateLimit()
+        XCTAssertNotNil(store.rateLimitState)
+
+        store.updateRateLimit(RateLimitState(limit: 60, remaining: 0, resetAt: Date().addingTimeInterval(-1)))
+        store.clearExpiredRateLimit()
+        XCTAssertNil(store.rateLimitState)
+    }
+
     func testTrackedReposMigrateFromLegacyBundleDefaults() throws {
         let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
         let legacyDefaults = UserDefaults(suiteName: "GHMenuStarsTests.Legacy.\(UUID().uuidString)")!

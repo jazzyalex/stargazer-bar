@@ -474,7 +474,7 @@ final class GitHubClient {
                 throw GitHubError.missingToken
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else if let token = optionalAuthToken {
+        } else if let token = optionalAuthToken ?? optionalTokenProvider() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
