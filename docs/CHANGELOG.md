@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [0.3] - 2026-06-14
+
+### Features
+- Added a maintainer radar menu for GitHub workflow alerts and repository activity signals.
+
+### Improvements
+- Flattened and polished the radar menu so active alerts and tracked repositories are easier to scan from the menu bar.
+- Improved milestone sharing polish and refreshed the public screenshots.
+
+### Fixes
+- Fixed radar API request handling and stale workflow radar alerts.
+- Fixed milestone share metric selection.
+
 ## [0.2.3] - 2026-06-13
 
 ### Features
