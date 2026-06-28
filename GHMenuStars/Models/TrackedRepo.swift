@@ -18,6 +18,7 @@ struct RepoMaintainerRadar: Codable, Equatable {
     var unansweredIssues: Int?
     var recentCommits: Int?
     var activityWindow: MaintainerRadarActivityWindow?
+    var activityAnchoredSince: Date? = nil
     var latestFailedWorkflow: RepoWorkflowFailure?
     var workflowChecked: Bool
     var checkedAt: Date
@@ -247,6 +248,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var trendPoints: [RepoTrendPoint]
     var trendRange: RepoTrendRange?
     var maintainerRadar: RepoMaintainerRadar?
+    var latestRelease: LatestReleaseSummary?
     var starAskPromptStatus: StarAskPromptStatus
     var lastStarAskPromptedAt: Date?
 
@@ -272,6 +274,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case trendPoints
         case trendRange
         case maintainerRadar
+        case latestRelease
         case starAskPromptStatus
         case lastStarAskPromptedAt
     }
@@ -298,6 +301,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         trendPoints: [RepoTrendPoint] = [],
         trendRange: RepoTrendRange? = nil,
         maintainerRadar: RepoMaintainerRadar? = nil,
+        latestRelease: LatestReleaseSummary? = nil,
         starAskPromptStatus: StarAskPromptStatus = .notShown,
         lastStarAskPromptedAt: Date? = nil
     ) {
@@ -322,6 +326,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.trendPoints = trendPoints
         self.trendRange = trendRange
         self.maintainerRadar = maintainerRadar
+        self.latestRelease = latestRelease
         self.starAskPromptStatus = starAskPromptStatus
         self.lastStarAskPromptedAt = lastStarAskPromptedAt
     }
@@ -349,6 +354,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
         trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
         maintainerRadar = try container.decodeIfPresent(RepoMaintainerRadar.self, forKey: .maintainerRadar)
+        latestRelease = try container.decodeIfPresent(LatestReleaseSummary.self, forKey: .latestRelease)
         starAskPromptStatus = try container.decodeIfPresent(StarAskPromptStatus.self, forKey: .starAskPromptStatus) ?? .notShown
         lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
     }

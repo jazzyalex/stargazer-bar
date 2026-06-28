@@ -123,6 +123,9 @@ final class TrackedRepoStore: ObservableObject {
         if let maintainerRadar = snapshot.maintainerRadar {
             repo.maintainerRadar = maintainerRadar
         }
+        if let latestRelease = snapshot.latestRelease {
+            repo.latestRelease = latestRelease
+        }
         trackedRepos[index] = repo
         lastDelta = delta
         rateLimitState = nil

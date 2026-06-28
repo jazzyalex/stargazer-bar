@@ -677,6 +677,22 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertNil(ReleaseDynamics.starsSinceRelease(trendPoints: late, currentStars: 665, publishedAt: publish))
     }
 
+    func testApplySnapshotPersistsLatestRelease() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        store.setTrackedRepo(repo)
+        let summary = LatestReleaseSummary(tag: "v0.3.1", name: "0.3.1",
+            publishedAt: Date(timeIntervalSince1970: 2_000_000), isPrerelease: false,
+            downloads: 1_230, totalDownloads: 1_330,
+            assets: [LatestReleaseSummary.AssetCount(label: "arm64.dmg", count: 820)])
+        let snapshot = RepoSnapshot(stars: 1, releaseDownloads: 1_330, forks: 0,
+            checkedAt: Date(), repoETag: nil, releasesETag: nil,
+            latestRelease: summary)
+        _ = store.apply(snapshot: snapshot, to: repo.id)
+        XCTAssertEqual(store.trackedRepos.first?.latestRelease?.tag, "v0.3.1")
+    }
+
     func testDockActivationPolicySafety() {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: true), .accessory)
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: false), .regular)
