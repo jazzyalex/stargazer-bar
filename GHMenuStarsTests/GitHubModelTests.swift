@@ -44,6 +44,35 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertNotNil(releases.first?.publishedAt)
     }
 
+    func testLatestReleaseSummaryPicksNewestPublishedNonDraft() {
+        let old = GitHubRelease(tagName: "v0.2.0", name: nil,
+            publishedAt: Date(timeIntervalSince1970: 1_000_000),
+            draft: false, prerelease: false,
+            assets: [GitHubReleaseAsset(name: "App-0.2.0-arm64.dmg", downloadCount: 100)])
+        let draft = GitHubRelease(tagName: "v0.4.0", name: nil,
+            publishedAt: Date(timeIntervalSince1970: 3_000_000),
+            draft: true, prerelease: false, assets: [])
+        let newest = GitHubRelease(tagName: "v0.3.1", name: "0.3.1",
+            publishedAt: Date(timeIntervalSince1970: 2_000_000),
+            draft: false, prerelease: true,
+            assets: [GitHubReleaseAsset(name: "App-0.3.1-arm64.dmg", downloadCount: 820),
+                     GitHubReleaseAsset(name: "App-0.3.1.zip", downloadCount: 410)])
+        let summary = LatestReleaseSummaryBuilder.summary(from: [old, draft, newest], totalDownloads: 1_330)
+        XCTAssertEqual(summary?.tag, "v0.3.1")
+        XCTAssertEqual(summary?.isPrerelease, true)
+        XCTAssertEqual(summary?.downloads, 1_230)
+        XCTAssertEqual(summary?.totalDownloads, 1_330)
+        XCTAssertEqual(summary?.assets.map(\.count), [820, 410])
+        XCTAssertEqual(summary?.assets.map(\.label), ["arm64.dmg", "zip"])
+    }
+
+    func testLatestReleaseSummaryNilWhenNoPublishedRelease() {
+        let draftOnly = GitHubRelease(tagName: "v1", name: nil, publishedAt: nil,
+            draft: true, prerelease: false, assets: [])
+        XCTAssertNil(LatestReleaseSummaryBuilder.summary(from: [draftOnly], totalDownloads: 0))
+        XCTAssertNil(LatestReleaseSummaryBuilder.summary(from: [], totalDownloads: 0))
+    }
+
     func testAccessiblePublicReposFollowPagination() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
