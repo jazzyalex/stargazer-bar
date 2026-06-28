@@ -73,6 +73,19 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertNil(LatestReleaseSummaryBuilder.summary(from: [], totalDownloads: 0))
     }
 
+    func testShortLabelsReduceAndCapLongNames() {
+        // No common prefix -> the long name collapses to its most specific token.
+        XCTAssertEqual(
+            LatestReleaseSummaryBuilder.shortLabels(for: ["StargazerBar-arm64.dmg", "checksums.txt"]),
+            ["arm64.dmg", "checksums.txt"]
+        )
+        // A long dashless name is hard-capped to 16 characters.
+        XCTAssertEqual(
+            LatestReleaseSummaryBuilder.shortLabels(for: ["averyveryverylongsinglename.bin"]).first?.count,
+            16
+        )
+    }
+
     func testAccessiblePublicReposFollowPagination() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]

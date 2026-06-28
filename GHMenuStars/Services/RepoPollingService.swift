@@ -159,8 +159,10 @@ final class RepoPollingService {
             }
 
             let checkedAt = Date()
+            let activityWindow = settingsStore.settings.maintainerRadarActivityWindow
             let effectiveRelease = latestRelease ?? repo.latestRelease
-            let releaseAnchor = effectiveRelease.flatMap {
+            // Don't let a fresh release re-enable activity counts the user turned off.
+            let releaseAnchor = activityWindow == .off ? nil : effectiveRelease.flatMap {
                 ReleaseDynamics.isFresh(publishedAt: $0.publishedAt, now: checkedAt) ? $0.publishedAt : nil
             }
             async let trendPoints = fetchTrendPointsIfNeeded(
@@ -172,7 +174,7 @@ final class RepoPollingService {
             async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,
-                activityWindow: settingsStore.settings.maintainerRadarActivityWindow,
+                activityWindow: activityWindow,
                 releaseAnchor: releaseAnchor,
                 now: checkedAt
             )

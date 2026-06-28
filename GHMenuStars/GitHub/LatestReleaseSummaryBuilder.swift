@@ -36,8 +36,9 @@ enum LatestReleaseSummaryBuilder {
             }
             if label.isEmpty { label = name }
             if label.count > 16 {
-                let parts = label.split(separator: "-").suffix(2).joined(separator: "-")
-                label = parts.isEmpty ? String(label.suffix(16)) : parts
+                // Fall back to the most specific token (e.g. "arm64.dmg"), hard-capped.
+                label = label.split(separator: "-").last.map(String.init) ?? label
+                if label.count > 16 { label = String(label.suffix(16)) }
             }
             return label
         }
