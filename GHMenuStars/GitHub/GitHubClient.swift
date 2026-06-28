@@ -53,8 +53,34 @@ struct GitHubRepoResponse: Decodable, Equatable {
     }
 }
 
-struct GitHubRelease: Decodable, Equatable {
+struct GitHubRelease: Equatable {
+    var tagName: String = ""
+    var name: String?
+    var publishedAt: Date?
+    var draft: Bool = false
+    var prerelease: Bool = false
     var assets: [GitHubReleaseAsset]
+}
+
+extension GitHubRelease: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case name
+        case publishedAt = "published_at"
+        case draft
+        case prerelease
+        case assets
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tagName = try container.decodeIfPresent(String.self, forKey: .tagName) ?? ""
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        publishedAt = try container.decodeIfPresent(Date.self, forKey: .publishedAt)
+        draft = try container.decodeIfPresent(Bool.self, forKey: .draft) ?? false
+        prerelease = try container.decodeIfPresent(Bool.self, forKey: .prerelease) ?? false
+        assets = try container.decodeIfPresent([GitHubReleaseAsset].self, forKey: .assets) ?? []
+    }
 }
 
 struct GitHubReleaseAsset: Decodable, Equatable {

@@ -27,6 +27,23 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(ReleaseDownloadAggregator.totalDownloads(from: releases), 42)
     }
 
+    func testReleaseDecodingReadsTagDateAndFlags() throws {
+        let json = """
+        [{"tag_name":"v0.3.1","name":"0.3.1","published_at":"2026-06-26T10:00:00Z",
+          "draft":false,"prerelease":true,
+          "assets":[{"name":"App-arm64.dmg","download_count":820}]}]
+        """.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let releases = try decoder.decode([GitHubRelease].self, from: json)
+        XCTAssertEqual(releases.first?.tagName, "v0.3.1")
+        XCTAssertEqual(releases.first?.name, "0.3.1")
+        XCTAssertEqual(releases.first?.prerelease, true)
+        XCTAssertEqual(releases.first?.draft, false)
+        XCTAssertEqual(releases.first?.assets.first?.downloadCount, 820)
+        XCTAssertNotNil(releases.first?.publishedAt)
+    }
+
     func testAccessiblePublicReposFollowPagination() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
