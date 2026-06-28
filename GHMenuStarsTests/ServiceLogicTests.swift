@@ -651,6 +651,32 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(item?.isFullyBold("3") == true)
     }
 
+    func testReleaseDynamicsFreshnessAndMath() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        XCTAssertTrue(ReleaseDynamics.isFresh(publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 3), now: now))
+        XCTAssertFalse(ReleaseDynamics.isFresh(publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 20), now: now))
+        // 1000 downloads over 5 days -> 200/day
+        XCTAssertEqual(ReleaseDynamics.dailyRate(downloads: 1000, publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 5), now: now), 200)
+        // younger than a day -> denominator floored to 1 day
+        XCTAssertEqual(ReleaseDynamics.dailyRate(downloads: 50, publishedAt: now.addingTimeInterval(-60 * 60 * 2), now: now), 50)
+        XCTAssertEqual(ReleaseDynamics.sharePercent(downloads: 380, totalDownloads: 1000), 38)
+        XCTAssertNil(ReleaseDynamics.sharePercent(downloads: 0, totalDownloads: 0))
+    }
+
+    func testStarsSinceReleaseFromTrendPoints() {
+        let publish = Date(timeIntervalSince1970: 1_500_000)
+        let points = [
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_000_000), stars: 600, forks: 1),
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_400_000), stars: 623, forks: 1),
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_900_000), stars: 660, forks: 2)
+        ]
+        // nearest point at-or-before publish is 623 -> 665 - 623 = 42
+        XCTAssertEqual(ReleaseDynamics.starsSinceRelease(trendPoints: points, currentStars: 665, publishedAt: publish), 42)
+        // history starts after publish -> nil
+        let late = [RepoTrendPoint(date: Date(timeIntervalSince1970: 1_600_000), stars: 640, forks: 1)]
+        XCTAssertNil(ReleaseDynamics.starsSinceRelease(trendPoints: late, currentStars: 665, publishedAt: publish))
+    }
+
     func testDockActivationPolicySafety() {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: true), .accessory)
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: false), .regular)
