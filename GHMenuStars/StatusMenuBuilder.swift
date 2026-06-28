@@ -136,7 +136,7 @@ struct StatusMenuBuilder {
 
     private func trendItem(for repo: TrackedRepo) -> NSMenuItem {
         let item = NSMenuItem()
-        item.view = RepoTrendView(repo: repo, trendRange: settingsStore.settings.repoTrendRange)
+        item.view = RepoTrendView(repo: repo, trendRange: settingsStore.settings.repoTrendRange, releaseDate: repo.latestRelease?.publishedAt)
         return item
     }
 
@@ -381,11 +381,13 @@ struct StatusMenuBuilder {
 private final class RepoTrendView: NSView {
     private let repo: TrackedRepo
     private let trendRange: RepoTrendRange
+    private let releaseDate: Date?
     private let calendar = Calendar(identifier: .gregorian)
 
-    init(repo: TrackedRepo, trendRange: RepoTrendRange) {
+    init(repo: TrackedRepo, trendRange: RepoTrendRange, releaseDate: Date? = nil) {
         self.repo = repo
         self.trendRange = trendRange
+        self.releaseDate = releaseDate
         super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 142))
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -431,6 +433,7 @@ private final class RepoTrendView: NSView {
         drawScale(in: plot, minValue: minValue, maxValue: maxValue)
         drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
         drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
+        drawReleaseMarker(in: plot, start: start, end: end)
         drawRangeLabels(in: plot)
     }
 
@@ -588,6 +591,28 @@ private final class RepoTrendView: NSView {
                 .foregroundColor: NSColor.secondaryLabelColor
             ]
         )
+    }
+
+    private func drawReleaseMarker(in plot: NSRect, start: Date, end: Date) {
+        guard let releaseDate, releaseDate >= start, releaseDate <= end else { return }
+        let x = xPosition(for: releaseDate, in: plot, start: start, end: end)
+
+        NSColor.tertiaryLabelColor.setStroke()
+        let line = NSBezierPath()
+        line.move(to: NSPoint(x: x, y: plot.minY))
+        line.line(to: NSPoint(x: x, y: plot.maxY))
+        line.lineWidth = 1
+        let dashPattern: [CGFloat] = [2, 2]
+        line.setLineDash(dashPattern, count: dashPattern.count, phase: 0)
+        line.stroke()
+
+        NSColor.secondaryLabelColor.setFill()
+        let marker = NSBezierPath()
+        marker.move(to: NSPoint(x: x - 4, y: plot.maxY + 6))
+        marker.line(to: NSPoint(x: x + 4, y: plot.maxY + 6))
+        marker.line(to: NSPoint(x: x, y: plot.maxY + 1))
+        marker.close()
+        marker.fill()
     }
 
     private func drawRangeLabels(in plot: NSRect) {
