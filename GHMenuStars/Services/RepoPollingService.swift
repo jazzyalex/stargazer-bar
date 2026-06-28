@@ -146,16 +146,23 @@ final class RepoPollingService {
             }
 
             let downloads: Int
+            var latestRelease: LatestReleaseSummary?
             do {
                 let releasesResult = try await gitHubClient.fetchReleases(owner: repo.owner, name: repo.name, etag: repo.etagReleases)
                 downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
+                latestRelease = LatestReleaseSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads)
                 releasesETag = releasesResult.etag ?? releasesETag
                 latestRateLimitState = releasesResult.rateLimitState ?? latestRateLimitState
             } catch GitHubError.notModified {
                 downloads = repo.lastDownloads ?? 0
+                latestRelease = nil
             }
 
             let checkedAt = Date()
+            let effectiveRelease = latestRelease ?? repo.latestRelease
+            let releaseAnchor = effectiveRelease.flatMap {
+                ReleaseDynamics.isFresh(publishedAt: $0.publishedAt, now: checkedAt) ? $0.publishedAt : nil
+            }
             async let trendPoints = fetchTrendPointsIfNeeded(
                 for: repo,
                 stars: stars,
@@ -165,7 +172,9 @@ final class RepoPollingService {
             async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,
-                activityWindow: settingsStore.settings.maintainerRadarActivityWindow
+                activityWindow: settingsStore.settings.maintainerRadarActivityWindow,
+                releaseAnchor: releaseAnchor,
+                now: checkedAt
             )
             let resolvedTrendPoints = await trendPoints
             let resolvedMaintainerRadar = await maintainerRadar
@@ -179,7 +188,8 @@ final class RepoPollingService {
                 releasesETag: releasesETag,
                 trendPoints: resolvedTrendPoints,
                 trendRange: resolvedTrendPoints == nil ? nil : .all,
-                maintainerRadar: radarSnapshot
+                maintainerRadar: radarSnapshot,
+                latestRelease: latestRelease
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)

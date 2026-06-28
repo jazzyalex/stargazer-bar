@@ -405,6 +405,22 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(radar.recentCommits, 7)
         XCTAssertEqual(radar.activityWindow, .oneDay)
     }
+
+    func testMaintainerRadarAnchorsToReleaseDate() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let anchor = Date(timeIntervalSince1970: 1_500_000)
+        let radar = await client.fetchMaintainerRadar(
+            owner: "owner", name: "repo",
+            activityWindow: .oneDay,
+            releaseAnchor: anchor,
+            now: Date(timeIntervalSince1970: 2_000_000)
+        )
+        XCTAssertEqual(radar.activityAnchoredSince, anchor)
+        let sinceString = ISO8601DateFormatter().string(from: anchor)
+        XCTAssertTrue(MockURLProtocol.requestedPaths.contains { $0.contains(sinceString) })
+    }
 }
 
 private final class MockURLProtocol: URLProtocol {

@@ -299,9 +299,10 @@ final class GitHubClient {
         owner: String,
         name: String,
         activityWindow: MaintainerRadarActivityWindow,
+        releaseAnchor: Date? = nil,
         now: Date = Date()
     ) async -> RepoMaintainerRadar {
-        let activityStart = activityWindow.startDate(now: now)
+        let activityStart = releaseAnchor ?? activityWindow.startDate(now: now)
         let optionalAuthToken = optionalTokenProvider()
         async let openPullRequests = optionalSearchIssueCount(
             query: "repo:\(owner)/\(name) is:pr is:open",
@@ -352,6 +353,7 @@ final class GitHubClient {
             unansweredIssues: needsReply,
             recentCommits: commits,
             activityWindow: activityStart == nil ? nil : activityWindow,
+            activityAnchoredSince: releaseAnchor,
             latestFailedWorkflow: workflow.failure,
             workflowChecked: workflow.checked,
             checkedAt: now
