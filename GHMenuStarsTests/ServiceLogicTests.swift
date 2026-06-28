@@ -533,23 +533,26 @@ final class ServiceLogicTests: XCTestCase {
         ).build(target: controller)
         let titles = Self.menuTitles(in: menu)
 
-        XCTAssertFalse(titles.contains("Maintainer Radar: 8 items"))
+        // Redesigned dense layout: one packed activity line + one open-state row.
         XCTAssertTrue(titles.contains("CI failing: Tests"))
-        XCTAssertTrue(titles.contains("1 new PR last 24h"))
-        XCTAssertTrue(titles.contains("3 new issues last 24h"))
-        XCTAssertTrue(titles.contains("7 commits last 24h"))
-        XCTAssertTrue(titles.contains("2 open PRs"))
-        XCTAssertTrue(titles.contains("5 issues need first reply"))
+        XCTAssertTrue(titles.contains("Last 24h"))
+        XCTAssertTrue(titles.contains("7 commits · 1 new PR · 3 new issues"))
+        XCTAssertTrue(titles.contains("2 open PRs · 5 need first reply"))
         XCTAssertTrue(titles.contains("Open Discussions"))
+        XCTAssertTrue(titles.contains { $0.hasPrefix("updated ") })
+        // The old per-metric rows are gone.
+        XCTAssertFalse(titles.contains("1 new PR last 24h"))
+        XCTAssertFalse(titles.contains("2 open PRs"))
         XCTAssertEqual(
-            (Self.menuItem(titled: "2 open PRs", in: menu)?.representedObject as? URL)?.absoluteString,
-            "https://github.com/owner/repo/pulls?q=is:pr%20is:open"
+            (Self.menuItem(titled: "2 open PRs · 5 need first reply", in: menu)?.representedObject as? URL)?
+                .absoluteString.hasPrefix("https://github.com/owner/repo/issues"),
+            true
         )
-        XCTAssertTrue(Self.menuItem(titled: "1 new PR last 24h", in: menu)?.hasBoldPrefix("1") == true)
-        XCTAssertTrue(Self.menuItem(titled: "3 new issues last 24h", in: menu)?.hasBoldPrefix("3") == true)
-        XCTAssertTrue(Self.menuItem(titled: "7 commits last 24h", in: menu)?.hasBoldPrefix("7") == true)
-        XCTAssertTrue(Self.menuItem(titled: "2 open PRs", in: menu)?.hasBoldPrefix("2") == true)
-        XCTAssertTrue(Self.menuItem(titled: "5 issues need first reply", in: menu)?.hasBoldPrefix("5") == true)
+        XCTAssertEqual(
+            (Self.menuItem(titled: "7 commits · 1 new PR · 3 new issues", in: menu)?.representedObject as? URL)?
+                .absoluteString,
+            "https://github.com/owner/repo/commits"
+        )
     }
 
     func testStatusMenuKeepsZeroRadarCountsRegular() {
@@ -691,6 +694,77 @@ final class ServiceLogicTests: XCTestCase {
             latestRelease: summary)
         _ = store.apply(snapshot: snapshot, to: repo.id)
         XCTAssertEqual(store.trackedRepos.first?.latestRelease?.tag, "v0.3.1")
+    }
+
+    func testReleaseLineFormatterPacksAdoption() {
+        let summary = LatestReleaseSummary(tag: "v0.3.1", name: "0.3.1",
+            publishedAt: Date(timeIntervalSince1970: 2_000_000 - 60 * 60 * 24 * 5),
+            isPrerelease: false, downloads: 1_000, totalDownloads: 2_631,
+            assets: [LatestReleaseSummary.AssetCount(label: "arm64.dmg", count: 820),
+                     LatestReleaseSummary.AssetCount(label: "zip", count: 410)])
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        XCTAssertEqual(ReleaseLineFormatter.adoptionLine(summary, now: now), "1,000 ↓ · ~200/day · 38% of all")
+        XCTAssertEqual(ReleaseLineFormatter.assetLine(summary), "arm64.dmg 820 · zip 410")
+    }
+
+    func testMenuHidesZeroOpenRowsAndShowsReleaseBlock() {
+        let radar = RepoMaintainerRadar(
+            openPullRequests: 0, newPullRequests: 0, newIssues: 0, unansweredIssues: 0,
+            recentCommits: 0, activityWindow: .oneDay, latestFailedWorkflow: nil,
+            workflowChecked: true, checkedAt: Date())
+        let release = LatestReleaseSummary(tag: "v0.3.1", name: "0.3.1",
+            publishedAt: Date(timeIntervalSince1970: 2_000_000), isPrerelease: false,
+            downloads: 1_000, totalDownloads: 2_631, assets: [])
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual,
+            maintainerRadar: radar, latestRelease: release)
+        let menu = buildMenu(for: repo)
+        XCTAssertNil(Self.menuItem(titled: "0 open PRs", in: menu))
+        XCTAssertNotNil(Self.menuItem(titled: "Latest release", in: menu))
+        XCTAssertNotNil(Self.menuItem(containing: "nothing open", in: menu))
+    }
+
+    func testMenuLabelsActivitySinceReleaseWhenAnchored() {
+        let radar = RepoMaintainerRadar(
+            openPullRequests: 0, newPullRequests: 0, newIssues: 0, unansweredIssues: 0,
+            recentCommits: 3, activityWindow: .oneDay,
+            activityAnchoredSince: Date(timeIntervalSince1970: 1_900_000),
+            latestFailedWorkflow: nil, workflowChecked: true, checkedAt: Date())
+        let release = LatestReleaseSummary(tag: "v0.3.1", name: "0.3.1",
+            publishedAt: Date(timeIntervalSince1970: 1_900_000), isPrerelease: false,
+            downloads: 10, totalDownloads: 10, assets: [])
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual,
+            maintainerRadar: radar, latestRelease: release)
+        let menu = buildMenu(for: repo)
+        XCTAssertNotNil(Self.menuItem(titled: "Since v0.3.1", in: menu))
+    }
+
+    private func buildMenu(for repo: TrackedRepo) -> NSMenu {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+        return StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
     }
 
     func testDockActivationPolicySafety() {

@@ -125,6 +125,7 @@ struct StatusMenuBuilder {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
+        addLatestReleaseItems(to: submenu, for: repo)
         submenu.addItem(NSMenuItem.separator())
         addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
@@ -195,6 +196,19 @@ struct StatusMenuBuilder {
             RepoMilestoneShare.make(repo: repo, metric: .downloads) != nil
     }
 
+    private func addLatestReleaseItems(to submenu: NSMenu, for repo: TrackedRepo) {
+        guard let release = repo.latestRelease else { return }
+        submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(titleItem("Latest release"))
+        let age = RelativeDateTimeFormatter.menu.string(for: release.publishedAt) ?? "recently"
+        let tagLine = "\(release.tag) · \(age)" + (release.isPrerelease ? " · pre" : "")
+        submenu.addItem(titleItem(tagLine, imageName: "tag"))
+        submenu.addItem(titleItem(ReleaseLineFormatter.adoptionLine(release), imageName: "arrow.down.circle"))
+        if let assetLine = ReleaseLineFormatter.assetLine(release) {
+            submenu.addItem(titleItem(assetLine, imageName: "shippingbox"))
+        }
+    }
+
     private func addMaintainerRadarItems(to submenu: NSMenu, for repo: TrackedRepo, target: StatusItemController) {
         guard let radar = repo.maintainerRadar, radar.hasData else {
             submenu.addItem(titleItem("Check Now to load radar", imageName: "arrow.clockwise"))
@@ -202,82 +216,75 @@ struct StatusMenuBuilder {
             return
         }
 
-        if let workflow = radar.latestFailedWorkflow {
+        let ciFailing = radar.latestFailedWorkflow
+        if let workflow = ciFailing {
             submenu.addItem(urlItem(
                 "CI failing: \(workflow.name)",
                 imageName: "xmark.circle.fill",
                 url: URL(string: workflow.url) ?? gitHubURL(for: repo, path: "/actions"),
                 target: target
             ))
-        } else if radar.workflowChecked {
-            submenu.addItem(titleItem("CI clear", imageName: "checkmark.circle"))
         }
 
-        let activityWindow = settingsStore.settings.maintainerRadarActivityWindow
-        if let window = radar.activityWindow, window == activityWindow {
-            let label = window.menuLabel
-            let since = window.startDate(now: radar.checkedAt)
-            if let newPullRequests = radar.newPullRequests {
-                let count = Self.formattedCount(newPullRequests)
-                submenu.addItem(urlItem(
-                    "\(count) new \(newPullRequests == 1 ? "PR" : "PRs") \(label)",
-                    imageName: newPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
-                    url: gitHubURL(for: repo, path: "/pulls", query: activityQuery(kind: "is:pr", since: since)),
-                    target: target,
-                    emphasizedText: newPullRequests > 0 ? count : nil
-                ))
-            }
-
-            if let newIssues = radar.newIssues {
-                let count = Self.formattedCount(newIssues)
-                submenu.addItem(urlItem(
-                    "\(count) new \(newIssues == 1 ? "issue" : "issues") \(label)",
-                    imageName: newIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
-                    url: gitHubURL(for: repo, path: "/issues", query: activityQuery(kind: "is:issue", since: since)),
-                    target: target,
-                    emphasizedText: newIssues > 0 ? count : nil
-                ))
-            }
-
-            if let recentCommits = radar.recentCommits {
-                let count = Self.formattedCount(recentCommits)
-                submenu.addItem(urlItem(
-                    "\(count) \(recentCommits == 1 ? "commit" : "commits") \(label)",
-                    imageName: recentCommits == 0 ? "checkmark.circle" : "point.3.connected.trianglepath.dotted",
-                    url: gitHubURL(for: repo, path: "/commits"),
-                    target: target,
-                    emphasizedText: recentCommits > 0 ? count : nil
-                ))
-            }
+        // One packed activity line, labelled by the release when anchored.
+        let window = settingsStore.settings.maintainerRadarActivityWindow
+        let anchorSince = radar.activityAnchoredSince
+        let label: String
+        if anchorSince != nil, let tag = repo.latestRelease?.tag {
+            label = "Since \(tag)"
+        } else {
+            let menuLabel = window.menuLabel
+            label = menuLabel.isEmpty ? "Recent" : menuLabel.prefix(1).uppercased() + menuLabel.dropFirst()
         }
-
-        if let openPullRequests = radar.openPullRequests {
-            let count = Self.formattedCount(openPullRequests)
+        var activityParts: [String] = []
+        if let commits = radar.recentCommits, commits > 0 {
+            activityParts.append("\(Self.formattedCount(commits)) \(commits == 1 ? "commit" : "commits")")
+        }
+        if let prs = radar.newPullRequests, prs > 0 {
+            activityParts.append("\(Self.formattedCount(prs)) new \(prs == 1 ? "PR" : "PRs")")
+        }
+        if let issues = radar.newIssues, issues > 0 {
+            activityParts.append("\(Self.formattedCount(issues)) new \(issues == 1 ? "issue" : "issues")")
+        }
+        if let release = repo.latestRelease,
+           let stars = ReleaseDynamics.starsSinceRelease(trendPoints: repo.trendPoints, currentStars: repo.lastStars ?? 0, publishedAt: release.publishedAt),
+           stars > 0 {
+            activityParts.append("+\(Self.formattedCount(stars)) ⭐")
+        }
+        if !activityParts.isEmpty {
+            submenu.addItem(titleItem(label))
             submenu.addItem(urlItem(
-                "\(count) open \(openPullRequests == 1 ? "PR" : "PRs")",
-                imageName: openPullRequests == 0 ? "checkmark.circle" : "arrow.triangle.pull",
-                url: gitHubURL(for: repo, path: "/pulls", query: "is:pr is:open"),
-                target: target,
-                enabled: true,
-                emphasizedText: openPullRequests > 0 ? count : nil
+                activityParts.joined(separator: " · "),
+                imageName: "chart.line.uptrend.xyaxis",
+                url: gitHubURL(for: repo, path: "/commits"),
+                target: target
             ))
         }
 
-        if let unansweredIssues = radar.unansweredIssues {
-            let count = Self.formattedCount(unansweredIssues)
+        // Open-state row: only the metrics that need attention.
+        var openParts: [String] = []
+        if let openPRs = radar.openPullRequests, openPRs > 0 {
+            openParts.append("\(Self.formattedCount(openPRs)) open \(openPRs == 1 ? "PR" : "PRs")")
+        }
+        if let unanswered = radar.unansweredIssues, unanswered > 0 {
+            openParts.append("\(Self.formattedCount(unanswered)) need first reply")
+        }
+        if !openParts.isEmpty {
             submenu.addItem(urlItem(
-                "\(count) \(unansweredIssues == 1 ? "issue" : "issues") need first reply",
-                imageName: unansweredIssues == 0 ? "checkmark.circle" : "exclamationmark.bubble",
+                openParts.joined(separator: " · "),
+                imageName: "tray",
                 url: gitHubURL(for: repo, path: "/issues", query: "is:issue is:open comments:0"),
-                target: target,
-                enabled: true,
-                emphasizedText: unansweredIssues > 0 ? count : nil
+                target: target
             ))
         }
 
+        // Muted footer assembled from whichever healthy segments hold.
+        var footerParts: [String] = []
+        if ciFailing == nil, radar.workflowChecked { footerParts.append("CI clear") }
+        if openParts.isEmpty { footerParts.append("nothing open") }
+        footerParts.append("updated \(RelativeDateTimeFormatter.menu.string(for: radar.checkedAt) ?? "recently")")
+        submenu.addItem(titleItem(footerParts.joined(separator: " · ")))
         submenu.addItem(discussionsItem(for: repo, target: target))
-        submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(titleItem("Updated \(RelativeDateTimeFormatter.menu.string(for: radar.checkedAt) ?? "recently")"))
     }
 
     private func discussionsItem(for repo: TrackedRepo, target: StatusItemController) -> NSMenuItem {
@@ -329,15 +336,6 @@ struct StatusMenuBuilder {
             components.queryItems = [URLQueryItem(name: "q", value: query)]
         }
         return components.url
-    }
-
-    private func activityQuery(kind: String, since: Date?) -> String {
-        guard let since else { return "\(kind) is:open" }
-        return "\(kind) is:open created:>=\(Self.iso8601String(from: since))"
-    }
-
-    private static func iso8601String(from date: Date) -> String {
-        ISO8601DateFormatter().string(from: date)
     }
 
     private static func formattedCount(_ count: Int) -> String {

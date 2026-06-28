@@ -31,6 +31,26 @@ enum RepoDeltaFormatter {
     }
 }
 
+enum ReleaseLineFormatter {
+    static func adoptionLine(_ summary: LatestReleaseSummary, now: Date = Date()) -> String {
+        let downloads = NumberFormatter.menuInteger.string(from: NSNumber(value: summary.downloads)) ?? "\(summary.downloads)"
+        let rate = ReleaseDynamics.dailyRate(downloads: summary.downloads, publishedAt: summary.publishedAt, now: now)
+        let rateText = NumberFormatter.menuInteger.string(from: NSNumber(value: rate)) ?? "\(rate)"
+        var line = "\(downloads) ↓ · ~\(rateText)/day"
+        if let share = ReleaseDynamics.sharePercent(downloads: summary.downloads, totalDownloads: summary.totalDownloads) {
+            line += " · \(share)% of all"
+        }
+        return line
+    }
+
+    static func assetLine(_ summary: LatestReleaseSummary) -> String? {
+        guard summary.assets.count > 1 else { return nil }
+        return summary.assets
+            .map { "\($0.label) \(NumberFormatter.menuInteger.string(from: NSNumber(value: $0.count)) ?? "\($0.count)")" }
+            .joined(separator: " · ")
+    }
+}
+
 enum MilestoneMetric: String, Codable, Equatable {
     case stars
     case downloads
