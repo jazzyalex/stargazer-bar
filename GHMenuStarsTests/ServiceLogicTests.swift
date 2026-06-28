@@ -604,6 +604,53 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(Self.menuItem(titled: "0 issues need first reply", in: menu)?.hasBoldPrefix("0") == true)
     }
 
+    func testRepoLineBoldsFullDownloadNumberWithZeroStarDelta() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(
+            owner: "owner",
+            name: "repo",
+            source: .manual,
+            lastStars: 3,
+            lastDownloads: 101,
+            lastStarsDelta: 0,
+            lastDownloadsDelta: 0
+        )
+        repoStore.setTrackedRepo(repo)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        let updaterController = UpdaterController()
+        let pollingService = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: GitHubClient(),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        let controller = StatusItemController(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController,
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        let menu = StatusMenuBuilder(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            pollingService: pollingService,
+            updaterController: updaterController
+        ).build(target: controller)
+
+        let item = Self.menuItem(containing: "↓ 101", in: menu)
+        XCTAssertNotNil(item)
+        // The zero star delta is omitted from the text but previously was still
+        // searched for as "0", which matched the middle digit of "101" and bolded
+        // only that one character. The full download number must be bold instead.
+        XCTAssertTrue(item?.isFullyBold("101") == true)
+        XCTAssertTrue(item?.isFullyBold("3") == true)
+    }
+
     func testDockActivationPolicySafety() {
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: true), .accessory)
         XCTAssertEqual(ActivationPolicyDecider.policy(hideDockIcon: true, hasStatusItem: false), .regular)
@@ -719,6 +766,18 @@ final class ServiceLogicTests: XCTestCase {
         }
         return nil
     }
+
+    private static func menuItem(containing substring: String, in menu: NSMenu) -> NSMenuItem? {
+        for item in menu.items {
+            if item.title.contains(substring) {
+                return item
+            }
+            if let submenu = item.submenu, let match = menuItem(containing: substring, in: submenu) {
+                return match
+            }
+        }
+        return nil
+    }
 }
 
 private extension NSMenuItem {
@@ -729,5 +788,21 @@ private extension NSMenuItem {
             return false
         }
         return font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold)
+    }
+
+    func isFullyBold(_ substring: String) -> Bool {
+        guard let attributedTitle else { return false }
+        let range = (attributedTitle.string as NSString).range(of: substring)
+        guard range.location != NSNotFound else { return false }
+        var allBold = true
+        attributedTitle.enumerateAttribute(.font, in: range, options: []) { value, _, stop in
+            guard let font = value as? NSFont,
+                  font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold) else {
+                allBold = false
+                stop.pointee = true
+                return
+            }
+        }
+        return allBold
     }
 }

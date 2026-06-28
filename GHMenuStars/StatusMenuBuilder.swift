@@ -91,10 +91,19 @@ struct StatusMenuBuilder {
             string: title,
             attributes: [.font: regularFont]
         )
+        // Bold only the numbers metricLine actually renders. A delta is shown
+        // solely when > 0 (see RepoDeltaFormatter.metricLine); feeding a 0 delta
+        // here makes range(of: "0") match a digit inside a later metric (e.g. the
+        // 0 in "101") and mis-bold a single character.
+        var displayedNumbers: [Int] = []
+        if let stars = repo.lastStars { displayedNumbers.append(stars) }
+        if let starsDelta = repo.lastStarsDelta, starsDelta > 0 { displayedNumbers.append(starsDelta) }
+        if let downloads = repo.lastDownloads { displayedNumbers.append(downloads) }
+        if let downloadsDelta = repo.lastDownloadsDelta, downloadsDelta > 0 { displayedNumbers.append(downloadsDelta) }
+
         var searchLocation = (repo.displayName as NSString).length
-        for value in [repo.lastStars, repo.lastStarsDelta, repo.lastDownloads, repo.lastDownloadsDelta] {
-            guard let value,
-                  let formatted = NumberFormatter.menuInteger.string(from: NSNumber(value: value)) else { continue }
+        for value in displayedNumbers {
+            guard let formatted = NumberFormatter.menuInteger.string(from: NSNumber(value: value)) else { continue }
             let searchRange = NSRange(
                 location: searchLocation,
                 length: max(0, (title as NSString).length - searchLocation)
