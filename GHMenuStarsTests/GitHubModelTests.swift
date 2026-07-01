@@ -73,6 +73,38 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertNil(LatestReleaseSummaryBuilder.summary(from: [], totalDownloads: 0))
     }
 
+    func testRecentReleasesSummaryCountsWindowAndSumsDownloads() {
+        let now = Date(timeIntervalSince1970: 3_000_000)
+        let day = 24.0 * 60 * 60
+        let inWindow1 = GitHubRelease(tagName: "v3", name: nil, publishedAt: now.addingTimeInterval(-5 * day),
+            draft: false, prerelease: false, assets: [GitHubReleaseAsset(name: "a.dmg", downloadCount: 800)])
+        let inWindow2 = GitHubRelease(tagName: "v2", name: nil, publishedAt: now.addingTimeInterval(-20 * day),
+            draft: false, prerelease: false, assets: [GitHubReleaseAsset(name: "b.dmg", downloadCount: 300),
+                                                       GitHubReleaseAsset(name: "b.zip", downloadCount: 100)])
+        let outWindow = GitHubRelease(tagName: "v1", name: nil, publishedAt: now.addingTimeInterval(-40 * day),
+            draft: false, prerelease: false, assets: [GitHubReleaseAsset(name: "c.dmg", downloadCount: 5000)])
+        let draftInWindow = GitHubRelease(tagName: "v4", name: nil, publishedAt: now.addingTimeInterval(-1 * day),
+            draft: true, prerelease: false, assets: [GitHubReleaseAsset(name: "d.dmg", downloadCount: 999)])
+        let summary = RecentReleasesSummaryBuilder.summary(from: [inWindow1, inWindow2, outWindow, draftInWindow], totalDownloads: 6200, now: now)
+        XCTAssertEqual(summary?.releaseCount, 2)
+        XCTAssertEqual(summary?.downloads, 1200)
+        XCTAssertEqual(summary?.totalDownloads, 6200)
+    }
+
+    func testRecentReleasesSummaryNilWhenNoPublishedReleases() {
+        let draftOnly = GitHubRelease(tagName: "v1", name: nil, publishedAt: nil, draft: true, prerelease: false, assets: [])
+        XCTAssertNil(RecentReleasesSummaryBuilder.summary(from: [draftOnly], totalDownloads: 0, now: Date()))
+    }
+
+    func testRecentReleasesSummaryZeroCountWhenReleasesAllOld() {
+        let now = Date(timeIntervalSince1970: 3_000_000)
+        let old = GitHubRelease(tagName: "v1", name: nil, publishedAt: now.addingTimeInterval(-90 * 24 * 60 * 60),
+            draft: false, prerelease: false, assets: [GitHubReleaseAsset(name: "a.dmg", downloadCount: 10)])
+        let summary = RecentReleasesSummaryBuilder.summary(from: [old], totalDownloads: 10, now: now)
+        XCTAssertEqual(summary?.releaseCount, 0)
+        XCTAssertEqual(summary?.downloads, 0)
+    }
+
     func testShortLabelsReduceAndCapLongNames() {
         // No common prefix -> the long name collapses to its most specific token.
         XCTAssertEqual(
