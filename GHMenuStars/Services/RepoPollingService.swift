@@ -147,15 +147,18 @@ final class RepoPollingService {
 
             let downloads: Int
             var latestRelease: LatestReleaseSummary?
+            var recentReleases: RecentReleasesSummary?
             do {
                 let releasesResult = try await gitHubClient.fetchReleases(owner: repo.owner, name: repo.name, etag: repo.etagReleases)
                 downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
                 latestRelease = LatestReleaseSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads)
+                recentReleases = RecentReleasesSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads, now: Date())
                 releasesETag = releasesResult.etag ?? releasesETag
                 latestRateLimitState = releasesResult.rateLimitState ?? latestRateLimitState
             } catch GitHubError.notModified {
                 downloads = repo.lastDownloads ?? 0
                 latestRelease = nil
+                recentReleases = nil
             }
 
             let checkedAt = Date()
@@ -191,7 +194,8 @@ final class RepoPollingService {
                 trendPoints: resolvedTrendPoints,
                 trendRange: resolvedTrendPoints == nil ? nil : .all,
                 maintainerRadar: radarSnapshot,
-                latestRelease: latestRelease
+                latestRelease: latestRelease,
+                recentReleases: recentReleases
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)

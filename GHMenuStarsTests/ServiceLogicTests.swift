@@ -708,6 +708,18 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.trackedRepos.first?.latestRelease?.tag, "v0.3.1")
     }
 
+    func testApplySnapshotPersistsRecentReleases() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        store.setTrackedRepo(repo)
+        let recent = RecentReleasesSummary(releaseCount: 2, downloads: 500, totalDownloads: 900)
+        let snapshot = RepoSnapshot(stars: 1, releaseDownloads: 900, forks: 0,
+            checkedAt: Date(), repoETag: nil, releasesETag: nil, recentReleases: recent)
+        _ = store.apply(snapshot: snapshot, to: repo.id)
+        XCTAssertEqual(store.trackedRepos.first?.recentReleases?.releaseCount, 2)
+    }
+
     func testReleaseLineFormatterPacksAdoption() {
         let summary = LatestReleaseSummary(tag: "v0.3.1", name: "0.3.1",
             publishedAt: Date(timeIntervalSince1970: 2_000_000 - 60 * 60 * 24 * 5),

@@ -249,6 +249,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var trendRange: RepoTrendRange?
     var maintainerRadar: RepoMaintainerRadar?
     var latestRelease: LatestReleaseSummary?
+    var recentReleases: RecentReleasesSummary?
     var starAskPromptStatus: StarAskPromptStatus
     var lastStarAskPromptedAt: Date?
 
@@ -275,6 +276,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case trendRange
         case maintainerRadar
         case latestRelease
+        case recentReleases
         case starAskPromptStatus
         case lastStarAskPromptedAt
     }
@@ -302,6 +304,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         trendRange: RepoTrendRange? = nil,
         maintainerRadar: RepoMaintainerRadar? = nil,
         latestRelease: LatestReleaseSummary? = nil,
+        recentReleases: RecentReleasesSummary? = nil,
         starAskPromptStatus: StarAskPromptStatus = .notShown,
         lastStarAskPromptedAt: Date? = nil
     ) {
@@ -327,6 +330,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.trendRange = trendRange
         self.maintainerRadar = maintainerRadar
         self.latestRelease = latestRelease
+        self.recentReleases = recentReleases
         self.starAskPromptStatus = starAskPromptStatus
         self.lastStarAskPromptedAt = lastStarAskPromptedAt
     }
@@ -355,6 +359,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
         maintainerRadar = try container.decodeIfPresent(RepoMaintainerRadar.self, forKey: .maintainerRadar)
         latestRelease = try container.decodeIfPresent(LatestReleaseSummary.self, forKey: .latestRelease)
+        recentReleases = try container.decodeIfPresent(RecentReleasesSummary.self, forKey: .recentReleases)
         starAskPromptStatus = try container.decodeIfPresent(StarAskPromptStatus.self, forKey: .starAskPromptStatus) ?? .notShown
         lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
     }

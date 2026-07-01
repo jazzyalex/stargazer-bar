@@ -11,4 +11,5 @@ struct RepoSnapshot: Equatable {
     var trendRange: RepoTrendRange? = nil
     var maintainerRadar: RepoMaintainerRadar? = nil
     var latestRelease: LatestReleaseSummary? = nil
+    var recentReleases: RecentReleasesSummary? = nil
 }
