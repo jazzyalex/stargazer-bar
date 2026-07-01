@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## [0.4.0] - 2026-07-01
+
+### Features
+- Redesigned per-repository submenu with a **Latest release** block (version, age, downloads, per-day velocity, share of all-time downloads, per-asset sha256/size) and a denser radar layout for release, activity, and CI signals.
+- Added a **Last 30 days** section showing the number of new releases, star and fork momentum, download totals and per-day velocity, and comparison against the prior 30-day window.
+- Marked the current release date on the star/fork trend chart so the release moment is visible in the history.
+- Distinguished release downloads from trend arrows in the menu by using a dedicated `⤓` glyph for downloads.
+
+### Fixes
+- Hide the 30-day momentum row when the prior 30-day window has no comparable data so the section does not show a misleading "0" baseline.
+- Respect the **Off** activity window setting when computing the last-30-days summary and cap long asset labels so the submenu no longer widens unpredictably.
 
 ## [0.3.1] - 2026-06-14
 
