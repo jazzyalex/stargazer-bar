@@ -36,7 +36,7 @@ enum ReleaseLineFormatter {
         let downloads = NumberFormatter.menuInteger.string(from: NSNumber(value: summary.downloads)) ?? "\(summary.downloads)"
         let rate = ReleaseDynamics.dailyRate(downloads: summary.downloads, publishedAt: summary.publishedAt, now: now)
         let rateText = NumberFormatter.menuInteger.string(from: NSNumber(value: rate)) ?? "\(rate)"
-        var line = "\(downloads) ↓ · ~\(rateText)/day"
+        var line = "\(downloads) ⤓ · ~\(rateText)/day"
         if let share = ReleaseDynamics.sharePercent(downloads: summary.downloads, totalDownloads: summary.totalDownloads) {
             line += " · \(share)% of all"
         }
@@ -72,7 +72,7 @@ enum RecentReleasesLineFormatter {
         if !line1.isEmpty { rows.append((image: "shippingbox", text: line1.joined(separator: " · "))) }
 
         if summary.downloads > 0 {
-            var line2 = "\(fmt(summary.downloads)) ↓ · ~\(fmt(rate(summary.downloads)))/day"
+            var line2 = "\(fmt(summary.downloads)) ⤓ · ~\(fmt(rate(summary.downloads)))/day"
             if let share = ReleaseDynamics.sharePercent(downloads: summary.downloads, totalDownloads: summary.totalDownloads) {
                 line2 += " · \(share)% of all"
             }
@@ -100,7 +100,7 @@ enum RecentReleasesLineFormatter {
                 : "~1 release / \(days) days"
             if summary.downloads > 0 {
                 let avg = Int((Double(summary.downloads) / Double(summary.releaseCount)).rounded())
-                line4 += " · avg \(fmt(avg)) ↓/release"
+                line4 += " · avg \(fmt(avg)) ⤓/release"
             }
             rows.append((image: "clock", text: line4))
         }

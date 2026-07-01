@@ -645,7 +645,7 @@ final class ServiceLogicTests: XCTestCase {
             updaterController: updaterController
         ).build(target: controller)
 
-        let item = Self.menuItem(containing: "↓ 101", in: menu)
+        let item = Self.menuItem(containing: "⤓ 101", in: menu)
         XCTAssertNotNil(item)
         // The zero star delta is omitted from the text but previously was still
         // searched for as "0", which matched the middle digit of "101" and bolded
@@ -727,7 +727,7 @@ final class ServiceLogicTests: XCTestCase {
             assets: [LatestReleaseSummary.AssetCount(label: "arm64.dmg", count: 820),
                      LatestReleaseSummary.AssetCount(label: "zip", count: 410)])
         let now = Date(timeIntervalSince1970: 2_000_000)
-        XCTAssertEqual(ReleaseLineFormatter.adoptionLine(summary, now: now), "1,000 ↓ · ~200/day · 38% of all")
+        XCTAssertEqual(ReleaseLineFormatter.adoptionLine(summary, now: now), "1,000 ⤓ · ~200/day · 38% of all")
         XCTAssertEqual(ReleaseLineFormatter.assetLine(summary), "arm64.dmg 820 · zip 410")
     }
 
@@ -742,9 +742,9 @@ final class ServiceLogicTests: XCTestCase {
         let rows = RecentReleasesLineFormatter.rows(summary, trendPoints: points, currentStars: 662, currentForks: 12, now: now).map(\.text)
         XCTAssertEqual(rows, [
             "3 releases · +122 ⭐ · +5 forks",
-            "2,480 ↓ · ~83/day · 28% of all",
+            "2,480 ⤓ · ~83/day · 28% of all",
             "↑ vs prior 30d · +40 ⭐ · +2 forks",
-            "~1 release / 10 days · avg 827 ↓/release"
+            "~1 release / 10 days · avg 827 ⤓/release"
         ])
     }
 
@@ -812,7 +812,7 @@ final class ServiceLogicTests: XCTestCase {
             recentReleases: RecentReleasesSummary(releaseCount: 3, downloads: 2_480, totalDownloads: 8_857))
         let menu = buildMenu(for: repo)
         XCTAssertNotNil(Self.menuItem(titled: "Last 30 days", in: menu))
-        XCTAssertNotNil(Self.menuItem(containing: "↓/release", in: menu))
+        XCTAssertNotNil(Self.menuItem(containing: "⤓/release", in: menu))
     }
 
     private func buildMenu(for repo: TrackedRepo) -> NSMenu {

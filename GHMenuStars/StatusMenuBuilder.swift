@@ -79,7 +79,7 @@ struct StatusMenuBuilder {
 
     private func repoLine(_ repo: TrackedRepo) -> String {
         let stars = RepoDeltaFormatter.metricLine(label: "☆", value: repo.lastStars, delta: repo.lastStarsDelta)
-        let downloads = RepoDeltaFormatter.metricLine(label: "↓", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
+        let downloads = RepoDeltaFormatter.metricLine(label: "⤓", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
         return "\(repo.displayName)  \(stars)  \(downloads)"
     }
 
