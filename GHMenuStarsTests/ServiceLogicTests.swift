@@ -666,6 +666,18 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertNil(ReleaseDynamics.sharePercent(downloads: 0, totalDownloads: 0))
     }
 
+    func testValueAtReturnsNearestPointAtOrBeforeDate() {
+        let points = [
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_000_000), stars: 600, forks: 1),
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_400_000), stars: 623, forks: 3),
+            RepoTrendPoint(date: Date(timeIntervalSince1970: 1_900_000), stars: 660, forks: 5)
+        ]
+        XCTAssertEqual(ReleaseDynamics.value(in: points, at: Date(timeIntervalSince1970: 1_500_000), keyPath: \.stars), 623)
+        XCTAssertEqual(ReleaseDynamics.value(in: points, at: Date(timeIntervalSince1970: 1_500_000), keyPath: \.forks), 3)
+        XCTAssertNil(ReleaseDynamics.value(in: points, at: Date(timeIntervalSince1970: 900_000), keyPath: \.stars))
+        XCTAssertEqual(ReleaseDynamics.recentWindowDays, 30)
+    }
+
     func testStarsSinceReleaseFromTrendPoints() {
         let publish = Date(timeIntervalSince1970: 1_500_000)
         let points = [
