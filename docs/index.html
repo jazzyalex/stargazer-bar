@@ -298,7 +298,9 @@
     .stage {
       position: relative;
       width: 100%;
-      max-width: 1120px;
+      /* Cap at source width in CSS px (1462 / 2 for retina = 731).
+         Going wider would upsample and blur the screenshot. */
+      max-width: 720px;
       border-radius: 14px;
       overflow: hidden;
       background: #0a0a0a;
@@ -589,10 +591,11 @@
         <div class="hero-stage">
           <div class="stage">
             <img
-              src="assets/og-banner.png"
-              width="2400"
-              height="1260"
-              alt="Stargazer Bar banner showing the multi-repository menu, star and fork trend graph, and maintainer radar rows"
+              src="assets/hero-stage.png"
+              width="1462"
+              height="1232"
+              alt="Stargazer Bar menu showing multiple tracked repositories with star counts, a per-repo submenu with an all-time star and fork trend chart, latest release info, and a Last 30 days activity summary"
+              decoding="async"
             >
           </div>
         </div>
