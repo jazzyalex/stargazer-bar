@@ -82,13 +82,15 @@ enum RecentReleasesLineFormatter {
         if let starsBase, let starsGained,
            let starsPrior = ReleaseDynamics.value(in: trendPoints, at: priorStart, keyPath: \.stars) {
             let priorStars = max(0, starsBase - starsPrior)
-            let arrow = starsGained > priorStars ? "↑" : (starsGained < priorStars ? "↓" : "→")
-            var line3 = ["\(arrow) vs prior \(ReleaseDynamics.recentWindowDays)d", "+\(fmt(priorStars)) ⭐"]
-            if let forksBase, let forksPrior = ReleaseDynamics.value(in: trendPoints, at: priorStart, keyPath: \.forks) {
-                let priorForks = max(0, forksBase - forksPrior)
-                line3.append("+\(fmt(priorForks)) \(priorForks == 1 ? "fork" : "forks")")
+            if priorStars > 0 {
+                let arrow = starsGained > priorStars ? "↑" : (starsGained < priorStars ? "↓" : "→")
+                var line3 = ["\(arrow) vs prior \(ReleaseDynamics.recentWindowDays)d", "+\(fmt(priorStars)) ⭐"]
+                if let forksBase, let forksPrior = ReleaseDynamics.value(in: trendPoints, at: priorStart, keyPath: \.forks) {
+                    let priorForks = max(0, forksBase - forksPrior)
+                    if priorForks > 0 { line3.append("+\(fmt(priorForks)) \(priorForks == 1 ? "fork" : "forks")") }
+                }
+                rows.append((image: "chart.line.uptrend.xyaxis", text: line3.joined(separator: " · ")))
             }
-            rows.append((image: "chart.line.uptrend.xyaxis", text: line3.joined(separator: " · ")))
         }
 
         if summary.releaseCount > 0 {

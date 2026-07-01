@@ -748,6 +748,18 @@ final class ServiceLogicTests: XCTestCase {
         ])
     }
 
+    func testRecentReleasesMomentumHiddenWhenPriorWindowFlat() {
+        let now = Date(timeIntervalSince1970: 3_000_000)
+        let day = 24.0 * 60 * 60
+        let points = [
+            RepoTrendPoint(date: now.addingTimeInterval(-65 * day), stars: 500, forks: 5),
+            RepoTrendPoint(date: now.addingTimeInterval(-30 * day), stars: 500, forks: 5)
+        ]
+        let summary = RecentReleasesSummary(releaseCount: 0, downloads: 0, totalDownloads: 1_000)
+        let rows = RecentReleasesLineFormatter.rows(summary, trendPoints: points, currentStars: 540, currentForks: 8, now: now).map(\.text)
+        XCTAssertEqual(rows, ["+40 ⭐ · +3 forks"])
+    }
+
     func testRecentReleasesRowsGrowthOnlyWhenNoReleasesInWindow() {
         let now = Date(timeIntervalSince1970: 3_000_000)
         let day = 24.0 * 60 * 60
