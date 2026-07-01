@@ -731,6 +731,32 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(ReleaseLineFormatter.assetLine(summary), "arm64.dmg 820 · zip 410")
     }
 
+    func testRecentReleasesRowsFormatAllFour() {
+        let now = Date(timeIntervalSince1970: 3_000_000)
+        let day = 24.0 * 60 * 60
+        let points = [
+            RepoTrendPoint(date: now.addingTimeInterval(-65 * day), stars: 500, forks: 5),
+            RepoTrendPoint(date: now.addingTimeInterval(-30 * day), stars: 540, forks: 7)
+        ]
+        let summary = RecentReleasesSummary(releaseCount: 3, downloads: 2_480, totalDownloads: 8_857)
+        let rows = RecentReleasesLineFormatter.rows(summary, trendPoints: points, currentStars: 662, currentForks: 12, now: now).map(\.text)
+        XCTAssertEqual(rows, [
+            "3 releases · +122 ⭐ · +5 forks",
+            "2,480 ↓ · ~83/day · 28% of all",
+            "↑ vs prior 30d · +40 ⭐ · +2 forks",
+            "~1 release / 10 days · avg 827 ↓/release"
+        ])
+    }
+
+    func testRecentReleasesRowsGrowthOnlyWhenNoReleasesInWindow() {
+        let now = Date(timeIntervalSince1970: 3_000_000)
+        let day = 24.0 * 60 * 60
+        let points = [RepoTrendPoint(date: now.addingTimeInterval(-40 * day), stars: 600, forks: 3)]
+        let summary = RecentReleasesSummary(releaseCount: 0, downloads: 0, totalDownloads: 5_000)
+        let rows = RecentReleasesLineFormatter.rows(summary, trendPoints: points, currentStars: 640, currentForks: 4, now: now).map(\.text)
+        XCTAssertEqual(rows, ["+40 ⭐ · +1 fork"])
+    }
+
     func testMenuHidesZeroOpenRowsAndShowsReleaseBlock() {
         let radar = RepoMaintainerRadar(
             openPullRequests: 0, newPullRequests: 0, newIssues: 0, unansweredIssues: 0,
@@ -760,6 +786,21 @@ final class ServiceLogicTests: XCTestCase {
             maintainerRadar: radar, latestRelease: release)
         let menu = buildMenu(for: repo)
         XCTAssertNotNil(Self.menuItem(titled: "Since v0.3.1", in: menu))
+    }
+
+    func testMenuShowsLast30DaysSection() {
+        let now = Date()
+        let day = 24.0 * 60 * 60
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual,
+            lastStars: 662, lastForks: 12,
+            trendPoints: [
+                RepoTrendPoint(date: now.addingTimeInterval(-65 * day), stars: 500, forks: 5),
+                RepoTrendPoint(date: now.addingTimeInterval(-30 * day), stars: 540, forks: 7)
+            ],
+            recentReleases: RecentReleasesSummary(releaseCount: 3, downloads: 2_480, totalDownloads: 8_857))
+        let menu = buildMenu(for: repo)
+        XCTAssertNotNil(Self.menuItem(titled: "Last 30 days", in: menu))
+        XCTAssertNotNil(Self.menuItem(containing: "↓/release", in: menu))
     }
 
     private func buildMenu(for repo: TrackedRepo) -> NSMenu {

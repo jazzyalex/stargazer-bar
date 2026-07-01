@@ -51,6 +51,70 @@ enum ReleaseLineFormatter {
     }
 }
 
+enum RecentReleasesLineFormatter {
+    static func rows(_ summary: RecentReleasesSummary, trendPoints: [RepoTrendPoint], currentStars: Int, currentForks: Int, now: Date = Date()) -> [(image: String, text: String)] {
+        let day = 24.0 * 60 * 60
+        let windowStart = now.addingTimeInterval(-Double(ReleaseDynamics.recentWindowDays) * day)
+        let priorStart = now.addingTimeInterval(-Double(ReleaseDynamics.recentWindowDays * 2) * day)
+        let starsBase = ReleaseDynamics.value(in: trendPoints, at: windowStart, keyPath: \.stars)
+        let forksBase = ReleaseDynamics.value(in: trendPoints, at: windowStart, keyPath: \.forks)
+        let starsGained = starsBase.map { max(0, currentStars - $0) }
+        let forksGained = forksBase.map { max(0, currentForks - $0) }
+
+        var rows: [(image: String, text: String)] = []
+
+        var line1: [String] = []
+        if summary.releaseCount > 0 {
+            line1.append("\(fmt(summary.releaseCount)) \(summary.releaseCount == 1 ? "release" : "releases")")
+        }
+        if let stars = starsGained, stars > 0 { line1.append("+\(fmt(stars)) ⭐") }
+        if let forks = forksGained, forks > 0 { line1.append("+\(fmt(forks)) \(forks == 1 ? "fork" : "forks")") }
+        if !line1.isEmpty { rows.append((image: "shippingbox", text: line1.joined(separator: " · "))) }
+
+        if summary.downloads > 0 {
+            var line2 = "\(fmt(summary.downloads)) ↓ · ~\(fmt(rate(summary.downloads)))/day"
+            if let share = ReleaseDynamics.sharePercent(downloads: summary.downloads, totalDownloads: summary.totalDownloads) {
+                line2 += " · \(share)% of all"
+            }
+            rows.append((image: "arrow.down.circle", text: line2))
+        }
+
+        if let starsBase, let starsGained,
+           let starsPrior = ReleaseDynamics.value(in: trendPoints, at: priorStart, keyPath: \.stars) {
+            let priorStars = max(0, starsBase - starsPrior)
+            let arrow = starsGained > priorStars ? "↑" : (starsGained < priorStars ? "↓" : "→")
+            var line3 = ["\(arrow) vs prior \(ReleaseDynamics.recentWindowDays)d", "+\(fmt(priorStars)) ⭐"]
+            if let forksBase, let forksPrior = ReleaseDynamics.value(in: trendPoints, at: priorStart, keyPath: \.forks) {
+                let priorForks = max(0, forksBase - forksPrior)
+                line3.append("+\(fmt(priorForks)) \(priorForks == 1 ? "fork" : "forks")")
+            }
+            rows.append((image: "chart.line.uptrend.xyaxis", text: line3.joined(separator: " · ")))
+        }
+
+        if summary.releaseCount > 0 {
+            let days = max(1, Int((Double(ReleaseDynamics.recentWindowDays) / Double(summary.releaseCount)).rounded()))
+            var line4 = summary.releaseCount == 1
+                ? "1 release in \(ReleaseDynamics.recentWindowDays) days"
+                : "~1 release / \(days) days"
+            if summary.downloads > 0 {
+                let avg = Int((Double(summary.downloads) / Double(summary.releaseCount)).rounded())
+                line4 += " · avg \(fmt(avg)) ↓/release"
+            }
+            rows.append((image: "clock", text: line4))
+        }
+
+        return rows
+    }
+
+    private static func fmt(_ value: Int) -> String {
+        NumberFormatter.menuInteger.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
+    private static func rate(_ downloads: Int) -> Int {
+        Int((Double(downloads) / Double(ReleaseDynamics.recentWindowDays)).rounded())
+    }
+}
+
 enum MilestoneMetric: String, Codable, Equatable {
     case stars
     case downloads

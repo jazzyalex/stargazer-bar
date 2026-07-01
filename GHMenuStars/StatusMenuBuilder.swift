@@ -126,6 +126,7 @@ struct StatusMenuBuilder {
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
         addLatestReleaseItems(to: submenu, for: repo)
+        addRecentReleasesItems(to: submenu, for: repo)
         submenu.addItem(NSMenuItem.separator())
         addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
@@ -206,6 +207,22 @@ struct StatusMenuBuilder {
         submenu.addItem(titleItem(ReleaseLineFormatter.adoptionLine(release), imageName: "arrow.down.circle"))
         if let assetLine = ReleaseLineFormatter.assetLine(release) {
             submenu.addItem(titleItem(assetLine, imageName: "shippingbox"))
+        }
+    }
+
+    private func addRecentReleasesItems(to submenu: NSMenu, for repo: TrackedRepo) {
+        guard let summary = repo.recentReleases else { return }
+        let rows = RecentReleasesLineFormatter.rows(
+            summary,
+            trendPoints: repo.trendPoints,
+            currentStars: repo.lastStars ?? 0,
+            currentForks: repo.lastForks ?? 0
+        )
+        guard !rows.isEmpty else { return }
+        submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(titleItem("Last 30 days"))
+        for row in rows {
+            submenu.addItem(titleItem(row.text, imageName: row.image))
         }
     }
 
