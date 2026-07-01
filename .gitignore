@@ -21,3 +21,4 @@ Config/Local.xcconfig
 .claude/settings.local.json
 tools/release/.env
 Marketing/promo-workflow/
+.deriveddata-launch/
