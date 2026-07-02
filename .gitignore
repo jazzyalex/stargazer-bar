@@ -22,3 +22,5 @@ Config/Local.xcconfig
 tools/release/.env
 Marketing/promo-workflow/
 .deriveddata-launch/
+.deriveddata-test/
+.deriveddata-run/

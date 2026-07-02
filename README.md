@@ -60,6 +60,12 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
   <img src="docs/assets/hero-stage.png" alt="Stargazer Bar menu showing multiple tracked repositories, a star/fork trend graph, and maintainer radar rows" width="560">
 </div>
 
+<div align="center">
+  <sub><b>Track any public repository — not just your own.</b> Full trend, releases, and maintainer radar for <code>steipete/CodexBar</code>:</sub>
+  <br>
+  <a href="docs/assets/track-any-public-repo.png"><img src="docs/assets/track-any-public-repo.png" alt="Stargazer Bar submenu for a non-owned public repository (steipete/CodexBar) showing the all-time trend, latest release, last 30 days, and maintainer radar" width="260"></a>
+</div>
+
 ## Privacy
 
 The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. There is **no backend and no telemetry**. The only non-GitHub network activity is optional Sparkle update checking.

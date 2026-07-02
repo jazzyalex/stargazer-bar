@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0] - 2026-07-02
+
+### Features
+- Track **any public repository**, not just your own — adding a popular repo like `steipete/CodexBar` now populates the full submenu (trend chart, latest release, last-30-days, and maintainer radar), the same as owned repos.
+- Adding a repository is now **instant**: it appears immediately with star/download/fork counts and latest-release details, while the slower star/fork trend and maintainer radar backfill in the background instead of blocking the Add button.
+
+### Improvements
+- Trend refreshes are now **incremental**: after the one-time history backfill, each poll fetches only the stars and forks added since the last check and merges them, so tracking large, active repositories stays cheap.
+- The full stargazer/fork history backfill is page-bounded to respect the GitHub rate limit — full history when signed in, capped when anonymous so a popular repo can't exhaust the unauthenticated quota.
+- The activity line in the maintainer radar now reads "N commits on main" for clarity.
+
 ## [0.4.0] - 2026-07-01
 
 ### Features
