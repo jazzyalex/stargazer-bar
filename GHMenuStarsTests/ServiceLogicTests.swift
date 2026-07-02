@@ -49,6 +49,62 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(points.count, 366)
     }
 
+    func testTrendExtendAppendsNewDaysPreservesHistoryAndPinsTotals() {
+        let calendar = Calendar(identifier: .gregorian)
+        let day0 = calendar.startOfDay(for: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!)
+        let existing = [
+            RepoTrendPoint(date: day0, stars: 100, forks: 10),
+            RepoTrendPoint(date: calendar.date(byAdding: .day, value: 1, to: day0)!, stars: 102, forks: 10)
+        ]
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 12))!
+        let newStar = calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 8))!
+
+        let extended = RepoTrendBuilder.extend(
+            existing: existing,
+            newStarDates: [newStar, newStar],
+            newForkDates: [newStar],
+            totalStars: 104,
+            totalForks: 11,
+            now: now,
+            calendar: calendar
+        )
+
+        // Historical prefix is preserved verbatim; one new day (Jun 3) is appended.
+        XCTAssertEqual(extended.count, 3)
+        XCTAssertEqual(extended[0], existing[0])
+        XCTAssertEqual(extended[1], existing[1])
+        XCTAssertEqual(extended.last?.date, calendar.startOfDay(for: now))
+        // Final point is pinned to the true totals.
+        XCTAssertEqual(extended.last?.stars, 104)
+        XCTAssertEqual(extended.last?.forks, 11)
+    }
+
+    func testTrendExtendBumpsCurrentDayWithoutAddingPoints() {
+        let calendar = Calendar(identifier: .gregorian)
+        let day0 = calendar.startOfDay(for: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!)
+        let existing = [
+            RepoTrendPoint(date: day0, stars: 100, forks: 10),
+            RepoTrendPoint(date: calendar.date(byAdding: .day, value: 1, to: day0)!, stars: 102, forks: 10)
+        ]
+        // Same calendar day as the last point, later in the day.
+        let now = calendar.date(byAdding: .hour, value: 30, to: day0)!
+        let newStar = calendar.date(byAdding: .hour, value: 29, to: day0)!
+
+        let extended = RepoTrendBuilder.extend(
+            existing: existing,
+            newStarDates: [newStar],
+            newForkDates: [],
+            totalStars: 103,
+            totalForks: 10,
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(extended.count, 2)
+        XCTAssertEqual(extended.last?.stars, 103)
+        XCTAssertEqual(extended.last?.forks, 10)
+    }
+
     func testTrendAxisTicksAdaptToRangeLength() {
         let calendar = Calendar(identifier: .gregorian)
         let longStart = calendar.date(from: DateComponents(year: 2021, month: 6, day: 13))!
@@ -536,7 +592,7 @@ final class ServiceLogicTests: XCTestCase {
         // Redesigned dense layout: one packed activity line + one open-state row.
         XCTAssertTrue(titles.contains("CI failing: Tests"))
         XCTAssertTrue(titles.contains("Last 24h"))
-        XCTAssertTrue(titles.contains("7 commits · 1 new PR · 3 new issues"))
+        XCTAssertTrue(titles.contains("7 commits on main · 1 new PR · 3 new issues"))
         XCTAssertTrue(titles.contains("2 open PRs · 5 need first reply"))
         XCTAssertTrue(titles.contains("Open Discussions"))
         XCTAssertTrue(titles.contains { $0.hasPrefix("updated ") })
@@ -549,7 +605,7 @@ final class ServiceLogicTests: XCTestCase {
             true
         )
         XCTAssertEqual(
-            (Self.menuItem(titled: "7 commits · 1 new PR · 3 new issues", in: menu)?.representedObject as? URL)?
+            (Self.menuItem(titled: "7 commits on main · 1 new PR · 3 new issues", in: menu)?.representedObject as? URL)?
                 .absoluteString,
             "https://github.com/owner/repo/commits"
         )

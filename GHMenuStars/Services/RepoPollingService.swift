@@ -222,8 +222,30 @@ final class RepoPollingService {
         }
 
         do {
-            async let starDates = gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name)
-            async let forkDates = gitHubClient.fetchForkDates(owner: repo.owner, name: repo.name)
+            // Incremental path: an established all-time curve only needs the
+            // events added since the last successful check, which is a handful of
+            // pages instead of the repo's entire stargazer/fork history.
+            if !repo.trendPoints.isEmpty,
+               repo.trendRange == .all,
+               !isFlatTrend(repo.trendPoints),
+               let since = repo.lastSuccessfulCheckAt {
+                async let starDates = gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name, since: since, maxPages: GitHubClient.trendPageLimit)
+                async let forkDates = gitHubClient.fetchForkDates(owner: repo.owner, name: repo.name, since: since, maxPages: GitHubClient.trendPageLimit)
+                let (newStarDates, newForkDates) = try await (starDates, forkDates)
+                return RepoTrendBuilder.extend(
+                    existing: repo.trendPoints,
+                    newStarDates: newStarDates,
+                    newForkDates: newForkDates,
+                    totalStars: stars,
+                    totalForks: forks,
+                    now: checkedAt
+                )
+            }
+
+            // Full backfill: first time, or the stored curve is empty/degenerate.
+            let pageLimit = gitHubClient.trendBackfillPageLimit()
+            async let starDates = gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name, maxPages: pageLimit)
+            async let forkDates = gitHubClient.fetchForkDates(owner: repo.owner, name: repo.name, maxPages: pageLimit)
             let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
             return RepoTrendBuilder.points(
                 stars: stars,

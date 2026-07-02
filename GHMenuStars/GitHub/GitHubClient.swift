@@ -176,6 +176,15 @@ struct GitHubHTTPResult<T> {
 }
 
 final class GitHubClient {
+    /// Page cap for incremental (since-scoped) trend refreshes — a poll only sees
+    /// events added since the last check, so a couple of pages is plenty.
+    static let trendPageLimit = 10
+
+    /// Page cap for the one-time full-history backfill when authenticated. Deep
+    /// enough to cover realistic repos in full (10k pages × 100 ≈ 1M stars) while
+    /// still bounding a pathological outlier. Only paid once, in the background.
+    static let trendBackfillPageLimitAuthenticated = 500
+
     private let session: URLSession
     private let tokenProvider: () -> String?
     private let optionalTokenProvider: () -> String?
@@ -192,6 +201,12 @@ final class GitHubClient {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
+    }
+
+    /// Page cap for a full-history trend backfill: generous when authenticated
+    /// (5,000 req/hr headroom), tight when anonymous to protect the 60 req/hr limit.
+    func trendBackfillPageLimit() -> Int {
+        optionalTokenProvider() != nil ? Self.trendBackfillPageLimitAuthenticated : Self.trendPageLimit
     }
 
     func fetchRepo(owner: String, name: String, etag: String?) async throws -> GitHubHTTPResult<GitHubRepoResponse> {
@@ -214,7 +229,7 @@ final class GitHubClient {
         try await fetchStargazerDates(owner: owner, name: name, since: since)
     }
 
-    func fetchStargazerDates(owner: String, name: String, since: Date? = nil) async throws -> [Date] {
+    func fetchStargazerDates(owner: String, name: String, since: Date? = nil, maxPages: Int? = nil) async throws -> [Date] {
         let basePath = "/repos/\(owner)/\(name)/stargazers?per_page=100"
         let firstPage: GitHubHTTPResult<[GitHubStargazer]> = try await request(
             path: basePath,
@@ -222,16 +237,31 @@ final class GitHubClient {
             requiresAuth: false,
             accept: "application/vnd.github.star+json"
         )
-        var dates = firstPage.value.map(\.starredAt).filter { date in
-            since.map { date >= $0 } ?? true
-        }
         guard let lastPage = Self.pageNumber(from: firstPage.lastPagePath), lastPage > 1 else {
-            return dates.sorted()
+            return firstPage.value.map(\.starredAt).filter { date in
+                since.map { date >= $0 } ?? true
+            }.sorted()
         }
 
-        let pages = since == nil
-            ? Array(2...lastPage)
-            : Array(stride(from: lastPage, through: 2, by: -1))
+        // For an all-time backfill on a large repo, fetch only the newest pages.
+        // Older stargazers fall outside the retained trend window (the baseline
+        // is derived from the total count), and fetching every page would blow
+        // the rate limit. The `since`-scoped path already self-limits by date.
+        let pages: [Int]
+        let includesFirstPage: Bool
+        if since == nil, let maxPages, lastPage > maxPages {
+            pages = Array(stride(from: lastPage, through: lastPage - maxPages + 1, by: -1))
+            includesFirstPage = false
+        } else {
+            pages = since == nil
+                ? Array(2...lastPage)
+                : Array(stride(from: lastPage, through: 2, by: -1))
+            includesFirstPage = true
+        }
+
+        var dates = includesFirstPage
+            ? firstPage.value.map(\.starredAt).filter { date in since.map { date >= $0 } ?? true }
+            : []
         for page in pages {
             let result: GitHubHTTPResult<[GitHubStargazer]> = try await request(
                 path: "\(basePath)&page=\(page)",
@@ -255,9 +285,10 @@ final class GitHubClient {
         try await fetchForkDates(owner: owner, name: name, since: since)
     }
 
-    func fetchForkDates(owner: String, name: String, since: Date? = nil) async throws -> [Date] {
+    func fetchForkDates(owner: String, name: String, since: Date? = nil, maxPages: Int? = nil) async throws -> [Date] {
         var path: String? = "/repos/\(owner)/\(name)/forks?sort=newest&per_page=100"
         var dates: [Date] = []
+        var pagesFetched = 0
 
         while let currentPath = path {
             let result: GitHubHTTPResult<[GitHubFork]> = try await request(
@@ -265,11 +296,16 @@ final class GitHubClient {
                 etag: nil,
                 requiresAuth: false
             )
+            pagesFetched += 1
             let pageDates = result.value.map(\.createdAt)
             dates.append(contentsOf: pageDates.filter { date in
                 since.map { date >= $0 } ?? true
             })
             if let since, !pageDates.isEmpty, pageDates.allSatisfy({ $0 < since }) {
+                break
+            }
+            // Forks come newest-first, so capping keeps the most recent pages.
+            if let maxPages, pagesFetched >= maxPages {
                 break
             }
             path = result.nextPagePath

@@ -160,6 +160,19 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func setTrendPoints(_ points: [RepoTrendPoint], range: RepoTrendRange?, for repoID: UUID) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].trendPoints = points
+        trackedRepos[index].trendRange = range
+        saveAll()
+    }
+
+    func setMaintainerRadar(_ radar: RepoMaintainerRadar?, for repoID: UUID) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].maintainerRadar = radar
+        saveAll()
+    }
+
     func setStarSound(_ sound: StarSound, for repoID: UUID) {
         guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
         trackedRepos[index].starSound = sound

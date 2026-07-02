@@ -213,6 +213,62 @@ enum RepoTrendBuilder {
         return points
     }
 
+    /// Extends an existing all-time curve with only the events observed since
+    /// the last check, instead of rebuilding from the full history. The historical
+    /// prefix is preserved verbatim; new events bump the current day and/or append
+    /// new daily points, and the final point is re-pinned to the true totals.
+    static func extend(
+        existing: [RepoTrendPoint],
+        newStarDates: [Date],
+        newForkDates: [Date],
+        totalStars: Int,
+        totalForks: Int,
+        now: Date = Date(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) -> [RepoTrendPoint] {
+        guard let last = existing.last else {
+            return points(
+                stars: totalStars,
+                forks: totalForks,
+                starDates: newStarDates,
+                forkDates: newForkDates,
+                range: .all,
+                now: now,
+                calendar: calendar
+            )
+        }
+
+        let end = calendar.startOfDay(for: now)
+        let starByDay = countsByDay(newStarDates, from: last.date, through: now, calendar: calendar)
+        let forkByDay = countsByDay(newForkDates, from: last.date, through: now, calendar: calendar)
+
+        var points = existing
+        // Events landing on the current final day bump that point in place.
+        var running = last
+        running.stars += starByDay[last.date] ?? 0
+        running.forks += forkByDay[last.date] ?? 0
+        points[points.count - 1] = running
+
+        var day = calendar.date(byAdding: .day, value: 1, to: last.date) ?? end
+        while day <= end {
+            running = RepoTrendPoint(
+                date: day,
+                stars: running.stars + (starByDay[day] ?? 0),
+                forks: running.forks + (forkByDay[day] ?? 0)
+            )
+            points.append(running)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+
+        if var tail = points.last {
+            tail.stars = totalStars
+            tail.forks = totalForks
+            points[points.count - 1] = tail
+        }
+        return points
+    }
+
     private static func countsByDay(
         _ dates: [Date],
         from start: Date,

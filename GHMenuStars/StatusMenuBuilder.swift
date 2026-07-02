@@ -255,7 +255,7 @@ struct StatusMenuBuilder {
         }
         var activityParts: [String] = []
         if let commits = radar.recentCommits, commits > 0 {
-            activityParts.append("\(Self.formattedCount(commits)) \(commits == 1 ? "commit" : "commits")")
+            activityParts.append("\(Self.formattedCount(commits)) \(commits == 1 ? "commit" : "commits") on main")
         }
         if let prs = radar.newPullRequests, prs > 0 {
             activityParts.append("\(Self.formattedCount(prs)) new \(prs == 1 ? "PR" : "PRs")")

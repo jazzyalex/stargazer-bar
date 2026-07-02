@@ -473,28 +473,33 @@ struct SettingsView: View {
                 guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
                 let releasesResult = try await gitHubClient.fetchReleases(owner: owner, name: name, etag: nil)
                 let downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
+                let stars = repoResult.value.stargazersCount
+                let forks = repoResult.value.forksCount
                 let checkedAt = Date()
-                let trendPoints = await fetchTrendPoints(
-                    owner: owner,
-                    name: name,
-                    stars: repoResult.value.stargazersCount,
-                    forks: repoResult.value.forksCount,
-                    checkedAt: checkedAt
-                )
+                // Release summaries come from the releases response we already
+                // fetched, so populate them immediately — no extra request.
+                let latestRelease = LatestReleaseSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads)
+                let recentReleases = RecentReleasesSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads, now: checkedAt)
+                // Track the repo as soon as the repo/releases lookups succeed.
+                // The slower details — the stargazer/fork trend and the maintainer
+                // radar — are backfilled in the background instead of blocking the
+                // "Add" spinner.
                 try await MainActor.run {
                     let repo = TrackedRepo(
                         owner: owner,
                         name: name,
                         source: source,
-                        lastStars: repoResult.value.stargazersCount,
+                        lastStars: stars,
                         lastDownloads: downloads,
-                        lastForks: repoResult.value.forksCount,
+                        lastForks: forks,
                         lastCheckedAt: checkedAt,
                         lastSuccessfulCheckAt: checkedAt,
                         etagRepo: repoResult.etag,
                         etagReleases: releasesResult.etag,
-                        trendPoints: trendPoints,
-                        trendRange: trendPoints.isEmpty ? nil : .all
+                        trendPoints: [],
+                        trendRange: nil,
+                        latestRelease: latestRelease,
+                        recentReleases: recentReleases
                     )
                     try repoStore.upsertTrackedRepo(repo)
                     if settingsStore.settings.selectedMenuBarRepoID == nil {
@@ -502,6 +507,7 @@ struct SettingsView: View {
                     }
                     validationMessage = .success("Tracking \(owner)/\(name).")
                     isValidating = false
+                    backfillDetails(owner: owner, name: name, stars: stars, forks: forks, latestRelease: latestRelease, checkedAt: checkedAt)
                 }
             } catch TrackedRepoStoreError.maximumReached(let maximum) {
                 await MainActor.run {
@@ -517,6 +523,47 @@ struct SettingsView: View {
         }
     }
 
+    @MainActor
+    private func backfillDetails(
+        owner: String,
+        name: String,
+        stars: Int,
+        forks: Int,
+        latestRelease: LatestReleaseSummary?,
+        checkedAt: Date
+    ) {
+        let activityWindow = settingsStore.settings.maintainerRadarActivityWindow
+        Task {
+            let releaseAnchor = activityWindow == .off ? nil : latestRelease.flatMap {
+                ReleaseDynamics.isFresh(publishedAt: $0.publishedAt, now: checkedAt) ? $0.publishedAt : nil
+            }
+            async let pointsTask = fetchTrendPoints(
+                owner: owner,
+                name: name,
+                stars: stars,
+                forks: forks,
+                checkedAt: checkedAt
+            )
+            async let radarTask = gitHubClient.fetchMaintainerRadar(
+                owner: owner,
+                name: name,
+                activityWindow: activityWindow,
+                releaseAnchor: releaseAnchor,
+                now: checkedAt
+            )
+            let (points, radar) = await (pointsTask, radarTask)
+
+            guard let id = repoStore.trackedRepos.first(where: {
+                $0.owner.caseInsensitiveCompare(owner) == .orderedSame
+                    && $0.name.caseInsensitiveCompare(name) == .orderedSame
+            })?.id else { return }
+            if !points.isEmpty {
+                repoStore.setTrendPoints(points, range: .all, for: id)
+            }
+            repoStore.setMaintainerRadar(radar.hasData ? radar : nil, for: id)
+        }
+    }
+
     private func fetchTrendPoints(
         owner: String,
         name: String,
@@ -525,8 +572,9 @@ struct SettingsView: View {
         checkedAt: Date
     ) async -> [RepoTrendPoint] {
         do {
-            async let starDates = gitHubClient.fetchStargazerDates(owner: owner, name: name)
-            async let forkDates = gitHubClient.fetchForkDates(owner: owner, name: name)
+            let pageLimit = gitHubClient.trendBackfillPageLimit()
+            async let starDates = gitHubClient.fetchStargazerDates(owner: owner, name: name, maxPages: pageLimit)
+            async let forkDates = gitHubClient.fetchForkDates(owner: owner, name: name, maxPages: pageLimit)
             let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
             return RepoTrendBuilder.points(
                 stars: stars,

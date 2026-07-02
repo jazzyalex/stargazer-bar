@@ -323,6 +323,76 @@ final class GitHubModelTests: XCTestCase {
         ])
     }
 
+    func testAllStargazerBackfillIsPageBoundedForLargeRepos() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+        let formatter = ISO8601DateFormatter()
+
+        var responses: [String: MockURLProtocol.Response] = [
+            "/repos/owner/repo/stargazers?per_page=100": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=2>; rel="next", <https://api.github.com/repos/owner/repo/stargazers?per_page=100&page=10>; rel="last""#
+                ],
+                data: Data(#"[{"starred_at":"2020-01-01T00:00:00Z","user":{"login":"oldest"}}]"#.utf8)
+            )
+        ]
+        for page in 2...10 {
+            responses["/repos/owner/repo/stargazers?per_page=100&page=\(page)"] = MockURLProtocol.Response(
+                data: Data("[{\"starred_at\":\"2026-01-\(String(format: "%02d", page))T00:00:00Z\",\"user\":{\"login\":\"u\(page)\"}}]".utf8)
+            )
+        }
+        MockURLProtocol.responses = responses
+
+        let dates = try await client.fetchStargazerDates(owner: "owner", name: "repo", maxPages: 3)
+
+        // Only the base request plus the three newest pages are fetched — a
+        // popular repo must not trigger a request per page.
+        XCTAssertEqual(MockURLProtocol.requestedPaths, [
+            "/repos/owner/repo/stargazers?per_page=100",
+            "/repos/owner/repo/stargazers?per_page=100&page=10",
+            "/repos/owner/repo/stargazers?per_page=100&page=9",
+            "/repos/owner/repo/stargazers?per_page=100&page=8"
+        ])
+        // The oldest page (page 1) is outside the fetched window and dropped.
+        XCTAssertFalse(dates.contains(formatter.date(from: "2020-01-01T00:00:00Z")!))
+        XCTAssertTrue(dates.contains(formatter.date(from: "2026-01-10T00:00:00Z")!))
+    }
+
+    func testForkBackfillIsPageBoundedForLargeRepos() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session)
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo/forks?sort=newest&per_page=100": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/forks?sort=newest&per_page=100&page=2>; rel="next""#
+                ],
+                data: Data(#"[{"created_at":"2026-04-01T00:00:00Z","full_name":"fork/newest"}]"#.utf8)
+            ),
+            "/repos/owner/repo/forks?sort=newest&per_page=100&page=2": MockURLProtocol.Response(
+                headers: [
+                    "Link": #"<https://api.github.com/repos/owner/repo/forks?sort=newest&per_page=100&page=3>; rel="next""#
+                ],
+                data: Data(#"[{"created_at":"2026-03-01T00:00:00Z","full_name":"fork/mid"}]"#.utf8)
+            ),
+            "/repos/owner/repo/forks?sort=newest&per_page=100&page=3": MockURLProtocol.Response(
+                data: Data(#"[{"created_at":"2026-02-01T00:00:00Z","full_name":"fork/old"}]"#.utf8)
+            )
+        ]
+
+        _ = try await client.fetchForkDates(owner: "owner", name: "repo", maxPages: 2)
+
+        // Stops after the newest two pages; page 3 is never requested.
+        XCTAssertEqual(MockURLProtocol.requestedPaths, [
+            "/repos/owner/repo/forks?sort=newest&per_page=100",
+            "/repos/owner/repo/forks?sort=newest&per_page=100&page=2"
+        ])
+    }
+
     func testForkHistoryFollowsNewestPaginationUntilOlderThanWindow() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
