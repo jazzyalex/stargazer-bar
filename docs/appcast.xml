@@ -5,6 +5,27 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.5.1</title>
+            <pubDate>Thu, 02 Jul 2026 17:13:00 -0700</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<h2>What's New in 0.5.1</h2>
+<h3>Features</h3>
+<ul>
+<li>Added a per-repository **Mute** control in Settings: silence all alerts (notification, sound, celebration, and growth prompt) for a specific repository, independent of its chosen star sound. Star counts and trends keep updating in the background.</li>
+</ul>
+<h3>Fixes</h3>
+<ul>
+<li>Removing a tracked repository now asks for confirmation before deleting it.</li>
+</ul>
+<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
+<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1</a></p>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.1/Stargazer-Bar-0.5.1.zip" length="3521206" type="application/octet-stream" sparkle:edSignature="NwqDqY6ooWistEFxbwRTaFx5p1MXoICtpVh0W7tRtvUtXLtG6WQ1LvULUY1Z2ZZH/x4fovMb+7tOMymkoTMRAQ=="/>
+        </item>
+        <item>
             <title>0.5.0</title>
             <pubDate>Thu, 02 Jul 2026 16:40:00 -0700</pubDate>
             <sparkle:version>11</sparkle:version>
@@ -52,24 +73,6 @@
 <p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.4.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.4.0</a></p>
 ]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.4.0/Stargazer-Bar-0.4.0.zip" length="3485636" type="application/octet-stream" sparkle:edSignature="J6B0TDUNNXr1gG5d1xxvxh6Rzl6NORnQZ35JtW2JL3ydNe4mNX7LAFvfl+1nzyAWu+vOZPOQxfmniq/Qenb6AQ=="/>
-        </item>
-        <item>
-            <title>0.3.1</title>
-            <pubDate>Sun, 14 Jun 2026 20:28:09 -0700</pubDate>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<h2>What's New in 0.3.1</h2>
-<h3>Fixes</h3>
-<ul>
-<li>Use the saved GitHub token for background public repository polling so star counts, release downloads, trends, and maintainer radar use the higher authenticated API quota when connected.</li>
-<li>Retry rate-limited refreshes at GitHub&#x27;s reset time and clear expired rate-limit state before polling again.</li>
-</ul>
-<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
-<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.3.1">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.3.1</a></p>
-]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.3.1/Stargazer-Bar-0.3.1.zip" length="3444605" type="application/octet-stream" sparkle:edSignature="7CnFU7Jv6K0/hVbc09O5lxogp2NbfIUf31Xu7FcnLCuWm/ezDGD3hIyhCqs5YBxFURx7VJrsXVaMSDHRVQTKCA=="/>
         </item>
     </channel>
 </rss>
