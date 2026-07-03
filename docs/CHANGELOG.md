@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] - 2026-07-02
+
+### Features
+- Added a per-repository **Mute** control in Settings: silence all alerts (notification, sound, celebration, and growth prompt) for a specific repository, independent of its chosen star sound. Star counts and trends keep updating in the background.
+
+### Fixes
+- Removing a tracked repository now asks for confirmation before deleting it.
+
 ## [0.5.0] - 2026-07-02
 
 ### Features
