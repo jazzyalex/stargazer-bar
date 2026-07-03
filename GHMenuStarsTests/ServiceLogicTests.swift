@@ -25,6 +25,33 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.trackedRepos.first?.trendPoints, [])
     }
 
+    func testPerRepoMutePersistsAndDefaultsToFalse() throws {
+        // Missing key decodes to false (backward compatible with pre-mute data).
+        let legacy = Data(#"{"id":"F7B1C0A2-0000-0000-0000-000000000001","owner":"o","name":"r","displayName":"o/r","source":"manual","starSound":"glass"}"#.utf8)
+        let decoded = try JSONDecoder().decode(TrackedRepo.self, from: legacy)
+        XCTAssertFalse(decoded.isMuted)
+
+        // Round-trips when set.
+        var repo = decoded
+        repo.isMuted = true
+        let roundTripped = try JSONDecoder().decode(TrackedRepo.self, from: JSONEncoder().encode(repo))
+        XCTAssertTrue(roundTripped.isMuted)
+    }
+
+    func testStoreSetMutedUpdatesAndPersists() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let repo = TrackedRepo(owner: "owner", name: "repo", source: .manual)
+        store.setTrackedRepo(repo)
+        XCTAssertFalse(store.trackedRepos.first?.isMuted ?? true)
+
+        store.setMuted(true, for: repo.id)
+        XCTAssertTrue(store.trackedRepos.first?.isMuted ?? false)
+
+        let reloaded = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        XCTAssertTrue(reloaded.trackedRepos.first?.isMuted ?? false)
+    }
+
     func testTrendBuilderUsesGitHubEventDatesForLastYear() {
         let calendar = Calendar(identifier: .gregorian)
         let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 13, hour: 9))!

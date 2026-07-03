@@ -301,6 +301,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var etagRepo: String?
     var etagReleases: String?
     var starSound: StarSound
+    var isMuted: Bool
     var trendPoints: [RepoTrendPoint]
     var trendRange: RepoTrendRange?
     var maintainerRadar: RepoMaintainerRadar?
@@ -328,6 +329,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case etagRepo
         case etagReleases
         case starSound
+        case isMuted
         case trendPoints
         case trendRange
         case maintainerRadar
@@ -356,6 +358,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagRepo: String? = nil,
         etagReleases: String? = nil,
         starSound: StarSound = .glass,
+        isMuted: Bool = false,
         trendPoints: [RepoTrendPoint] = [],
         trendRange: RepoTrendRange? = nil,
         maintainerRadar: RepoMaintainerRadar? = nil,
@@ -382,6 +385,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.etagRepo = etagRepo
         self.etagReleases = etagReleases
         self.starSound = starSound
+        self.isMuted = isMuted
         self.trendPoints = trendPoints
         self.trendRange = trendRange
         self.maintainerRadar = maintainerRadar
@@ -411,6 +415,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         etagRepo = try container.decodeIfPresent(String.self, forKey: .etagRepo)
         etagReleases = try container.decodeIfPresent(String.self, forKey: .etagReleases)
         starSound = try container.decodeIfPresent(StarSound.self, forKey: .starSound) ?? .glass
+        isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         trendPoints = try container.decodeIfPresent([RepoTrendPoint].self, forKey: .trendPoints) ?? []
         trendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .trendRange)
         maintainerRadar = try container.decodeIfPresent(RepoMaintainerRadar.self, forKey: .maintainerRadar)

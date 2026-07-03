@@ -179,6 +179,12 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    func setMuted(_ muted: Bool, for repoID: UUID) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].isMuted = muted
+        saveAll()
+    }
+
     func updateRateLimit(_ state: RateLimitState?) {
         rateLimitState = state
         saveAll()

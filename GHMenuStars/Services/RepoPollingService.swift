@@ -277,6 +277,9 @@ final class RepoPollingService {
         guard delta.hasCelebrationIncrease else { return }
         let settings = settingsStore.settings
         guard !settings.isMuted else { return }
+        // Per-repo mute silences everything for this repo: no notification,
+        // sound, celebration pulse, or star-ask prompt.
+        guard repoStore.trackedRepos.first(where: { $0.id == repoID })?.isMuted != true else { return }
         if delta.hasStarIncrease,
            settings.notifyOnStarIncrease,
            repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {

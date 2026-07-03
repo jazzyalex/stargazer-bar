@@ -43,6 +43,7 @@ struct SettingsView: View {
     @State private var isLoadingRepos = false
     @State private var hasLoadedPublicRepos = false
     @State private var repoFilter = ""
+    @State private var repoPendingDeletion: TrackedRepo?
 
     init(
         repoStore: TrackedRepoStore,
@@ -113,10 +114,12 @@ struct SettingsView: View {
                                 repo: repo,
                                 isSelected: repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.id == repo.id,
                                 select: { selectMenuBarRepo(repo.id) },
-                                remove: { removeTrackedRepo(repo.id) },
+                                remove: { repoPendingDeletion = repo },
                                 sound: repo.starSound,
                                 setSound: { repoStore.setStarSound($0, for: repo.id) },
-                                previewSound: { soundPreviewService.play($0) }
+                                previewSound: { soundPreviewService.play($0) },
+                                isMuted: repo.isMuted,
+                                setMuted: { repoStore.setMuted($0, for: repo.id) }
                             )
                         }
                     }
@@ -151,6 +154,22 @@ struct SettingsView: View {
                 }
             }
             .padding(8)
+        }
+        .alert(
+            "Stop tracking \(repoPendingDeletion?.displayName ?? "this repository")?",
+            isPresented: Binding(
+                get: { repoPendingDeletion != nil },
+                set: { if !$0 { repoPendingDeletion = nil } }
+            ),
+            presenting: repoPendingDeletion
+        ) { repo in
+            Button("Cancel", role: .cancel) { repoPendingDeletion = nil }
+            Button("Remove", role: .destructive) {
+                removeTrackedRepo(repo.id)
+                repoPendingDeletion = nil
+            }
+        } message: { _ in
+            Text("It will be removed from Stargazer Bar. You can add it again later.")
         }
     }
 
@@ -716,6 +735,8 @@ private struct RepositoryRow: View {
     let sound: StarSound
     let setSound: (StarSound) -> Void
     let previewSound: (StarSound) -> Void
+    let isMuted: Bool
+    let setMuted: (Bool) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -750,14 +771,22 @@ private struct RepositoryRow: View {
             .labelsHidden()
             .controlSize(.small)
             .frame(width: 130)
-            .help("Star sound")
+            .disabled(isMuted)
+            .help(isMuted ? "Muted — unmute to choose a sound" : "Star sound")
 
             Button { previewSound(sound) } label: {
                 Image(systemName: "speaker.wave.2")
             }
             .buttonStyle(.plain)
-            .disabled(sound.isSilent)
+            .disabled(isMuted || sound.isSilent)
             .help("Preview sound")
+
+            Button { setMuted(!isMuted) } label: {
+                Image(systemName: isMuted ? "bell.slash.fill" : "bell")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isMuted ? .primary : .secondary)
+            .help(isMuted ? "Muted — no alerts for this repository. Click to unmute." : "Mute all alerts for this repository")
 
             Button(action: remove) {
                 Image(systemName: "minus.circle")
