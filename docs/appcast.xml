@@ -5,6 +5,23 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.5.2</title>
+            <pubDate>Mon, 13 Jul 2026 12:08:21 -0700</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<h2>What's New in 0.5.2</h2>
+<h3>Features</h3>
+<ul>
+<li>**Spike Radar** in the per-repository trend chart: days of unusually fast star growth are now marked with a pip on the star line, so bursts stand out at a glance instead of hiding in a smooth cumulative curve. A new **Highlights** section under the chart calls out the biggest single-day star gain and the hottest 7-day stretch. Everything is computed from history already on your Mac — no extra network calls, no new permissions.</li>
+</ul>
+<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
+<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2</a></p>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.2/Stargazer-Bar-0.5.2.zip" length="3537857" type="application/octet-stream" sparkle:edSignature="sSKerqwG4sAMi8lvNmlnDOCxyz4F7rX5lIvkxmnZjV+e+GiDE9+4mRplnqc28rVGyJsXUmBDfRM+dlap1AnJBw=="/>
+        </item>
+        <item>
             <title>0.5.1</title>
             <pubDate>Thu, 02 Jul 2026 17:13:00 -0700</pubDate>
             <sparkle:version>12</sparkle:version>
@@ -48,31 +65,6 @@
 <p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.0</a></p>
 ]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.0/Stargazer-Bar-0.5.0.zip" length="3502711" type="application/octet-stream" sparkle:edSignature="52UedHywx+baJk6it2oiNTsL0TD/D/uMCrFvxd6gtV1igoWbXLqw+sVtITZMVLWydkVRDvHxsFxlyYaJzw1KAA=="/>
-        </item>
-        <item>
-            <title>0.4.0</title>
-            <pubDate>Wed, 01 Jul 2026 12:47:08 -0700</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<h2>What's New in 0.4.0</h2>
-<h3>Features</h3>
-<ul>
-<li>Redesigned per-repository submenu with a **Latest release** block (version, age, downloads, per-day velocity, share of all-time downloads, per-asset sha256/size) and a denser radar layout for release, activity, and CI signals.</li>
-<li>Added a **Last 30 days** section showing the number of new releases, star and fork momentum, download totals and per-day velocity, and comparison against the prior 30-day window.</li>
-<li>Marked the current release date on the star/fork trend chart so the release moment is visible in the history.</li>
-<li>Distinguished release downloads from trend arrows in the menu by using a dedicated `⤓` glyph for downloads.</li>
-</ul>
-<h3>Fixes</h3>
-<ul>
-<li>Hide the 30-day momentum row when the prior 30-day window has no comparable data so the section does not show a misleading &quot;0&quot; baseline.</li>
-<li>Respect the **Off** activity window setting when computing the last-30-days summary and cap long asset labels so the submenu no longer widens unpredictably.</li>
-</ul>
-<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
-<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.4.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.4.0</a></p>
-]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.4.0/Stargazer-Bar-0.4.0.zip" length="3485636" type="application/octet-stream" sparkle:edSignature="J6B0TDUNNXr1gG5d1xxvxh6Rzl6NORnQZ35JtW2JL3ydNe4mNX7LAFvfl+1nzyAWu+vOZPOQxfmniq/Qenb6AQ=="/>
         </item>
     </channel>
 </rss>
