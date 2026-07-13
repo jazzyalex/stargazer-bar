@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.2] - 2026-07-13
+
+### Features
+- **Spike Radar** in the per-repository trend chart: days of unusually fast star growth are now marked with a pip on the star line, so bursts stand out at a glance instead of hiding in a smooth cumulative curve. A new **Highlights** section under the chart calls out the biggest single-day star gain and the hottest 7-day stretch. Everything is computed from history already on your Mac — no extra network calls, no new permissions.
+
 ## [0.5.1] - 2026-07-02
 
 ### Features

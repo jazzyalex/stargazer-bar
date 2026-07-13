@@ -125,6 +125,7 @@ struct StatusMenuBuilder {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
         submenu.addItem(trendItem(for: repo))
+        addTrendHighlightItems(to: submenu, for: repo)
         addLatestReleaseItems(to: submenu, for: repo)
         addRecentReleasesItems(to: submenu, for: repo)
         submenu.addItem(NSMenuItem.separator())
@@ -137,8 +138,37 @@ struct StatusMenuBuilder {
 
     private func trendItem(for repo: TrackedRepo) -> NSMenuItem {
         let item = NSMenuItem()
-        item.view = RepoTrendView(repo: repo, trendRange: settingsStore.settings.repoTrendRange, releaseDate: repo.latestRelease?.publishedAt)
+        item.view = RepoTrendView(
+            repo: repo,
+            trendRange: settingsStore.settings.repoTrendRange,
+            releaseDate: repo.latestRelease?.publishedAt,
+            anomalies: TrendAnomalyDetector.anomalies(in: repo.trendPoints)
+        )
         return item
+    }
+
+    /// Two derived "standout moment" rows under the chart — the biggest single
+    /// star day and the hottest 7-day stretch — computed from stored trend
+    /// history. Omitted entirely when history is too short to be meaningful.
+    private func addTrendHighlightItems(to submenu: NSMenu, for repo: TrackedRepo) {
+        let best = TrendAnomalyStats.bestDay(in: repo.trendPoints)
+        let peak = TrendAnomalyStats.peakWeek(in: repo.trendPoints)
+        guard best != nil || peak != nil else { return }
+
+        submenu.addItem(NSMenuItem.separator())
+        submenu.addItem(titleItem("Highlights"))
+        if let best {
+            submenu.addItem(titleItem(
+                "Best day: +\(Self.formattedCount(best.gain)) ⭐ · \(Self.dayLabel(best.date))",
+                imageName: "star.circle"
+            ))
+        }
+        if let peak {
+            submenu.addItem(titleItem(
+                "Peak week: +\(Self.formattedCount(peak.gain)) ⭐ · \(Self.weekLabel(peak))",
+                imageName: "calendar"
+            ))
+        }
     }
 
     private func selectedShareMenuItem(target: StatusItemController) -> NSMenuItem? {
@@ -355,6 +385,31 @@ struct StatusMenuBuilder {
         NumberFormatter.menuInteger.string(from: NSNumber(value: count)) ?? "\(count)"
     }
 
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter
+    }()
+
+    private static let dayOfMonthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter
+    }()
+
+    private static func dayLabel(_ date: Date) -> String {
+        monthDayFormatter.string(from: date)
+    }
+
+    private static func weekLabel(_ peak: TrendAnomalyStats.PeakWeek) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let startText = monthDayFormatter.string(from: peak.start)
+        if calendar.isDate(peak.start, equalTo: peak.end, toGranularity: .month) {
+            return "\(startText)–\(dayOfMonthFormatter.string(from: peak.end))"
+        }
+        return "\(startText) – \(monthDayFormatter.string(from: peak.end))"
+    }
+
     private static func attributedMenuTitle(_ title: String, emphasizedText: String) -> NSAttributedString {
         let regularFont = NSFont.menuFont(ofSize: 0)
         let boldFont = NSFont.boldSystemFont(ofSize: regularFont.pointSize)
@@ -395,12 +450,14 @@ private final class RepoTrendView: NSView {
     private let repo: TrackedRepo
     private let trendRange: RepoTrendRange
     private let releaseDate: Date?
+    private let anomalies: [AnomalyDay]
     private let calendar = Calendar(identifier: .gregorian)
 
-    init(repo: TrackedRepo, trendRange: RepoTrendRange, releaseDate: Date? = nil) {
+    init(repo: TrackedRepo, trendRange: RepoTrendRange, releaseDate: Date? = nil, anomalies: [AnomalyDay] = []) {
         self.repo = repo
         self.trendRange = trendRange
         self.releaseDate = releaseDate
+        self.anomalies = anomalies
         super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 142))
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -445,6 +502,7 @@ private final class RepoTrendView: NSView {
         drawHorizontalTicks(in: plot, start: start, end: end)
         drawScale(in: plot, minValue: minValue, maxValue: maxValue)
         drawLine(points: points, metric: \.stars, color: .systemYellow, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
+        drawAnomalyMarkers(points: points, in: plot, start: start, end: end, minValue: minValue, maxValue: maxValue)
         drawLine(points: points, metric: \.forks, color: .systemBlue, plot: plot, minValue: minValue, maxValue: maxValue, start: start, end: end)
         drawReleaseMarker(in: plot, start: start, end: end)
         drawRangeLabels(in: plot)
@@ -626,6 +684,28 @@ private final class RepoTrendView: NSView {
         marker.line(to: NSPoint(x: x, y: plot.maxY + 1))
         marker.close()
         marker.fill()
+    }
+
+    /// Pips on the star line marking days of abnormally high star growth. The
+    /// cumulative value is read from the same points the line is drawn through, so
+    /// each pip sits exactly on the line; a dark thin ring lifts it off the yellow.
+    private func drawAnomalyMarkers(points: [RepoTrendPoint], in plot: NSRect, start: Date, end: Date, minValue: Int, maxValue: Int) {
+        guard !anomalies.isEmpty else { return }
+        for anomaly in anomalies {
+            guard anomaly.date >= start, anomaly.date <= end else { continue }
+            guard let match = points.first(where: { calendar.isDate($0.date, inSameDayAs: anomaly.date) }) else { continue }
+            let center = NSPoint(
+                x: xPosition(for: anomaly.date, in: plot, start: start, end: end),
+                y: yPosition(for: match.stars, in: plot, minValue: minValue, maxValue: maxValue)
+            )
+            let radius: CGFloat = 3
+            let dot = NSBezierPath(ovalIn: NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+            NSColor.systemYellow.setFill()
+            dot.fill()
+            NSColor.labelColor.withAlphaComponent(0.55).setStroke()
+            dot.lineWidth = 0.75
+            dot.stroke()
+        }
     }
 
     private func drawRangeLabels(in plot: NSRect) {
