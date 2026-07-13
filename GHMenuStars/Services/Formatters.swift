@@ -191,7 +191,8 @@ enum MilestoneRounding {
     static let presetValues: [Int] = [
         10, 50,
         100, 200, 300, 400, 500, 600, 700, 800, 900,
-        1_000, 5_000, 10_000, 20_000, 30_000, 40_000, 50_000
+        1_000, 2_000, 3_000, 4_000, 5_000, 6_000, 7_000, 8_000, 9_000,
+        10_000, 20_000, 30_000, 40_000, 50_000
     ]
 
     static func displayValue(for currentValue: Int) -> Int {
@@ -307,24 +308,18 @@ enum MilestoneShareCardRenderer {
     private static func drawFooter(share: RepoMilestoneShare, in bounds: NSRect) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
-        let metric = share.milestoneValue == 1 ? share.metric.singularName : share.metric.pluralName
-        let currentSuffix = share.isRounded ? " - \(share.formattedCurrentValue) now" : ""
-        let title = "\(share.formattedMilestoneValue)+ GitHub \(metric)\(currentSuffix)"
-        title.draw(in: NSRect(x: 110, y: 250, width: bounds.width - 220, height: 54), withAttributes: [
-            .font: NSFont.systemFont(ofSize: 42, weight: .bold),
-            .foregroundColor: NSColor.white,
+
+        // The big hero number carries the milestone; the footer stays minimal:
+        // just the repo identity and the Stargazer Bar tag.
+        share.repoDisplayName.draw(in: NSRect(x: 110, y: 300, width: bounds.width - 220, height: 44), withAttributes: [
+            .font: NSFont.systemFont(ofSize: 34, weight: .semibold),
+            .foregroundColor: NSColor(calibratedWhite: 1, alpha: 0.82),
             .paragraphStyle: paragraph
         ])
 
-        share.repoDisplayName.draw(in: NSRect(x: 110, y: 196, width: bounds.width - 220, height: 40), withAttributes: [
-            .font: NSFont.systemFont(ofSize: 30, weight: .semibold),
-            .foregroundColor: NSColor(calibratedWhite: 1, alpha: 0.78),
-            .paragraphStyle: paragraph
-        ])
-
-        "Tracked with Stargazer Bar".draw(in: NSRect(x: 110, y: 138, width: bounds.width - 220, height: 32), withAttributes: [
-            .font: NSFont.systemFont(ofSize: 24, weight: .medium),
-            .foregroundColor: NSColor(calibratedWhite: 1, alpha: 0.58),
+        "Tracked with Stargazer Bar".draw(in: NSRect(x: 110, y: 240, width: bounds.width - 220, height: 34), withAttributes: [
+            .font: NSFont.systemFont(ofSize: 26, weight: .medium),
+            .foregroundColor: NSColor(calibratedWhite: 1, alpha: 0.6),
             .paragraphStyle: paragraph
         ])
     }

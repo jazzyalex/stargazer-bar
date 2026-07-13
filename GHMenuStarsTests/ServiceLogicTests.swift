@@ -404,6 +404,9 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(MilestoneRounding.displayValue(for: 605), 600)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 631), 600)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 1_250), 1_000)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 4_200), 4_000)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 6_500), 6_000)
+        XCTAssertEqual(MilestoneRounding.displayValue(for: 9_992), 9_000)
         XCTAssertEqual(MilestoneRounding.displayValue(for: 22_400), 20_000)
     }
 
@@ -418,6 +421,13 @@ final class ServiceLogicTests: XCTestCase {
         let largerStars = RepoMilestoneShare.make(repo: largerRepo, metric: .stars)
         XCTAssertEqual(largerStars?.metric, .stars)
         XCTAssertEqual(largerStars?.milestoneValue, 600)
+
+        // Regression: 9,992 downloads must round to 9,000, not collapse to 5,000.
+        let downloadsRepo = TrackedRepo(owner: "owner", name: "downloads", source: .manual, lastStars: 708, lastDownloads: 9_992)
+        let downloads = RepoMilestoneShare.make(repo: downloadsRepo, metric: .downloads)
+        XCTAssertEqual(downloads?.metric, .downloads)
+        XCTAssertEqual(downloads?.milestoneValue, 9_000)
+        XCTAssertEqual(downloads?.currentValue, 9_992)
     }
 
     func testMilestoneShareTextIncludesRoundedAndCurrentCount() {
@@ -519,20 +529,17 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertFalse(titles.contains("Open Selected on GitHub"))
         XCTAssertTrue(titles.contains("Share Selected Milestone"))
         XCTAssertTrue(titles.contains("Share Milestone"))
-        XCTAssertTrue(titles.contains("Copy Stars Text"))
-        XCTAssertTrue(titles.contains("Copy Stars Image"))
-        XCTAssertTrue(titles.contains("Copy Downloads Text"))
-        XCTAssertTrue(titles.contains("Copy Downloads Image"))
-        XCTAssertTrue(titles.contains("Compose X Stars Post + Copy Image"))
-        XCTAssertTrue(titles.contains("Compose X Downloads Post + Copy Image"))
-        XCTAssertFalse(titles.contains("Compose X Post + Copy Image"))
+        // Stars-only share menu, milestone number surfaced in each title (repo has 3 stars).
+        XCTAssertTrue(titles.contains("Copy Text (3+ stars)"))
+        XCTAssertTrue(titles.contains("Copy Image (3+ stars)"))
+        XCTAssertTrue(titles.contains("Compose X Post + Copy Image (3+ stars)"))
+        XCTAssertFalse(titles.contains("Copy Stars Text"))
+        XCTAssertFalse(titles.contains("Copy Downloads Text"))
+        XCTAssertFalse(titles.contains("Copy Downloads Image"))
+        XCTAssertFalse(titles.contains("Compose X Downloads Post + Copy Image"))
         XCTAssertEqual(
-            (Self.menuItem(titled: "Compose X Stars Post + Copy Image", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
+            (Self.menuItem(titled: "Copy Image (3+ stars)", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
             .stars
-        )
-        XCTAssertEqual(
-            (Self.menuItem(titled: "Compose X Downloads Post + Copy Image", in: menu)?.representedObject as? MilestoneShareRequest)?.metric,
-            .downloads
         )
     }
 
