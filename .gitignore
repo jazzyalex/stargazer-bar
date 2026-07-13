@@ -24,3 +24,6 @@ Marketing/promo-workflow/
 .deriveddata-launch/
 .deriveddata-test/
 .deriveddata-run/
+
+# Local PH launch handoff doc (kept out of the public repo)
+docs/ph-launch-checklist.md
