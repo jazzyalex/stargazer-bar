@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0FC155E6E018B9F533055053 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E181AB10E7F3C7DA847B510A /* MockURLProtocol.swift */; };
 		100000000000000000000001 /* GHMenuStarsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* GHMenuStarsApp.swift */; };
 		100000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* AppDelegate.swift */; };
 		100000000000000000000003 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* StatusItemController.swift */; };
@@ -18,15 +19,12 @@
 		100000000000000000000009 /* RefreshInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* RefreshInterval.swift */; };
 		10000000000000000000000A /* TrackedRepo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* TrackedRepo.swift */; };
 		10000000000000000000000B /* RepoSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* RepoSnapshot.swift */; };
-			10000000000000000000000C /* RepoDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RepoDelta.swift */; };
-			100000000000000000000024 /* MenuBarDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* MenuBarDisplayMode.swift */; };
-			100000000000000000000026 /* StarSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000027 /* StarSound.swift */; };
-			10000000000000000000000D /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RateLimitState.swift */; };
+		10000000000000000000000C /* RepoDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RepoDelta.swift */; };
+		10000000000000000000000D /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RateLimitState.swift */; };
 		10000000000000000000000E /* RepoURLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* RepoURLParser.swift */; };
 		10000000000000000000000F /* ReleaseDownloadAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* ReleaseDownloadAggregator.swift */; };
 		100000000000000000000010 /* GitHubClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* GitHubClient.swift */; };
 		100000000000000000000011 /* DeviceFlowClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* DeviceFlowClient.swift */; };
-		100000000000000000000021 /* GitHubOAuthConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* GitHubOAuthConfiguration.swift */; };
 		100000000000000000000012 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* SettingsStore.swift */; };
 		100000000000000000000013 /* TrackedRepoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* TrackedRepoStore.swift */; };
 		100000000000000000000014 /* KeychainTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* KeychainTokenStore.swift */; };
@@ -34,23 +32,28 @@
 		100000000000000000000016 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NotificationService.swift */; };
 		100000000000000000000017 /* SoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* SoundService.swift */; };
 		100000000000000000000018 /* AnimationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* AnimationCoordinator.swift */; };
-			100000000000000000000019 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* Formatters.swift */; };
-			100000000000000000000025 /* MenuBarDisplayResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* MenuBarDisplayResolver.swift */; };
-			10000000000000000000001D /* ActivationPolicyDecider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* ActivationPolicyDecider.swift */; };
-		10000000000000000000001E /* AppIconFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001F /* AppIconFactory.swift */; };
-		10000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* Assets.xcassets */; };
-		100000000000000000000022 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* UpdaterController.swift */; };
-		100000000000000000000023 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DB2E108A587C47918E9BC53D /* Sparkle */; };
+		100000000000000000000019 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* Formatters.swift */; };
 		10000000000000000000001A /* RepoURLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* RepoURLParserTests.swift */; };
 		10000000000000000000001B /* GitHubModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* GitHubModelTests.swift */; };
 		10000000000000000000001C /* ServiceLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* ServiceLogicTests.swift */; };
+		10000000000000000000001D /* ActivationPolicyDecider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* ActivationPolicyDecider.swift */; };
+		10000000000000000000001E /* AppIconFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001F /* AppIconFactory.swift */; };
+		10000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* Assets.xcassets */; };
+		100000000000000000000021 /* GitHubOAuthConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* GitHubOAuthConfiguration.swift */; };
+		100000000000000000000022 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* UpdaterController.swift */; };
+		100000000000000000000023 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DB2E108A587C47918E9BC53D /* Sparkle */; };
+		100000000000000000000024 /* MenuBarDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* MenuBarDisplayMode.swift */; };
+		100000000000000000000025 /* MenuBarDisplayResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* MenuBarDisplayResolver.swift */; };
+		100000000000000000000026 /* StarSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000027 /* StarSound.swift */; };
 		100000000000000000000028 /* LatestReleaseSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000028 /* LatestReleaseSummary.swift */; };
 		100000000000000000000029 /* LatestReleaseSummaryBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000029 /* LatestReleaseSummaryBuilder.swift */; };
 		10000000000000000000002A /* ReleaseDynamics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* ReleaseDynamics.swift */; };
-		10000000000000000000002D /* TrendAnomalyDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002D /* TrendAnomalyDetector.swift */; };
-		10000000000000000000002E /* TrendAnomalyDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* TrendAnomalyDetectorTests.swift */; };
 		10000000000000000000002B /* RecentReleasesSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* RecentReleasesSummary.swift */; };
 		10000000000000000000002C /* RecentReleasesSummaryBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* RecentReleasesSummaryBuilder.swift */; };
+		10000000000000000000002D /* TrendAnomalyDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002D /* TrendAnomalyDetector.swift */; };
+		10000000000000000000002E /* TrendAnomalyDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* TrendAnomalyDetectorTests.swift */; };
+		B66CAF03D3A4F29D5508C52A /* GitHubRepoAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */; };
+		D6892747A8F06607E95FD440 /* GitHubRepoAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0B31C2E7A2036CBD4AF588 /* GitHubRepoAccess.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,15 +78,12 @@
 		200000000000000000000009 /* RefreshInterval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshInterval.swift; sourceTree = "<group>"; };
 		20000000000000000000000A /* TrackedRepo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedRepo.swift; sourceTree = "<group>"; };
 		20000000000000000000000B /* RepoSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoSnapshot.swift; sourceTree = "<group>"; };
-			20000000000000000000000C /* RepoDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoDelta.swift; sourceTree = "<group>"; };
-			200000000000000000000025 /* MenuBarDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayMode.swift; sourceTree = "<group>"; };
-			200000000000000000000027 /* StarSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarSound.swift; sourceTree = "<group>"; };
-			20000000000000000000000D /* RateLimitState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
+		20000000000000000000000C /* RepoDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoDelta.swift; sourceTree = "<group>"; };
+		20000000000000000000000D /* RateLimitState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		20000000000000000000000E /* RepoURLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoURLParser.swift; sourceTree = "<group>"; };
 		20000000000000000000000F /* ReleaseDownloadAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseDownloadAggregator.swift; sourceTree = "<group>"; };
 		200000000000000000000010 /* GitHubClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubClient.swift; sourceTree = "<group>"; };
 		200000000000000000000011 /* DeviceFlowClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceFlowClient.swift; sourceTree = "<group>"; };
-		200000000000000000000021 /* GitHubOAuthConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubOAuthConfiguration.swift; sourceTree = "<group>"; };
 		200000000000000000000012 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		200000000000000000000013 /* TrackedRepoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedRepoStore.swift; sourceTree = "<group>"; };
 		200000000000000000000014 /* KeychainTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStore.swift; sourceTree = "<group>"; };
@@ -99,24 +99,43 @@
 		20000000000000000000001E /* ActivationPolicyDecider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivationPolicyDecider.swift; sourceTree = "<group>"; };
 		20000000000000000000001F /* AppIconFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconFactory.swift; sourceTree = "<group>"; };
 		200000000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		200000000000000000000021 /* GitHubOAuthConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubOAuthConfiguration.swift; sourceTree = "<group>"; };
 		200000000000000000000022 /* GHMenuStars.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = GHMenuStars.xcconfig; sourceTree = "<group>"; };
 		200000000000000000000023 /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig.example; sourceTree = "<group>"; };
-			200000000000000000000024 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
-			200000000000000000000026 /* MenuBarDisplayResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayResolver.swift; sourceTree = "<group>"; };
-		500000000000000000000001 /* Stargazer Bar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Stargazer Bar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		500000000000000000000002 /* GHMenuStarsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GHMenuStarsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000024 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
+		200000000000000000000025 /* MenuBarDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayMode.swift; sourceTree = "<group>"; };
+		200000000000000000000026 /* MenuBarDisplayResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayResolver.swift; sourceTree = "<group>"; };
+		200000000000000000000027 /* StarSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarSound.swift; sourceTree = "<group>"; };
 		200000000000000000000028 /* LatestReleaseSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatestReleaseSummary.swift; sourceTree = "<group>"; };
 		200000000000000000000029 /* LatestReleaseSummaryBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatestReleaseSummaryBuilder.swift; sourceTree = "<group>"; };
 		20000000000000000000002A /* ReleaseDynamics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseDynamics.swift; sourceTree = "<group>"; };
-		20000000000000000000002D /* TrendAnomalyDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendAnomalyDetector.swift; sourceTree = "<group>"; };
-		20000000000000000000002E /* TrendAnomalyDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendAnomalyDetectorTests.swift; sourceTree = "<group>"; };
 		20000000000000000000002B /* RecentReleasesSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentReleasesSummary.swift; sourceTree = "<group>"; };
 		20000000000000000000002C /* RecentReleasesSummaryBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentReleasesSummaryBuilder.swift; sourceTree = "<group>"; };
+		20000000000000000000002D /* TrendAnomalyDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendAnomalyDetector.swift; sourceTree = "<group>"; };
+		20000000000000000000002E /* TrendAnomalyDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendAnomalyDetectorTests.swift; sourceTree = "<group>"; };
+		500000000000000000000001 /* Stargazer Bar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Stargazer Bar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		500000000000000000000002 /* GHMenuStarsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GHMenuStarsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8E0B31C2E7A2036CBD4AF588 /* GitHubRepoAccess.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GitHubRepoAccess.swift; sourceTree = "<group>"; };
+		B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GitHubRepoAccessTests.swift; sourceTree = "<group>"; };
+		E181AB10E7F3C7DA847B510A /* MockURLProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		600000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000023 /* Sparkle in Frameworks */); runOnlyForDeploymentPostprocessing = 0; };
-		600000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		600000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000023 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		600000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -151,23 +170,128 @@
 			path = GHMenuStars;
 			sourceTree = "<group>";
 		};
-			700000000000000000000003 /* Models */ = {isa = PBXGroup; children = (200000000000000000000008, 200000000000000000000009, 20000000000000000000000A, 20000000000000000000000B, 20000000000000000000000C, 200000000000000000000025, 200000000000000000000027, 200000000000000000000028, 20000000000000000000002B); path = Models; sourceTree = "<group>"; };
-		700000000000000000000004 /* GitHub */ = {isa = PBXGroup; children = (20000000000000000000000D, 20000000000000000000000E, 20000000000000000000000F, 200000000000000000000010, 200000000000000000000011, 200000000000000000000021, 200000000000000000000029, 20000000000000000000002C); path = GitHub; sourceTree = "<group>"; };
-		700000000000000000000005 /* Persistence */ = {isa = PBXGroup; children = (200000000000000000000012, 200000000000000000000013, 200000000000000000000014); path = Persistence; sourceTree = "<group>"; };
-			700000000000000000000006 /* Services */ = {isa = PBXGroup; children = (200000000000000000000015, 200000000000000000000016, 200000000000000000000017, 200000000000000000000018, 200000000000000000000019, 200000000000000000000026, 20000000000000000000001E, 20000000000000000000001F, 20000000000000000000002A, 20000000000000000000002D); path = Services; sourceTree = "<group>"; };
-		700000000000000000000007 /* GHMenuStarsTests */ = {isa = PBXGroup; children = (20000000000000000000001A, 20000000000000000000001B, 20000000000000000000001C, 20000000000000000000002E); path = GHMenuStarsTests; sourceTree = "<group>"; };
-		700000000000000000000008 /* Products */ = {isa = PBXGroup; children = (500000000000000000000001, 500000000000000000000002); name = Products; sourceTree = "<group>"; };
-		700000000000000000000009 /* Config */ = {isa = PBXGroup; children = (200000000000000000000022, 200000000000000000000023); path = Config; sourceTree = "<group>"; };
-		70000000000000000000000A /* Update */ = {isa = PBXGroup; children = (200000000000000000000024); path = Update; sourceTree = "<group>"; };
+		700000000000000000000003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000008 /* RepoSource.swift */,
+				200000000000000000000009 /* RefreshInterval.swift */,
+				20000000000000000000000A /* TrackedRepo.swift */,
+				20000000000000000000000B /* RepoSnapshot.swift */,
+				20000000000000000000000C /* RepoDelta.swift */,
+				200000000000000000000025 /* MenuBarDisplayMode.swift */,
+				200000000000000000000027 /* StarSound.swift */,
+				200000000000000000000028 /* LatestReleaseSummary.swift */,
+				20000000000000000000002B /* RecentReleasesSummary.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		700000000000000000000004 /* GitHub */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000000D /* RateLimitState.swift */,
+				20000000000000000000000E /* RepoURLParser.swift */,
+				20000000000000000000000F /* ReleaseDownloadAggregator.swift */,
+				200000000000000000000010 /* GitHubClient.swift */,
+				200000000000000000000011 /* DeviceFlowClient.swift */,
+				200000000000000000000021 /* GitHubOAuthConfiguration.swift */,
+				200000000000000000000029 /* LatestReleaseSummaryBuilder.swift */,
+				20000000000000000000002C /* RecentReleasesSummaryBuilder.swift */,
+				8E0B31C2E7A2036CBD4AF588 /* GitHubRepoAccess.swift */,
+			);
+			path = GitHub;
+			sourceTree = "<group>";
+		};
+		700000000000000000000005 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000012 /* SettingsStore.swift */,
+				200000000000000000000013 /* TrackedRepoStore.swift */,
+				200000000000000000000014 /* KeychainTokenStore.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		700000000000000000000006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000015 /* RepoPollingService.swift */,
+				200000000000000000000016 /* NotificationService.swift */,
+				200000000000000000000017 /* SoundService.swift */,
+				200000000000000000000018 /* AnimationCoordinator.swift */,
+				200000000000000000000019 /* Formatters.swift */,
+				200000000000000000000026 /* MenuBarDisplayResolver.swift */,
+				20000000000000000000001E /* ActivationPolicyDecider.swift */,
+				20000000000000000000001F /* AppIconFactory.swift */,
+				20000000000000000000002A /* ReleaseDynamics.swift */,
+				20000000000000000000002D /* TrendAnomalyDetector.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		700000000000000000000007 /* GHMenuStarsTests */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000001A /* RepoURLParserTests.swift */,
+				20000000000000000000001B /* GitHubModelTests.swift */,
+				20000000000000000000001C /* ServiceLogicTests.swift */,
+				20000000000000000000002E /* TrendAnomalyDetectorTests.swift */,
+				B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */,
+				86A71FC3C91FE32349E6A972 /* Support */,
+			);
+			path = GHMenuStarsTests;
+			sourceTree = "<group>";
+		};
+		700000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				500000000000000000000001 /* Stargazer Bar.app */,
+				500000000000000000000002 /* GHMenuStarsTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		700000000000000000000009 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000022 /* GHMenuStars.xcconfig */,
+				200000000000000000000023 /* Local.xcconfig.example */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		70000000000000000000000A /* Update */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000024 /* UpdaterController.swift */,
+			);
+			path = Update;
+			sourceTree = "<group>";
+		};
+		86A71FC3C91FE32349E6A972 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				E181AB10E7F3C7DA847B510A /* MockURLProtocol.swift */,
+			);
+			name = Support;
+			path = Support;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
 		400000000000000000000001 /* GHMenuStars */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 800000000000000000000002 /* Build configuration list for PBXNativeTarget "GHMenuStars" */;
-			buildPhases = (600000000000000000000001, A00000000000000000000001 /* Sources */, A00000000000000000000004 /* Resources */);
-			buildRules = ();
-			dependencies = ();
+			buildPhases = (
+				600000000000000000000001 /* Frameworks */,
+				A00000000000000000000001 /* Sources */,
+				A00000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = GHMenuStars;
 			packageProductDependencies = (
 				DB2E108A587C47918E9BC53D /* Sparkle */,
@@ -179,9 +303,15 @@
 		400000000000000000000002 /* GHMenuStarsTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 800000000000000000000003 /* Build configuration list for PBXNativeTarget "GHMenuStarsTests" */;
-			buildPhases = (600000000000000000000002, A00000000000000000000002 /* Sources */);
-			buildRules = ();
-			dependencies = (A00000000000000000000003 /* PBXTargetDependency */);
+			buildPhases = (
+				600000000000000000000002 /* Frameworks */,
+				A00000000000000000000002 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000003 /* PBXTargetDependency */,
+			);
 			name = GHMenuStarsTests;
 			productName = GHMenuStarsTests;
 			productReference = 500000000000000000000002 /* GHMenuStarsTests.xctest */;
@@ -197,15 +327,23 @@
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					400000000000000000000001 = { CreatedOnToolsVersion = 16.0; };
-					400000000000000000000002 = { CreatedOnToolsVersion = 16.0; TestTargetID = 400000000000000000000001; };
+					400000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					400000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 400000000000000000000001;
+					};
 				};
 			};
 			buildConfigurationList = 800000000000000000000001 /* Build configuration list for PBXProject "GHMenuStars" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = 700000000000000000000001;
 			packageReferences = (
 				3A769EAA2EA090A2008A7EC2 /* XCRemoteSwiftPackageReference "Sparkle" */,
@@ -213,7 +351,10 @@
 			productRefGroup = 700000000000000000000008 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (400000000000000000000001, 400000000000000000000002);
+			targets = (
+				400000000000000000000001 /* GHMenuStars */,
+				400000000000000000000002 /* GHMenuStarsTests */,
+			);
 		};
 /* End PBXProject section */
 
@@ -221,7 +362,9 @@
 		A00000000000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (10000000000000000000001F /* Assets.xcassets in Resources */);
+			files = (
+				10000000000000000000001F /* Assets.xcassets in Resources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -230,20 +373,293 @@
 		A00000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-				files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000006, 100000000000000000000007, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B, 10000000000000000000000C, 100000000000000000000024, 100000000000000000000026, 10000000000000000000000D, 10000000000000000000000E, 10000000000000000000000F, 100000000000000000000010, 100000000000000000000011, 100000000000000000000012, 100000000000000000000013, 100000000000000000000014, 100000000000000000000015, 100000000000000000000016, 100000000000000000000017, 100000000000000000000018, 100000000000000000000019, 100000000000000000000025, 10000000000000000000001D, 10000000000000000000001E, 100000000000000000000021, 100000000000000000000022, 100000000000000000000028, 100000000000000000000029, 10000000000000000000002A, 10000000000000000000002B, 10000000000000000000002C, 10000000000000000000002D);
+			files = (
+				100000000000000000000001 /* GHMenuStarsApp.swift in Sources */,
+				100000000000000000000002 /* AppDelegate.swift in Sources */,
+				100000000000000000000003 /* StatusItemController.swift in Sources */,
+				100000000000000000000004 /* StatusLabelView.swift in Sources */,
+				100000000000000000000005 /* StatusMenuBuilder.swift in Sources */,
+				100000000000000000000006 /* PreferencesWindow.swift in Sources */,
+				100000000000000000000007 /* SettingsView.swift in Sources */,
+				100000000000000000000008 /* RepoSource.swift in Sources */,
+				100000000000000000000009 /* RefreshInterval.swift in Sources */,
+				10000000000000000000000A /* TrackedRepo.swift in Sources */,
+				10000000000000000000000B /* RepoSnapshot.swift in Sources */,
+				10000000000000000000000C /* RepoDelta.swift in Sources */,
+				100000000000000000000024 /* MenuBarDisplayMode.swift in Sources */,
+				100000000000000000000026 /* StarSound.swift in Sources */,
+				10000000000000000000000D /* RateLimitState.swift in Sources */,
+				10000000000000000000000E /* RepoURLParser.swift in Sources */,
+				10000000000000000000000F /* ReleaseDownloadAggregator.swift in Sources */,
+				100000000000000000000010 /* GitHubClient.swift in Sources */,
+				100000000000000000000011 /* DeviceFlowClient.swift in Sources */,
+				100000000000000000000012 /* SettingsStore.swift in Sources */,
+				100000000000000000000013 /* TrackedRepoStore.swift in Sources */,
+				100000000000000000000014 /* KeychainTokenStore.swift in Sources */,
+				100000000000000000000015 /* RepoPollingService.swift in Sources */,
+				100000000000000000000016 /* NotificationService.swift in Sources */,
+				100000000000000000000017 /* SoundService.swift in Sources */,
+				100000000000000000000018 /* AnimationCoordinator.swift in Sources */,
+				100000000000000000000019 /* Formatters.swift in Sources */,
+				100000000000000000000025 /* MenuBarDisplayResolver.swift in Sources */,
+				10000000000000000000001D /* ActivationPolicyDecider.swift in Sources */,
+				10000000000000000000001E /* AppIconFactory.swift in Sources */,
+				100000000000000000000021 /* GitHubOAuthConfiguration.swift in Sources */,
+				100000000000000000000022 /* UpdaterController.swift in Sources */,
+				100000000000000000000028 /* LatestReleaseSummary.swift in Sources */,
+				100000000000000000000029 /* LatestReleaseSummaryBuilder.swift in Sources */,
+				10000000000000000000002A /* ReleaseDynamics.swift in Sources */,
+				10000000000000000000002B /* RecentReleasesSummary.swift in Sources */,
+				10000000000000000000002C /* RecentReleasesSummaryBuilder.swift in Sources */,
+				10000000000000000000002D /* TrendAnomalyDetector.swift in Sources */,
+				D6892747A8F06607E95FD440 /* GitHubRepoAccess.swift in Sources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A00000000000000000000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (10000000000000000000001A, 10000000000000000000001B, 10000000000000000000001C, 10000000000000000000002E);
+			files = (
+				10000000000000000000001A /* RepoURLParserTests.swift in Sources */,
+				10000000000000000000001B /* GitHubModelTests.swift in Sources */,
+				10000000000000000000001C /* ServiceLogicTests.swift in Sources */,
+				10000000000000000000002E /* TrendAnomalyDetectorTests.swift in Sources */,
+				B66CAF03D3A4F29D5508C52A /* GitHubRepoAccessTests.swift in Sources */,
+				0FC155E6E018B9F533055053 /* MockURLProtocol.swift in Sources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A00000000000000000000003 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 400000000000000000000001 /* GHMenuStars */; targetProxy = 300000000000000000000001 /* PBXContainerItemProxy */; };
+		A00000000000000000000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 400000000000000000000001 /* GHMenuStars */;
+			targetProxy = 300000000000000000000001 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B000000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B000000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		B000000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 200000000000000000000022 /* GHMenuStars.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 13;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GHMenuStars/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.5.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar;
+				PRODUCT_MODULE_NAME = GHMenuStars;
+				PRODUCT_NAME = "Stargazer Bar";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B000000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 200000000000000000000022 /* GHMenuStars.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 13;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GHMenuStars/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.5.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar;
+				PRODUCT_MODULE_NAME = GHMenuStars;
+				PRODUCT_NAME = "Stargazer Bar";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B000000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBarTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stargazer Bar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stargazer Bar";
+			};
+			name = Debug;
+		};
+		B000000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBarTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stargazer Bar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stargazer Bar";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		800000000000000000000001 /* Build configuration list for PBXProject "GHMenuStars" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B000000000000000000000001 /* Debug */,
+				B000000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000002 /* Build configuration list for PBXNativeTarget "GHMenuStars" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B000000000000000000000003 /* Debug */,
+				B000000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000003 /* Build configuration list for PBXNativeTarget "GHMenuStarsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B000000000000000000000005 /* Debug */,
+				B000000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		3A769EAA2EA090A2008A7EC2 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
@@ -263,21 +679,6 @@
 			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
-
-/* Begin XCBuildConfiguration section */
-		B000000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ANALYZER_NONNULL = YES; CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CLANG_ENABLE_OBJC_WEAK = YES; CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES; CLANG_WARN_BOOL_CONVERSION = YES; CLANG_WARN_COMMA = YES; CLANG_WARN_CONSTANT_CONVERSION = YES; CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES; CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_EMPTY_BODY = YES; CLANG_WARN_ENUM_CONVERSION = YES; CLANG_WARN_INFINITE_RECURSION = YES; CLANG_WARN_INT_CONVERSION = YES; CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES; CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES; CLANG_WARN_OBJC_LITERAL_CONVERSION = YES; CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR; CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES; CLANG_WARN_RANGE_LOOP_ANALYSIS = YES; CLANG_WARN_STRICT_PROTOTYPES = YES; CLANG_WARN_SUSPICIOUS_MOVE = YES; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; CLANG_WARN_UNREACHABLE_CODE = YES; CLANG_WARN__DUPLICATE_METHOD_MATCH = YES; CODE_SIGN_STYLE = Automatic; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_DYNAMIC_NO_PIC = NO; GCC_NO_COMMON_BLOCKS = YES; GCC_OPTIMIZATION_LEVEL = 0; GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)"); GCC_WARN_64_TO_32_BIT_CONVERSION = YES; GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR; GCC_WARN_UNDECLARED_SELECTOR = YES; GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE; GCC_WARN_UNUSED_FUNCTION = YES; GCC_WARN_UNUSED_VARIABLE = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE; MTL_FAST_MATH = YES; ONLY_ACTIVE_ARCH = YES; SDKROOT = macosx; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
-		B000000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ANALYZER_NONNULL = YES; CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CLANG_ENABLE_OBJC_WEAK = YES; CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES; CLANG_WARN_BOOL_CONVERSION = YES; CLANG_WARN_COMMA = YES; CLANG_WARN_CONSTANT_CONVERSION = YES; CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES; CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_EMPTY_BODY = YES; CLANG_WARN_ENUM_CONVERSION = YES; CLANG_WARN_INFINITE_RECURSION = YES; CLANG_WARN_INT_CONVERSION = YES; CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES; CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES; CLANG_WARN_OBJC_LITERAL_CONVERSION = YES; CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR; CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES; CLANG_WARN_RANGE_LOOP_ANALYSIS = YES; CLANG_WARN_STRICT_PROTOTYPES = YES; CLANG_WARN_SUSPICIOUS_MOVE = YES; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; CLANG_WARN_UNREACHABLE_CODE = YES; CLANG_WARN__DUPLICATE_METHOD_MATCH = YES; CODE_SIGN_STYLE = Automatic; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ENABLE_NS_ASSERTIONS = NO; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_NO_COMMON_BLOCKS = YES; GCC_WARN_64_TO_32_BIT_CONVERSION = YES; GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR; GCC_WARN_UNDECLARED_SELECTOR = YES; GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE; GCC_WARN_UNUSED_FUNCTION = YES; GCC_WARN_UNUSED_VARIABLE = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; MTL_ENABLE_DEBUG_INFO = NO; MTL_FAST_MATH = YES; SDKROOT = macosx; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
-		B000000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = 200000000000000000000022 /* GHMenuStars.xcconfig */; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_ENTITLEMENTS = ""; CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 13; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GHMenuStars/Info.plist; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; MARKETING_VERSION = 0.5.2; PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar; PRODUCT_MODULE_NAME = GHMenuStars; PRODUCT_NAME = "Stargazer Bar"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; }; name = Debug; };
-		B000000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; baseConfigurationReference = 200000000000000000000022 /* GHMenuStars.xcconfig */; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_ENTITLEMENTS = ""; CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 13; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GHMenuStars/Info.plist; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; MARKETING_VERSION = 0.5.2; PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar; PRODUCT_MODULE_NAME = GHMenuStars; PRODUCT_NAME = "Stargazer Bar"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; }; name = Release; };
-		B000000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBarTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stargazer Bar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stargazer Bar"; }; name = Debug; };
-		B000000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBarTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stargazer Bar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stargazer Bar"; }; name = Release; };
-/* End XCBuildConfiguration section */
-
-/* Begin XCConfigurationList section */
-		800000000000000000000001 /* Build configuration list for PBXProject "GHMenuStars" */ = {isa = XCConfigurationList; buildConfigurations = (B000000000000000000000001, B000000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		800000000000000000000002 /* Build configuration list for PBXNativeTarget "GHMenuStars" */ = {isa = XCConfigurationList; buildConfigurations = (B000000000000000000000003, B000000000000000000000004); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		800000000000000000000003 /* Build configuration list for PBXNativeTarget "GHMenuStarsTests" */ = {isa = XCConfigurationList; buildConfigurations = (B000000000000000000000005, B000000000000000000000006); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-/* End XCConfigurationList section */
 	};
 	rootObject = 900000000000000000000001 /* Project object */;
 }
