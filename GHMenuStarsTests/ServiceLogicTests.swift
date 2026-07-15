@@ -1282,6 +1282,43 @@ final class ServiceLogicTests: XCTestCase {
         service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
         XCTAssertEqual(repoStore.trackedRepos[0].lastNotifiedStars, 5, "public behaviour must be unchanged")
     }
+
+    func testMilestoneShareRefusesPrivateRepos() {
+        // Collaborators can star a private repo, so a real value can exist here.
+        // The factory is the chokepoint: canShareMilestone only gates menu
+        // construction, and the action handlers re-derive the share themselves.
+        var secret = TrackedRepo(owner: "o", name: "secret-thing", source: .manual, isPrivate: true)
+        secret.lastStars = 100
+        secret.lastDownloads = 500
+        XCTAssertNil(RepoMilestoneShare.make(repo: secret, metric: .stars))
+        XCTAssertNil(RepoMilestoneShare.make(repo: secret, metric: .downloads),
+                     "a private repo's name must never reach a shareable image")
+
+        var open = TrackedRepo(owner: "o", name: "n", source: .manual)
+        open.lastStars = 100
+        XCTAssertNotNil(RepoMilestoneShare.make(repo: open, metric: .stars),
+                        "public sharing must be unchanged")
+    }
+
+
+    func testClearAllETagsWipesEveryRepo() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        try store.upsertTrackedRepo(TrackedRepo(owner: "a", name: "1", source: .manual,
+                                                etagRepo: "e1", etagReleases: "r1"))
+        try store.upsertTrackedRepo(TrackedRepo(owner: "b", name: "2", source: .manual,
+                                                etagRepo: "e2", etagReleases: "r2"))
+
+        // A new PAT is a new identity, and every stored ETag was minted under the
+        // old one — a 304 against them would serve the wrong body.
+        store.clearAllETags()
+
+        XCTAssertTrue(store.trackedRepos.allSatisfy { $0.etagRepo == nil && $0.etagReleases == nil })
+        XCTAssertEqual(store.trackedRepos.count, 2, "clearing ETags must not drop repos")
+    }
+
 }
 
 private extension NSMenuItem {

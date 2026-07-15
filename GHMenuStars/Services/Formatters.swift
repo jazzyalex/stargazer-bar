@@ -169,6 +169,11 @@ struct RepoMilestoneShare: Equatable {
     }
 
     static func make(repo: TrackedRepo, metric: MilestoneMetric) -> RepoMilestoneShare? {
+        // Share images exist to be posted publicly. Guard the factory rather
+        // than menu construction: the action handlers re-derive the share
+        // independently, so a menu-only guard leaves the other door open.
+        guard !repo.isPrivate else { return nil }
+
         let currentValue: Int?
         switch metric {
         case .stars:

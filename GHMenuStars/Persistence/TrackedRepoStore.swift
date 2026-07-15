@@ -70,6 +70,19 @@ final class TrackedRepoStore: ObservableObject {
         saveAll()
     }
 
+    /// Called when the PAT changes. Every stored ETag was minted under the old
+    /// auth identity, and a 304 against one would serve a body only that
+    /// identity could see. A stale-ETag miss costs a single request; trusting a
+    /// cross-identity ETag costs correctness. Conditional requests that 304
+    /// don't consume rate limit, so this is close to free.
+    func clearAllETags() {
+        for index in trackedRepos.indices {
+            trackedRepos[index].etagRepo = nil
+            trackedRepos[index].etagReleases = nil
+        }
+        saveAll()
+    }
+
     func removeTrackedRepo(id: UUID) {
         trackedRepos.removeAll { $0.id == id }
         saveAll()
