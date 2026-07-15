@@ -1088,4 +1088,37 @@ private extension NSMenuItem {
         }
         return allBold
     }
+
+    func testPATStoreUsesDistinctServiceAndAccountFromOAuth() {
+        let oauth = KeychainTokenStore.gitHubOAuthStore()
+        let pat = KeychainTokenStore.gitHubPATStore()
+
+        XCTAssertEqual(oauth.service, "StargazerBar.GitHubOAuth")
+        XCTAssertEqual(oauth.account, "github-oauth")
+        XCTAssertEqual(pat.service, "StargazerBar.GitHubPAT")
+        XCTAssertEqual(pat.account, "github-pat")
+        // The (service, account) pair is the Keychain primary key; both must
+        // differ so a PAT can never be read back as an OAuth token.
+        XCTAssertNotEqual(oauth.service, pat.service)
+        XCTAssertNotEqual(oauth.account, pat.account)
+    }
+
+    func testPATStoreReadsThroughInjectedCopyMatching() throws {
+        var capturedService: String?
+        var capturedAccount: String?
+        let store = KeychainTokenStore(
+            service: KeychainTokenStore.gitHubPATService,
+            account: "github-pat"
+        ) { query, _ in
+            let dict = query as! [String: Any]
+            capturedService = dict[kSecAttrService as String] as? String
+            capturedAccount = dict[kSecAttrAccount as String] as? String
+            return errSecItemNotFound
+        }
+
+        XCTAssertNil(try store.loadToken(allowUserInteraction: false))
+        XCTAssertEqual(capturedService, "StargazerBar.GitHubPAT")
+        XCTAssertEqual(capturedAccount, "github-pat")
+    }
+
 }

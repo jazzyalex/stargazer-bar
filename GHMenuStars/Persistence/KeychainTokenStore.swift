@@ -7,13 +7,25 @@ struct KeychainTokenStore {
 
     static let gitHubOAuthService = "StargazerBar.GitHubOAuth"
     static let legacyGitHubOAuthService = "GHMenuStars.GitHubOAuth"
+    static let gitHubPATService = "StargazerBar.GitHubPAT"
 
     let service: String
+    // Declared before `copyMatching` so the synthesized memberwise init keeps
+    // `copyMatching` last and trailing-closure call sites still bind to it.
+    // A `var` with a default rather than a `let`: a `let` with an initial value
+    // is excluded from the memberwise init entirely.
+    var account: String = "github-oauth"
     var copyMatching: CopyMatching = SecItemCopyMatching
-    private let account = "github-oauth"
 
     static func gitHubOAuthStore() -> KeychainTokenStore {
         KeychainTokenStore(service: gitHubOAuthService)
+    }
+
+    /// The fine-grained PAT that reaches private repos. Kept under its own
+    /// (service, account) pair — the Keychain primary key — so it can never be
+    /// read back as an OAuth token, and so revoking one leaves the other intact.
+    static func gitHubPATStore() -> KeychainTokenStore {
+        KeychainTokenStore(service: gitHubPATService, account: "github-pat")
     }
 
     static func loadGitHubOAuthToken() -> String? {
@@ -22,6 +34,14 @@ struct KeychainTokenStore {
 
     static func hasGitHubOAuthToken() -> Bool {
         loadGitHubOAuthToken() != nil
+    }
+
+    static func loadGitHubPAT() -> String? {
+        try? gitHubPATStore().loadToken(allowUserInteraction: false)
+    }
+
+    static func hasGitHubPAT() -> Bool {
+        loadGitHubPAT() != nil
     }
 
     func saveToken(_ token: String) throws {
