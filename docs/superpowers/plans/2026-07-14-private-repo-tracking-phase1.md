@@ -338,7 +338,7 @@ func testUpsertPreservesIsPrivateOnReAdd() {
 }
 ```
 
-**`legacyDefaults: nil` is mandatory, not decoration.** `TrackedRepoStore.init` defaults `legacyDefaults` to a **real** suite — `UserDefaults(suiteName: "com.jazzyalex.GHMenuStars")` (`TrackedRepoStore.swift:23`) — so omitting it makes the test read the developer's actual stored repos. Every existing store test passes `legacyDefaults: nil` for this reason (e.g. `ServiceLogicTests.swift:10`). The per-test `UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!` fixture is the established pattern; there is no `emptyDefaults()` helper.
+**`legacyDefaults: nil` is mandatory, not decoration — for `SettingsStore` too.** Both `TrackedRepoStore.init` (`:23`) and `SettingsStore.init` (`SettingsStore.swift:193`) default `legacyDefaults` to a **real** suite — `UserDefaults(suiteName: "com.jazzyalex.GHMenuStars")` (`TrackedRepoStore.swift:23`) — so omitting it makes the test read the developer's actual stored repos. Every existing store test passes `legacyDefaults: nil` for this reason (e.g. `ServiceLogicTests.swift:10`). The per-test `UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!` fixture is the established pattern; there is no `emptyDefaults()` helper.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1224,7 +1224,7 @@ func testPollingServiceAcceptsInjectedRepoAccess() async {
     let access = GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil })
     let service = RepoPollingService(
         repoStore: TrackedRepoStore(defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!, legacyDefaults: nil),
-        settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!),
+        settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!, legacyDefaults: nil),
         gitHubClient: client,
         repoAccess: access,
         notificationService: NotificationService(),
@@ -1343,7 +1343,7 @@ func testPrivateRepoPollSkipsStargazerAndForkRequestsAndUsesPATEverywhere() asyn
     try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
     let service = RepoPollingService(
         repoStore: repoStore,
-        settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!),
+        settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!, legacyDefaults: nil),
         gitHubClient: client,
         repoAccess: access,
         notificationService: NotificationService(),
