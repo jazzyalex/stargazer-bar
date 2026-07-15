@@ -8,6 +8,15 @@ final class GitHubRepoAccessTests: XCTestCase {
         MockURLProtocol.reset()
     }
 
+    override func tearDown() {
+        // MockURLProtocol's state is static and shared across every test class.
+        // Without this, a `handler` set here leaks into whichever class runs
+        // next and hijacks its stubbed responses — a failure that only appears
+        // in the full suite, never in isolation.
+        MockURLProtocol.reset()
+        super.tearDown()
+    }
+
     /// Builds a real GitHubClient over a stubbed URLSession, so the true request
     /// path is exercised rather than a mock of it.
     private func makeAccess(pat: String?, ambient: String?) -> GitHubRepoAccess {
