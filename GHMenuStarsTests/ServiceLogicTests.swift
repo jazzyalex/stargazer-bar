@@ -1346,6 +1346,39 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(StatusMenuBuilder.repoLineText(pub).contains("☆"), "public lines are unchanged")
     }
 
+
+    func testStarAskPromptIsSuppressedUnderTest() throws {
+        // Regression guard: handle() ends in presentStarAskIfNeeded, which opens
+        // a real modal and calls NSApp.activate. Without the isHostedUnitTest
+        // guard, every test that exercises handle() pops a dialog onto the
+        // developer's desktop, and "Don't Ask Again" cannot dismiss it because
+        // the choice is written to a throwaway UserDefaults suite.
+        XCTAssertTrue(AppDelegate.isHostedUnitTest(), "the suite must be detectable as a test run")
+
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual))
+        let repoID = repoStore.trackedRepos[0].id
+        let client = GitHubClient()
+        let service = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: client,
+            repoAccess: GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil }),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        // A delta that would trigger the prompt. If the guard is missing this
+        // blocks on a modal and the suite hangs; with it, the status is never
+        // written because the prompt never ran.
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        XCTAssertEqual(repoStore.trackedRepos[0].starAskPromptStatus, .notShown,
+                       "no prompt may be presented during a test run")
+    }
+
 }
 
 private extension NSMenuItem {

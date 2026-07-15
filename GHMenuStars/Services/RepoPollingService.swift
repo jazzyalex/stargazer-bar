@@ -359,6 +359,12 @@ final class RepoPollingService {
     }
 
     private func presentStarAskIfNeeded(delta: RepoDelta, repoID: UUID) {
+        // Never present a modal from a test run. This opens a real window and
+        // calls NSApp.activate, so a test exercising handle() would otherwise
+        // pop dialogs onto the developer's desktop — and "Don't Ask Again"
+        // can't dismiss them, because each test writes that choice to a
+        // throwaway UserDefaults suite. Same guard UpdaterController uses.
+        guard !AppDelegate.isHostedUnitTest() else { return }
         guard let trigger = StarAskPromptTrigger.trigger(for: delta),
               let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }),
               repo.starAskPromptStatus.canPrompt else {
