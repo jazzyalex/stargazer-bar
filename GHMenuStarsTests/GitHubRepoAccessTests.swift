@@ -231,4 +231,104 @@ final class GitHubRepoAccessTests: XCTestCase {
         XCTAssertTrue(service.repoAccess === access, "the poller must use the shared instance, not its own")
     }
 
+
+    // MARK: - Polling
+
+    func testPrivateRepoPollSkipsStarFetchesAndUsesPATEverywhere() async throws {
+        var radarTokens: [String?] = []
+        MockURLProtocol.handler = { request in
+            let path = request.url?.path ?? ""
+            if path.contains("search") || path.contains("commits") || path.contains("runs") {
+                radarTokens.append(request.value(forHTTPHeaderField: "Authorization"))
+            }
+            if path == "/repos/o/n" {
+                return .init(data: Data(#"{"full_name":"o/n","stargazers_count":0,"forks_count":0,"private":true}"#.utf8))
+            }
+            if path.contains("releases") { return .init(data: Data("[]".utf8)) }
+            if path.contains("runs") {
+                return .init(data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8))
+            }
+            return .init(data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" })
+        let repoStore = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
+        let service = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: SettingsStore(
+                defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+                legacyDefaults: nil
+            ),
+            gitHubClient: client,
+            repoAccess: access,
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        // refresh(repo:) directly: both refreshNow() entries spawn a detached
+        // Task and return, so awaiting them would race the work and assert
+        // against an empty array — passing while testing nothing.
+        await service.refresh(repo: repoStore.trackedRepos[0])
+
+        XCTAssertFalse(MockURLProtocol.requestedPaths.contains { $0.contains("stargazers") },
+                       "private repos have no stars worth spending a request on")
+        XCTAssertFalse(MockURLProtocol.requestedPaths.contains { $0.contains("/forks") })
+        XCTAssertFalse(radarTokens.isEmpty, "the radar must actually run for a private repo")
+        // The whole feature: any radar call on the ambient token 404s and the
+        // optional* wrappers turn it into a blank row with no error.
+        XCTAssertTrue(radarTokens.allSatisfy { $0 == "Bearer pat" },
+                      "radar used the wrong identity: \(radarTokens)")
+        XCTAssertEqual(repoStore.trackedRepos[0].isPrivate, true)
+    }
+
+    func testPublicRepoPollStillFetchesStars() async throws {
+        MockURLProtocol.handler = { request in
+            let path = request.url?.path ?? ""
+            if path == "/repos/o/p" {
+                return .init(data: Data(#"{"full_name":"o/p","stargazers_count":42,"forks_count":7,"private":false}"#.utf8))
+            }
+            if path.contains("releases") { return .init(data: Data("[]".utf8)) }
+            if path.contains("stargazers") || path.contains("/forks") { return .init(data: Data("[]".utf8)) }
+            if path.contains("runs") { return .init(data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)) }
+            return .init(data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let access = GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil })
+        let repoStore = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "p", source: .manual))
+        let service = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: SettingsStore(
+                defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+                legacyDefaults: nil
+            ),
+            gitHubClient: client,
+            repoAccess: access,
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        await service.refresh(repo: repoStore.trackedRepos[0])
+
+        // Public tracking must be untouched by any of this.
+        XCTAssertEqual(repoStore.trackedRepos[0].lastStars, 42)
+        XCTAssertEqual(repoStore.trackedRepos[0].lastForks, 7)
+        XCTAssertFalse(repoStore.trackedRepos[0].isPrivate)
+    }
+
 }

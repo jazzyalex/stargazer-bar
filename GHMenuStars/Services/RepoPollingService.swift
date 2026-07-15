@@ -128,31 +128,62 @@ final class RepoPollingService {
         return settingsStore.settings.refreshInterval.timeInterval
     }
 
-    private func refresh(repo: TrackedRepo) async {
+    // internal, not private: both refreshNow() entries spawn a detached Task and
+    // return, so a test awaiting them would race the work and assert against
+    // nothing. Tests await this directly.
+    func refresh(repo: TrackedRepo) async {
         do {
             var repoETag = repo.etagRepo
             var releasesETag = repo.etagReleases
             var latestRateLimitState: RateLimitState?
             let stars: Int
             let forks: Int
+            let isPrivate: Bool
+            let authToken: String?
+            let didFlipVisibility: Bool
             do {
                 let repoETagForRequest = repo.lastForks == nil ? nil : repo.etagRepo
-                let repoResult = try await gitHubClient.fetchRepo(owner: repo.owner, name: repo.name, etag: repoETagForRequest)
-                guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
-                stars = repoResult.value.stargazersCount
-                forks = repoResult.value.forksCount
-                repoETag = repoResult.etag ?? repoETag
-                latestRateLimitState = repoResult.rateLimitState ?? latestRateLimitState
-            } catch GitHubError.notModified {
-                stars = repo.lastStars ?? 0
-                forks = repo.lastForks ?? 0
+                let outcome = try await repoAccess.fetchRepo(
+                    owner: repo.owner,
+                    name: repo.name,
+                    etag: repoETagForRequest,
+                    knownPrivate: repo.isPrivate,
+                    repoID: repo.id
+                )
+                switch outcome {
+                case .fetched(let repoResult, let fetchedPrivate, let token):
+                    isPrivate = fetchedPrivate
+                    authToken = token
+                    didFlipVisibility = fetchedPrivate != repo.isPrivate
+                    // Private repos: nothing to count, so don't pay for it.
+                    stars = fetchedPrivate ? 0 : repoResult.value.stargazersCount
+                    forks = fetchedPrivate ? 0 : repoResult.value.forksCount
+                    repoETag = repoResult.etag ?? repoETag
+                    latestRateLimitState = repoResult.rateLimitState ?? latestRateLimitState
+                case .notModified(let token):
+                    // 304 has no body, so privacy can't be refreshed — keep what
+                    // we stored.
+                    isPrivate = repo.isPrivate
+                    authToken = token
+                    didFlipVisibility = false
+                    stars = repo.lastStars ?? 0
+                    forks = repo.lastForks ?? 0
+                }
             }
 
             let downloads: Int
             var latestRelease: LatestReleaseSummary?
             var recentReleases: RecentReleasesSummary?
             do {
-                let releasesResult = try await gitHubClient.fetchReleases(owner: repo.owner, name: repo.name, etag: repo.etagReleases)
+                let releasesResult = try await gitHubClient.fetchReleases(
+                    owner: repo.owner,
+                    name: repo.name,
+                    // A flip invalidates the ETag — it was minted under the other
+                    // identity — and apply(snapshot:) resets too late to protect
+                    // the request going out right here.
+                    etag: didFlipVisibility ? nil : repo.etagReleases,
+                    optionalAuthToken: authToken
+                )
                 downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
                 latestRelease = LatestReleaseSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads)
                 recentReleases = RecentReleasesSummaryBuilder.summary(from: releasesResult.value, totalDownloads: downloads, now: Date())
@@ -171,18 +202,25 @@ final class RepoPollingService {
             let releaseAnchor = activityWindow == .off ? nil : effectiveRelease.flatMap {
                 ReleaseDynamics.isFresh(publishedAt: $0.publishedAt, now: checkedAt) ? $0.publishedAt : nil
             }
-            async let trendPoints = fetchTrendPointsIfNeeded(
-                for: repo,
-                stars: stars,
-                forks: forks,
-                checkedAt: checkedAt
-            )
+            // Private repos: the stargazer/fork walk is the bulk of the per-poll
+            // request budget, and it would be counting something never shown.
+            async let trendPoints: [RepoTrendPoint]? = isPrivate
+                ? nil
+                : fetchTrendPointsIfNeeded(
+                    for: repo,
+                    stars: stars,
+                    forks: forks,
+                    checkedAt: checkedAt
+                )
             async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,
                 activityWindow: activityWindow,
                 releaseAnchor: releaseAnchor,
-                now: checkedAt
+                now: checkedAt,
+                // Without this the radar authenticates as OAuth, 404s on every
+                // call, and the optional* wrappers render blank rows with no error.
+                optionalAuthToken: authToken
             )
             let resolvedTrendPoints = await trendPoints
             let resolvedMaintainerRadar = await maintainerRadar
@@ -198,7 +236,8 @@ final class RepoPollingService {
                 trendRange: resolvedTrendPoints == nil ? nil : .all,
                 maintainerRadar: radarSnapshot,
                 latestRelease: latestRelease,
-                recentReleases: recentReleases
+                recentReleases: recentReleases,
+                isPrivate: isPrivate
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)
