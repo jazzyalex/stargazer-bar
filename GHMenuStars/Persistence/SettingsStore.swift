@@ -134,6 +134,10 @@ struct AppSettings: Codable, Equatable {
     var selectedMenuBarRepoID: UUID?
     var repoTrendRange: RepoTrendRange = .all
     var maintainerRadarActivityWindow: MaintainerRadarActivityWindow = .oneDay
+    /// Phase 1 lands internally: the PAT section stays hidden so a hotfix cut
+    /// from main can't expose private-repo tracking before the menu bar has any
+    /// answer for a private repo (phase 3). Flipped on in phase 2.
+    var enablePrivateRepos: Bool = false
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -149,6 +153,7 @@ struct AppSettings: Codable, Equatable {
         case selectedMenuBarRepoID
         case repoTrendRange
         case maintainerRadarActivityWindow
+        case enablePrivateRepos
     }
 
     init() {}
@@ -169,6 +174,7 @@ struct AppSettings: Codable, Equatable {
         selectedMenuBarRepoID = try container.decodeIfPresent(UUID.self, forKey: .selectedMenuBarRepoID)
         repoTrendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .repoTrendRange) ?? .all
         maintainerRadarActivityWindow = try container.decodeIfPresent(MaintainerRadarActivityWindow.self, forKey: .maintainerRadarActivityWindow) ?? .oneDay
+        enablePrivateRepos = try container.decodeIfPresent(Bool.self, forKey: .enablePrivateRepos) ?? false
     }
 }
 
