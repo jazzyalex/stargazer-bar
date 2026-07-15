@@ -14,10 +14,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             KeychainTokenStore.loadGitHubOAuthToken()
         }
     )
+    /// One shared instance: the PAT-dead and double-404 latches are
+    /// per-instance state, so a second would retry tokens this one already
+    /// knows are dead.
+    private lazy var repoAccess = GitHubRepoAccess(
+        client: gitHubClient,
+        patProvider: { KeychainTokenStore.loadGitHubPAT() },
+        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() }
+    )
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,
         settingsStore: settingsStore,
         gitHubClient: gitHubClient,
+        repoAccess: repoAccess,
         notificationService: NotificationService(),
         soundService: SoundService(),
         animationCoordinator: animationCoordinator

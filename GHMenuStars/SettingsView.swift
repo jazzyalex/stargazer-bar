@@ -32,6 +32,7 @@ struct SettingsView: View {
     @ObservedObject var settingsStore: SettingsStore
     @ObservedObject var updaterController: UpdaterController
     let gitHubClient: GitHubClient
+    let repoAccess: GitHubRepoAccess
     private let soundPreviewService = SoundService()
 
     @State private var repoText = ""
@@ -49,12 +50,14 @@ struct SettingsView: View {
         repoStore: TrackedRepoStore,
         settingsStore: SettingsStore,
         gitHubClient: GitHubClient,
+        repoAccess: GitHubRepoAccess,
         updaterController: UpdaterController
     ) {
         self._repoStore = ObservedObject(wrappedValue: repoStore)
         self._settingsStore = ObservedObject(wrappedValue: settingsStore)
         self._updaterController = ObservedObject(wrappedValue: updaterController)
         self.gitHubClient = gitHubClient
+        self.repoAccess = repoAccess
     }
 
     var body: some View {

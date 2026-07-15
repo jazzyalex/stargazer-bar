@@ -203,4 +203,32 @@ final class GitHubRepoAccessTests: XCTestCase {
         catch {}
         XCTAssertEqual(tokens, ["Bearer oauth", "Bearer pat"])
     }
+
+    // MARK: - Composition
+
+    func testPollingServiceAcceptsInjectedRepoAccess() {
+        // Compile-level guard: the seam is useless until it reaches the poller.
+        // If this stops compiling, the wiring regressed.
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let access = GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil })
+        let service = RepoPollingService(
+            repoStore: TrackedRepoStore(
+                defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+                legacyDefaults: nil
+            ),
+            settingsStore: SettingsStore(
+                defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+                legacyDefaults: nil
+            ),
+            gitHubClient: client,
+            repoAccess: access,
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+        XCTAssertTrue(service.repoAccess === access, "the poller must use the shared instance, not its own")
+    }
+
 }

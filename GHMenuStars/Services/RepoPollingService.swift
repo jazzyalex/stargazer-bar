@@ -28,6 +28,7 @@ enum StarAskPromptTrigger: Equatable {
 @MainActor
 final class RepoPollingService {
     let gitHubClient: GitHubClient
+    let repoAccess: GitHubRepoAccess
 
     private let repoStore: TrackedRepoStore
     private let settingsStore: SettingsStore
@@ -41,6 +42,7 @@ final class RepoPollingService {
         repoStore: TrackedRepoStore,
         settingsStore: SettingsStore,
         gitHubClient: GitHubClient,
+        repoAccess: GitHubRepoAccess,
         notificationService: NotificationService,
         soundService: SoundService,
         animationCoordinator: AnimationCoordinator
@@ -48,6 +50,7 @@ final class RepoPollingService {
         self.repoStore = repoStore
         self.settingsStore = settingsStore
         self.gitHubClient = gitHubClient
+        self.repoAccess = repoAccess
         self.notificationService = notificationService
         self.soundService = soundService
         self.animationCoordinator = animationCoordinator

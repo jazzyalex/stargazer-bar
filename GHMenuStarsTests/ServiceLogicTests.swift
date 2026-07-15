@@ -502,6 +502,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()
@@ -555,6 +560,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()
@@ -603,6 +613,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()
@@ -671,6 +686,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()
@@ -716,6 +736,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()
@@ -915,6 +940,11 @@ final class ServiceLogicTests: XCTestCase {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: GitHubClient(),
+            repoAccess: GitHubRepoAccess(
+                client: GitHubClient(),
+                patProvider: { nil },
+                ambientProvider: { nil }
+            ),
             notificationService: NotificationService(),
             soundService: SoundService(),
             animationCoordinator: AnimationCoordinator()

@@ -46,6 +46,7 @@ final class PreferencesWindow: NSObject, NSWindowDelegate {
         repoStore: TrackedRepoStore,
         settingsStore: SettingsStore,
         gitHubClient: GitHubClient,
+        repoAccess: GitHubRepoAccess,
         updaterController: UpdaterController
     ) {
         if let controller, let window = controller.window {
@@ -59,6 +60,7 @@ final class PreferencesWindow: NSObject, NSWindowDelegate {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: gitHubClient,
+            repoAccess: repoAccess,
             updaterController: updaterController
         )
         let hosting = NSHostingController(rootView: root)

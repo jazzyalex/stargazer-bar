@@ -156,6 +156,7 @@ final class StatusItemController: NSObject {
             repoStore: repoStore,
             settingsStore: settingsStore,
             gitHubClient: pollingService.gitHubClient,
+            repoAccess: pollingService.repoAccess,
             updaterController: updaterController
         )
     }
