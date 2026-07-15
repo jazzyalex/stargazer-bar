@@ -206,8 +206,12 @@ func testPrivateReposFlagDefaultsOffAndSurvivesLegacyDecode() throws {
     // Settings JSON written by a build that predates the flag must decode,
     // not throw — SettingsStore falls back to defaults on any decode error,
     // which would silently reset every setting the user has.
+    // AppSettings.init(from:) hard-decodes these (SettingsStore.swift:158-167) —
+    // omit any and the decode throws keyNotFound before reaching our flag.
     let legacy = Data("""
-    {"refreshInterval":"tenMinutes","hideDockIcon":true,"menuBarDisplayMode":"selectedRepoStars"}
+    {"refreshInterval":"tenMinutes","hideDockIcon":true,"notifyOnStarIncrease":true,
+     "playSoundOnStarIncrease":false,"animateOnStarIncrease":true,
+     "gitHubOAuthClientID":"","menuBarDisplayMode":"selectedRepoStars"}
     """.utf8)
     let decoded = try JSONDecoder().decode(AppSettings.self, from: legacy)
     XCTAssertFalse(decoded.enablePrivateRepos)
@@ -448,43 +452,71 @@ The `nil` defaults keep every existing call site and all ~15 `GitHubClient` cons
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `GHMenuStarsTests/GitHubModelTests.swift`. Match the existing `URLProtocol` stub pattern used by the tests at `:153` and `:176`:
+Append to `GHMenuStarsTests/GitHubModelTests.swift`, mirroring `testMaintainerRadarUsesOptionalTokenForPublicEndpoints` at `:199`.
+
+`activityWindow: .off` is deliberate and load-bearing: it makes `activityStart` nil, so `optionalActivityCount` returns without issuing the `created:>=`-stamped requests whose paths embed `Date()` and therefore cannot be pre-keyed into `MockURLProtocol.responses`. That leaves exactly 3 deterministic paths. Do not "improve" this to `.oneDay`.
 
 ```swift
-func testMaintainerRadarPrefersSuppliedTokenOverAmbientProvider() async {
-    var seenAuthHeaders: [String] = []
-    let client = makeClient(ambientToken: "ambient-oauth") { request in
-        seenAuthHeaders.append(request.value(forHTTPHeaderField: "Authorization") ?? "<none>")
-        return (Data(#"{"total_count":0,"items":[]}"#.utf8), 200, [:])
-    }
+func testMaintainerRadarPrefersSuppliedTokenOverAmbientProvider() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MockURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    var ambientCallCount = 0
+    let client = GitHubClient(session: session, optionalTokenProvider: {
+        ambientCallCount += 1
+        return "ambient-oauth"
+    })
+
+    MockURLProtocol.responses = [
+        "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+        ),
+        "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+        ),
+        "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+        )
+    ]
 
     _ = await client.fetchMaintainerRadar(
-        owner: "o", name: "n", activityWindow: .oneDay, optionalAuthToken: "pat-token"
+        owner: "owner", name: "repo", activityWindow: .off, optionalAuthToken: "pat-token"
     )
 
-    XCTAssertFalse(seenAuthHeaders.isEmpty)
-    // Every radar call must carry the supplied token. If any carries the
-    // ambient one, a private repo's radar 404s into blank rows with no error.
-    XCTAssertTrue(seenAuthHeaders.allSatisfy { $0 == "Bearer pat-token" },
-                  "radar called with ambient token: \(seenAuthHeaders)")
+    XCTAssertEqual(MockURLProtocol.requestedAuthorizations.count, 3)
+    // The whole feature: any radar call carrying the ambient token 404s on a
+    // private repo and the optional* wrappers turn it into a blank row, silently.
+    XCTAssertTrue(MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer pat-token" },
+                  "radar used the ambient token: \(MockURLProtocol.requestedAuthorizations)")
+    XCTAssertEqual(ambientCallCount, 0, "a supplied token must short-circuit the ambient provider")
 }
 
-func testMaintainerRadarFallsBackToAmbientWhenNoTokenSupplied() async {
-    var seenAuthHeaders: [String] = []
-    let client = makeClient(ambientToken: "ambient-oauth") { request in
-        seenAuthHeaders.append(request.value(forHTTPHeaderField: "Authorization") ?? "<none>")
-        return (Data(#"{"total_count":0,"items":[]}"#.utf8), 200, [:])
-    }
+func testMaintainerRadarFallsBackToAmbientWhenNoTokenSupplied() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MockURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    let client = GitHubClient(session: session, optionalTokenProvider: { "ambient-oauth" })
 
-    _ = await client.fetchMaintainerRadar(owner: "o", name: "n", activityWindow: .oneDay)
+    MockURLProtocol.responses = [
+        "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+        ),
+        "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+        ),
+        "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+            data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+        )
+    ]
+
+    _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
 
     // Public repos must behave exactly as before this change.
-    XCTAssertTrue(seenAuthHeaders.allSatisfy { $0 == "Bearer ambient-oauth" },
-                  "public radar behaviour changed: \(seenAuthHeaders)")
+    XCTAssertTrue(MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer ambient-oauth" })
 }
 ```
 
-If no `makeClient(ambientToken:handler:)` helper exists, write one mirroring the stub setup already used at `GitHubModelTests.swift:153`; do not invent a new mocking approach.
+Call `MockURLProtocol.reset()` in `setUp` if the existing suite does not already.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -825,7 +857,9 @@ Run:
 ```bash
 xcodebuild test -project GHMenuStars.xcodeproj -scheme GHMenuStars -derivedDataPath .deriveddata-test -only-testing:GHMenuStarsTests/GitHubRepoAccessTests 2>&1 | tail -5
 ```
-Expected: **BUILD FAILURE**, `cannot find 'GitHubRepoAccess' in scope`. Add the new files to the Xcode target if the build complains they are not members of `GHMenuStars` / `GHMenuStarsTests`.
+Expected: **BUILD FAILURE**, `cannot find 'GitHubRepoAccess' in scope`.
+
+**Add every new file to the Xcode target.** `project.pbxproj` is `objectVersion = 56` with explicit `PBXFileReference` entries and **no** filesystem-synchronized groups, so a new file on disk is invisible to the build until it is registered. This applies to `GitHubRepoAccess.swift`, `GitHubRepoAccessTests.swift`, `Support/MockURLProtocol.swift` (Task 5) and `GitHubAuthSettingsView.swift` (Task 14). It is not conditional — it will fail.
 
 - [ ] **Step 4: Write minimal implementation**
 
@@ -996,8 +1030,8 @@ func testRevokedPATLatchesDeadAndFallsBackToAmbient() async throws {
         calls += 1
         // PAT is revoked -> 401. Repo has since flipped public, so the ambient
         // token can see it.
-        if calls == 1 { return (Data("{}".utf8), 401, [:]) }
-        return (Data(#"{"full_name":"o/n","stargazers_count":3,"forks_count":0,"private":false}"#.utf8), 200, [:])
+        if calls == 1 { return .init(statusCode: 401, data: Data("{}".utf8)) }
+        return .init(data: Data(#"{"full_name":"o/n","stargazers_count":3,"forks_count":0,"private":false}"#.utf8))
     }
     let access = GitHubRepoAccess(
         client: GitHubClient(session: URLSession(configuration: config)),
@@ -1027,9 +1061,9 @@ func testResetTokenStateRevivesTheLatchedPAT() async throws {
         seen.append(request.value(forHTTPHeaderField: "Authorization"))
         if failNextWith401 {
             failNextWith401 = false
-            return (Data("{}".utf8), 401, [:])
+            return .init(statusCode: 401, data: Data("{}".utf8))
         }
-        return (Data(#"{"full_name":"o/n","stargazers_count":0,"forks_count":0,"private":true}"#.utf8), 200, [:])
+        return .init(data: Data(#"{"full_name":"o/n","stargazers_count":0,"forks_count":0,"private":true}"#.utf8))
     }
     let access = GitHubRepoAccess(
         client: GitHubClient(session: URLSession(configuration: config)),
@@ -1101,7 +1135,7 @@ func testMissingRepoStopsCostingTwoCallsPerPoll() async {
     config.protocolClasses = [MockURLProtocol.self]
     MockURLProtocol.handler = { request in
         seen.append(request.value(forHTTPHeaderField: "Authorization"))
-        return (Data("{}".utf8), 404, [:])   // deleted upstream, or a typo
+        return .init(statusCode: 404, data: Data("{}".utf8))   // deleted upstream, or a typo
     }
     let access = GitHubRepoAccess(
         client: GitHubClient(session: URLSession(configuration: config)),
@@ -1185,7 +1219,7 @@ func testPollingServiceAcceptsInjectedRepoAccess() async {
     // stops compiling, the wiring regressed.
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [MockURLProtocol.self]
-    MockURLProtocol.handler = { _ in (Data("{}".utf8), 404, [:]) }
+    MockURLProtocol.handler = { _ in .init(statusCode: 404, data: Data("{}".utf8)) }
     let client = GitHubClient(session: URLSession(configuration: config))
     let access = GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil })
     let service = RepoPollingService(
@@ -1298,10 +1332,10 @@ func testPrivateRepoPollSkipsStargazerAndForkRequestsAndUsesPATEverywhere() asyn
             radarTokens.append(request.value(forHTTPHeaderField: "Authorization"))
         }
         if path.hasSuffix("/repos/o/n") {
-            return (Data(#"{"full_name":"o/n","stargazers_count":0,"forks_count":0,"private":true}"#.utf8), 200, [:])
+            return .init(data: Data(#"{"full_name":"o/n","stargazers_count":0,"forks_count":0,"private":true}"#.utf8))
         }
-        if path.contains("releases") { return (Data("[]".utf8), 200, [:]) }
-        return (Data(#"{"total_count":0,"items":[],"workflow_runs":[]}"#.utf8), 200, [:])
+        if path.contains("releases") { return .init(data: Data("[]".utf8)) }
+        return .init(data: Data(#"{"total_count":0,"items":[],"workflow_runs":[]}"#.utf8))
     }
     let client = GitHubClient(session: URLSession(configuration: config))
     let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" })
@@ -1317,7 +1351,8 @@ func testPrivateRepoPollSkipsStargazerAndForkRequestsAndUsesPATEverywhere() asyn
         animationCoordinator: AnimationCoordinator()
     )
 
-    await service.checkNow()
+    // refresh(repo:) is made internal in Step 3 for exactly this reason.
+    await service.refresh(repo: repoStore.trackedRepos[0])
 
     XCTAssertFalse(paths.contains { $0.contains("stargazers") }, "private repos have no stars worth spending a request on")
     XCTAssertFalse(paths.contains { $0.contains("forks") })
@@ -1329,7 +1364,7 @@ func testPrivateRepoPollSkipsStargazerAndForkRequestsAndUsesPATEverywhere() asyn
 }
 ```
 
-Use the poller's real public entry point in place of `checkNow()` if it is named differently (see `RepoPollingService.swift:101`).
+**The test must await `refresh(repo:)` directly, and Step 3 makes it internal to allow that.** Both public entry points — `refreshNow()` (`:66`) and `refreshNow(repoID:)` (`:91`) — are fire-and-forget: they spawn an inner `Task` and return immediately. Calling either from a test races the detached work, so every assertion runs against an empty `requestedPaths` and the test **passes while testing nothing** — a false green, which is worse than a failure. Change `private func refresh(repo:)` (`:128`) to `func refresh(repo:)`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1341,7 +1376,15 @@ Expected: **FAIL** — the repo is rejected by the `private` guard, so no radar 
 
 - [ ] **Step 3: Write minimal implementation**
 
-In `GHMenuStars/Services/RepoPollingService.swift`, replace the repo-fetch block (lines 135-146) with:
+In `GHMenuStars/Services/RepoPollingService.swift`, first drop `private` from `refresh(repo:)` at `:128` so the test can await it:
+
+```swift
+    // internal, not private: the public refreshNow() entries are fire-and-forget,
+    // so tests must await this directly or they race the detached Task.
+    func refresh(repo: TrackedRepo) async {
+```
+
+Then replace the repo-fetch block (lines 135-146) with:
 
 ```swift
             let isPrivate: Bool
