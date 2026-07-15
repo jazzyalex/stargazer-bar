@@ -46,6 +46,7 @@ final class TrackedRepoStore: ObservableObject {
             existing.name = repo.name
             existing.displayName = repo.displayName
             existing.source = repo.source
+            existing.isPrivate = repo.isPrivate
             existing.lastStars = repo.lastStars ?? existing.lastStars
             existing.lastDownloads = repo.lastDownloads ?? existing.lastDownloads
             existing.lastForks = repo.lastForks ?? existing.lastForks
@@ -101,6 +102,11 @@ final class TrackedRepoStore: ObservableObject {
     func apply(snapshot: RepoSnapshot, to repoID: UUID) -> RepoDelta? {
         guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return nil }
         var repo = trackedRepos[index]
+        // A visibility flip invalidates both ETags: they were minted under a
+        // different auth identity, so a 304 against them would serve a body only
+        // that identity could see.
+        let didFlipVisibility = repo.isPrivate != snapshot.isPrivate
+        repo.isPrivate = snapshot.isPrivate
         let delta = RepoDelta(
             starsDelta: max(0, snapshot.stars - (repo.lastStars ?? snapshot.stars)),
             downloadsDelta: max(0, snapshot.releaseDownloads - (repo.lastDownloads ?? snapshot.releaseDownloads)),
@@ -114,8 +120,8 @@ final class TrackedRepoStore: ObservableObject {
         repo.lastStarsDelta = delta.starsDelta
         repo.lastDownloadsDelta = delta.downloadsDelta
         repo.lastForksDelta = delta.forksDelta
-        repo.etagRepo = snapshot.repoETag ?? repo.etagRepo
-        repo.etagReleases = snapshot.releasesETag ?? repo.etagReleases
+        repo.etagRepo = didFlipVisibility ? nil : (snapshot.repoETag ?? repo.etagRepo)
+        repo.etagReleases = didFlipVisibility ? nil : (snapshot.releasesETag ?? repo.etagReleases)
         if let trendPoints = snapshot.trendPoints {
             repo.trendPoints = trendPoints
             repo.trendRange = snapshot.trendRange

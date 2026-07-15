@@ -1061,34 +1061,6 @@ final class ServiceLogicTests: XCTestCase {
         }
         return nil
     }
-}
-
-private extension NSMenuItem {
-    func hasBoldPrefix(_ prefix: String) -> Bool {
-        guard let attributedTitle,
-              attributedTitle.string.hasPrefix(prefix),
-              let font = attributedTitle.attribute(.font, at: 0, effectiveRange: nil) as? NSFont else {
-            return false
-        }
-        return font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold)
-    }
-
-    func isFullyBold(_ substring: String) -> Bool {
-        guard let attributedTitle else { return false }
-        let range = (attributedTitle.string as NSString).range(of: substring)
-        guard range.location != NSNotFound else { return false }
-        var allBold = true
-        attributedTitle.enumerateAttribute(.font, in: range, options: []) { value, _, stop in
-            guard let font = value as? NSFont,
-                  font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold) else {
-                allBold = false
-                stop.pointee = true
-                return
-            }
-        }
-        return allBold
-    }
-
     func testPATStoreUsesDistinctServiceAndAccountFromOAuth() {
         let oauth = KeychainTokenStore.gitHubOAuthStore()
         let pat = KeychainTokenStore.gitHubPATStore()
@@ -1146,4 +1118,94 @@ private extension NSMenuItem {
         XCTAssertTrue(round.enablePrivateRepos)
     }
 
+
+    func testTrackedRepoDecodesLegacyJSONWithoutIsPrivate() throws {
+        let legacy = Data("""
+        {"id":"\(UUID().uuidString)","owner":"o","name":"n","displayName":"o/n",
+         "source":"manual","starSound":"glass","isMuted":false,"trendPoints":[],
+         "starAskPromptStatus":"notShown"}
+        """.utf8)
+        let repo = try JSONDecoder().decode(TrackedRepo.self, from: legacy)
+        XCTAssertFalse(repo.isPrivate, "repos stored before private support must decode as public")
+    }
+
+    func testApplySnapshotRoundTripsIsPrivateAndResetsETagsOnFlip() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        let repo = TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: false,
+                               etagRepo: "etag-public", etagReleases: "etag-releases-public")
+        try store.upsertTrackedRepo(repo)
+
+        // A flip means the stored ETags were minted under a different auth
+        // identity; a 304 against them would serve the other identity's body.
+        let flipped = RepoSnapshot(stars: 0, releaseDownloads: 0, forks: 0,
+                                   checkedAt: Date(), repoETag: nil, releasesETag: nil,
+                                   isPrivate: true)
+        _ = store.apply(snapshot: flipped, to: repo.id)
+
+        let stored = store.repo(id: repo.id)
+        XCTAssertEqual(stored?.isPrivate, true)
+        XCTAssertNil(stored?.etagRepo)
+        XCTAssertNil(stored?.etagReleases)
+    }
+
+    func testApplySnapshotKeepsETagsWhenVisibilityUnchanged() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        let repo = TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: false)
+        try store.upsertTrackedRepo(repo)
+
+        // No flip: ETags must survive, or every poll pays a full body it could
+        // have 304'd away.
+        let same = RepoSnapshot(stars: 1, releaseDownloads: 0, forks: 0,
+                                checkedAt: Date(), repoETag: "fresh", releasesETag: "fresh-r",
+                                isPrivate: false)
+        _ = store.apply(snapshot: same, to: repo.id)
+
+        XCTAssertEqual(store.repo(id: repo.id)?.etagRepo, "fresh")
+        XCTAssertEqual(store.repo(id: repo.id)?.etagReleases, "fresh-r")
+    }
+
+    func testUpsertPreservesIsPrivateOnReAdd() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
+        // upsert copies fields member-by-member, so a field not listed there is
+        // silently dropped on re-add.
+        try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
+        XCTAssertEqual(store.trackedRepos.first?.isPrivate, true)
+    }
+}
+
+private extension NSMenuItem {
+    func hasBoldPrefix(_ prefix: String) -> Bool {
+        guard let attributedTitle,
+              attributedTitle.string.hasPrefix(prefix),
+              let font = attributedTitle.attribute(.font, at: 0, effectiveRange: nil) as? NSFont else {
+            return false
+        }
+        return font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold)
+    }
+
+    func isFullyBold(_ substring: String) -> Bool {
+        guard let attributedTitle else { return false }
+        let range = (attributedTitle.string as NSString).range(of: substring)
+        guard range.location != NSNotFound else { return false }
+        var allBold = true
+        attributedTitle.enumerateAttribute(.font, in: range, options: []) { value, _, stop in
+            guard let font = value as? NSFont,
+                  font.fontDescriptor.symbolicTraits.contains(NSFontDescriptor.SymbolicTraits.bold) else {
+                allBold = false
+                stop.pointee = true
+                return
+            }
+        }
+        return allBold
+    }
 }

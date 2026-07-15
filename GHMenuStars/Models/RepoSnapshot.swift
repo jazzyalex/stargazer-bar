@@ -12,4 +12,7 @@ struct RepoSnapshot: Equatable {
     var maintainerRadar: RepoMaintainerRadar? = nil
     var latestRelease: LatestReleaseSummary? = nil
     var recentReleases: RecentReleasesSummary? = nil
+    /// Authoritative, read from the repo response body. Declared last so the
+    /// memberwise init stays compatible with existing call sites.
+    var isPrivate: Bool = false
 }

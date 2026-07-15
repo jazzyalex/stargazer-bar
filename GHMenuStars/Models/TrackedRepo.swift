@@ -288,6 +288,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var name: String
     var displayName: String
     var source: RepoSource
+    var isPrivate: Bool
     var lastStars: Int?
     var lastDownloads: Int?
     var lastForks: Int?
@@ -316,6 +317,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case name
         case displayName
         case source
+        case isPrivate
         case lastStars
         case lastDownloads
         case lastForks
@@ -345,6 +347,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         name: String,
         displayName: String? = nil,
         source: RepoSource,
+        isPrivate: Bool = false,
         lastStars: Int? = nil,
         lastDownloads: Int? = nil,
         lastForks: Int? = nil,
@@ -372,6 +375,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.name = name
         self.displayName = displayName ?? "\(owner)/\(name)"
         self.source = source
+        self.isPrivate = isPrivate
         self.lastStars = lastStars
         self.lastDownloads = lastDownloads
         self.lastForks = lastForks
@@ -402,6 +406,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         name = try container.decode(String.self, forKey: .name)
         displayName = try container.decode(String.self, forKey: .displayName)
         source = try container.decode(RepoSource.self, forKey: .source)
+        // Repos stored before private support predate this field; public is correct.
+        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
         lastStars = try container.decodeIfPresent(Int.self, forKey: .lastStars)
         lastDownloads = try container.decodeIfPresent(Int.self, forKey: .lastDownloads)
         lastForks = try container.decodeIfPresent(Int.self, forKey: .lastForks)
