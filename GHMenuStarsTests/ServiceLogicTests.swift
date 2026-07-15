@@ -1331,6 +1331,21 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(message.lowercased().contains("settings"))
     }
 
+
+    func testPrivateRepoMenuLineOmitsTheStarGlyph() {
+        var priv = TrackedRepo(owner: "o", name: "secret", source: .manual, isPrivate: true)
+        priv.lastDownloads = 120
+        var pub = TrackedRepo(owner: "o", name: "open", source: .manual)
+        pub.lastStars = 9
+        pub.lastDownloads = 120
+
+        // A private repo's stars are never fetched, so a star glyph would be
+        // rendering a number we never looked up.
+        XCTAssertFalse(StatusMenuBuilder.repoLineText(priv).contains("☆"))
+        XCTAssertTrue(StatusMenuBuilder.repoLineText(priv).contains("⤓"))
+        XCTAssertTrue(StatusMenuBuilder.repoLineText(pub).contains("☆"), "public lines are unchanged")
+    }
+
 }
 
 private extension NSMenuItem {

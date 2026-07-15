@@ -904,8 +904,11 @@ private struct RepositoryRow: View {
     }
 
     private var metricsText: String {
-        let stars = RepoDeltaFormatter.metricLine(label: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta)
         let downloads = RepoDeltaFormatter.metricLine(label: "Downloads", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
+        // Stars and forks are never fetched for a private repo, so showing them
+        // would render zeroes we never looked up.
+        guard !repo.isPrivate else { return "Private  \(downloads)" }
+        let stars = RepoDeltaFormatter.metricLine(label: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta)
         let forks = RepoDeltaFormatter.metricLine(label: "Forks", value: repo.lastForks, delta: repo.lastForksDelta)
         return "\(stars)  \(downloads)  \(forks)"
     }

@@ -77,10 +77,19 @@ struct StatusMenuBuilder {
         return item
     }
 
-    private func repoLine(_ repo: TrackedRepo) -> String {
-        let stars = RepoDeltaFormatter.metricLine(label: "☆", value: repo.lastStars, delta: repo.lastStarsDelta)
+    /// Private repos drop the star segment: their stars are never fetched, so a
+    /// glyph here would render a number nobody looked up.
+    static func repoLineText(_ repo: TrackedRepo) -> String {
         let downloads = RepoDeltaFormatter.metricLine(label: "⤓", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
+        guard !repo.isPrivate else {
+            return "\(repo.displayName)  \(downloads)"
+        }
+        let stars = RepoDeltaFormatter.metricLine(label: "☆", value: repo.lastStars, delta: repo.lastStarsDelta)
         return "\(repo.displayName)  \(stars)  \(downloads)"
+    }
+
+    private func repoLine(_ repo: TrackedRepo) -> String {
+        Self.repoLineText(repo)
     }
 
     private func repoLineTitle(_ repo: TrackedRepo) -> NSAttributedString {
@@ -124,8 +133,13 @@ struct StatusMenuBuilder {
     private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
-        submenu.addItem(trendItem(for: repo))
-        addTrendHighlightItems(to: submenu, for: repo)
+        if !repo.isPrivate {
+            // Skipped for private repos: their star/fork history is never
+            // fetched, so this item would show a spinner that never resolves —
+            // worse than no row at all.
+            submenu.addItem(trendItem(for: repo))
+            addTrendHighlightItems(to: submenu, for: repo)
+        }
         addLatestReleaseItems(to: submenu, for: repo)
         addRecentReleasesItems(to: submenu, for: repo)
         submenu.addItem(NSMenuItem.separator())
@@ -289,7 +303,8 @@ struct StatusMenuBuilder {
         if let issues = radar.newIssues, issues > 0 {
             activityParts.append("\(Self.formattedCount(issues)) new \(issues == 1 ? "issue" : "issues")")
         }
-        if let release = repo.latestRelease,
+        if !repo.isPrivate,
+           let release = repo.latestRelease,
            let stars = ReleaseDynamics.starsSinceRelease(trendPoints: repo.trendPoints, currentStars: repo.lastStars ?? 0, publishedAt: release.publishedAt),
            stars > 0 {
             activityParts.append("+\(Self.formattedCount(stars)) ⭐")
