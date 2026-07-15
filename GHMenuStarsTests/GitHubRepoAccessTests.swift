@@ -339,5 +339,4 @@ final class GitHubRepoAccessTests: XCTestCase {
         XCTAssertEqual(repoStore.trackedRepos[0].lastForks, 7)
         XCTAssertFalse(repoStore.trackedRepos[0].isPrivate)
     }
-
 }

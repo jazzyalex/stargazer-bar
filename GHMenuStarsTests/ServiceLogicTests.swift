@@ -1211,6 +1211,77 @@ final class ServiceLogicTests: XCTestCase {
         try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
         XCTAssertEqual(store.trackedRepos.first?.isPrivate, true)
     }
+    func testPrivateRepoZeroesTheStarCueButLeavesDownloadsAlone() {
+        // The suppression must key off the metric, not the code block: the sound
+        // and celebration paths both fire on download milestones too, so gating
+        // the whole block on isPrivate would silently kill download cues that
+        // private repos are entitled to.
+        let starDelta = RepoDelta(starsDelta: 5, downloadsDelta: 0)
+        let downloadDelta = RepoDelta(starsDelta: 0, downloadsDelta: 50)
+
+        XCTAssertEqual(RepoPollingService.cueStarsDelta(starDelta, isPrivate: false), 5)
+        XCTAssertEqual(RepoPollingService.cueStarsDelta(starDelta, isPrivate: true), 0,
+                       "a private repo's star delta must not drive any cue")
+        XCTAssertEqual(RepoPollingService.cueStarsDelta(downloadDelta, isPrivate: true), 0)
+
+        // Downloads still reach the sound threshold on a private repo.
+        XCTAssertTrue(
+            StarSoundThreshold.one.isMet(
+                starsDelta: RepoPollingService.cueStarsDelta(downloadDelta, isPrivate: true),
+                downloadsDelta: downloadDelta.downloadsDelta,
+                downloads: 50
+            ),
+            "download sounds must survive for private repos"
+        )
+        // And the celebration pulse is a download event too.
+        XCTAssertTrue(downloadDelta.hasCelebrationIncrease)
+    }
+
+    func testPrivateRepoDoesNotRecordAStarNotification() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        settingsStore.update { $0.notifyOnStarIncrease = true }
+        try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
+        let repoID = repoStore.trackedRepos[0].id
+        let client = GitHubClient()
+        let service = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: client,
+            repoAccess: GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil }),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        // markNotified is the observable trace of a star notification firing.
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        XCTAssertNil(repoStore.trackedRepos[0].lastNotifiedStars,
+                     "a private repo must not fire — or record — a star notification")
+    }
+
+    func testPublicRepoStillRecordsAStarNotification() throws {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        let repoStore = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+        let settingsStore = SettingsStore(defaults: defaults, legacyDefaults: nil)
+        settingsStore.update { $0.notifyOnStarIncrease = true }
+        try repoStore.upsertTrackedRepo(TrackedRepo(owner: "o", name: "p", source: .manual))
+        let repoID = repoStore.trackedRepos[0].id
+        let client = GitHubClient()
+        let service = RepoPollingService(
+            repoStore: repoStore,
+            settingsStore: settingsStore,
+            gitHubClient: client,
+            repoAccess: GitHubRepoAccess(client: client, patProvider: { nil }, ambientProvider: { nil }),
+            notificationService: NotificationService(),
+            soundService: SoundService(),
+            animationCoordinator: AnimationCoordinator()
+        )
+
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        XCTAssertEqual(repoStore.trackedRepos[0].lastNotifiedStars, 5, "public behaviour must be unchanged")
+    }
 }
 
 private extension NSMenuItem {

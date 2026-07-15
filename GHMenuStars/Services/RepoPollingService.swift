@@ -315,14 +315,28 @@ final class RepoPollingService {
         return points.allSatisfy { $0.stars == first.stars && $0.forks == first.forks }
     }
 
-    private func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
+    /// The star delta that should drive user-facing cues.
+    ///
+    /// Zero for a private repo: its stars are never fetched, and a collaborator
+    /// starring it is not something to celebrate in a menu bar built around
+    /// public reach. Suppression has to key off the *metric* like this — the
+    /// sound and celebration blocks below also fire on download milestones, so
+    /// gating those blocks on `isPrivate` would silently kill download cues that
+    /// private repos are entitled to.
+    nonisolated static func cueStarsDelta(_ delta: RepoDelta, isPrivate: Bool) -> Int {
+        isPrivate ? 0 : delta.starsDelta
+    }
+
+    func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
         guard delta.hasCelebrationIncrease else { return }
         let settings = settingsStore.settings
         guard !settings.isMuted else { return }
         // Per-repo mute silences everything for this repo: no notification,
         // sound, celebration pulse, or star-ask prompt.
         guard repoStore.trackedRepos.first(where: { $0.id == repoID })?.isMuted != true else { return }
-        if delta.hasStarIncrease,
+        let isPrivateRepo = repoStore.trackedRepos.first(where: { $0.id == repoID })?.isPrivate == true
+        let cueStars = Self.cueStarsDelta(delta, isPrivate: isPrivateRepo)
+        if cueStars > 0,
            settings.notifyOnStarIncrease,
            repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {
             notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
@@ -331,7 +345,7 @@ final class RepoPollingService {
         if settings.playSoundOnStarIncrease,
            settings.celebrationMode != .off,
            settings.starSoundThreshold.isMet(
-                starsDelta: delta.starsDelta,
+                starsDelta: cueStars,
                 downloadsDelta: delta.downloadsDelta,
                 downloads: downloads
            ),
