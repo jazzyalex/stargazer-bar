@@ -1319,6 +1319,18 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.trackedRepos.count, 2, "clearing ETags must not drop repos")
     }
 
+
+    func testNotFoundErrorCopyNoLongerClaimsPublicOnly() {
+        let message = GitHubError.userMessage(for: GitHubError.notFoundOrPrivate)
+        XCTAssertFalse(message.contains("V1 tracks public repositories only"),
+                       "the app tracks private repos now")
+        XCTAssertFalse(message.lowercased().contains("public repositories only"))
+        // A 404 is indistinguishable between "doesn't exist", "no token can see
+        // it", and "the PAT's resource owner is wrong" — so the copy has to point
+        // somewhere actionable rather than guess.
+        XCTAssertTrue(message.lowercased().contains("settings"))
+    }
+
 }
 
 private extension NSMenuItem {

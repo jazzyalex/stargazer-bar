@@ -619,4 +619,23 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer pat-token", "Bearer pat-token"])
     }
 
+
+    func testFetchAuthenticatedLoginUsesTheSuppliedTokenNotTheAmbientOne() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session, optionalTokenProvider: { "ambient-oauth" })
+
+        MockURLProtocol.responses = [
+            "/user": MockURLProtocol.Response(data: Data(#"{"login":"jazzyalex","id":1}"#.utf8))
+        ]
+
+        let login = try await client.fetchAuthenticatedLogin(token: "pat-token")
+
+        XCTAssertEqual(login, "jazzyalex")
+        // Validation must exercise the token being validated, or it would report
+        // the OAuth token's identity and call a broken PAT healthy.
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer pat-token"])
+    }
+
 }

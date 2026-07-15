@@ -18,7 +18,7 @@ enum GitHubError: Error, Equatable {
         case GitHubError.invalidRepositoryInput:
             return "Enter a GitHub repository as owner/repo or https://github.com/owner/repo."
         case GitHubError.notFoundOrPrivate:
-            return "Repository was not found or is private. V1 tracks public repositories only."
+            return "Repository not found, or no token in Settings can see it. For a private repository, add a fine-grained token in Settings — and if it belongs to an organization, set the token's resource owner to that organization."
         case GitHubError.rateLimited(let state):
             return "GitHub rate limit active. Retry \(RelativeDateTimeFormatter.menu.string(for: state.resetAt) ?? "later")."
         case GitHubError.unauthorized, GitHubError.missingToken:
@@ -107,6 +107,10 @@ struct GitHubFork: Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case createdAt = "created_at"
     }
+}
+
+struct GitHubAuthenticatedUser: Decodable, Equatable {
+    var login: String
 }
 
 private struct GitHubSearchCount: Decodable, Equatable {
@@ -324,6 +328,20 @@ final class GitHubClient {
         }
 
         return dates.sorted()
+    }
+
+    /// Validates a pasted token by asking who it belongs to. Deliberately does
+    /// not try to enumerate the token's grant: no endpoint reports that
+    /// reliably for a fine-grained PAT, so promising a repo count in the UI
+    /// would be promising something we can't know.
+    func fetchAuthenticatedLogin(token: String) async throws -> String {
+        let result: GitHubHTTPResult<GitHubAuthenticatedUser> = try await request(
+            path: "/user",
+            etag: nil,
+            requiresAuth: false,
+            optionalAuthToken: token
+        )
+        return result.value.login
     }
 
     func fetchAccessiblePublicRepos() async throws -> [GitHubRepoSummary] {

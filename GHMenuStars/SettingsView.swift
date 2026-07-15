@@ -45,6 +45,8 @@ struct SettingsView: View {
     @State private var hasLoadedPublicRepos = false
     @State private var repoFilter = ""
     @State private var repoPendingDeletion: TrackedRepo?
+    @State private var patInput = ""
+    @State private var patStatus: String?
 
     init(
         repoStore: TrackedRepoStore,
@@ -99,9 +101,89 @@ struct SettingsView: View {
             repositorySection
             menuBarSection
             accountSection
+            privateReposSection
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Phase 1 lands internally: without this gate a hotfix cut from main would
+    /// expose private tracking before the menu bar has any answer for a private
+    /// repo (phase 3). Flipped on in phase 2.
+    @ViewBuilder
+    private var privateReposSection: some View {
+        if settingsStore.settings.enablePrivateRepos {
+            GroupBox("Private repositories") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Signing in above uses a public-only scope and powers the repo picker. To track a private repository, paste a fine-grained token here instead.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        SecureField("github_pat_…", text: $patInput)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Save") { savePAT() }
+                            .disabled(patInput.isEmpty)
+                        Button("Remove") { removePAT() }
+                            .disabled(!KeychainTokenStore.hasGitHubPAT())
+                    }
+                    if repoAccess.isPATDead {
+                        // Distinct from the generic not-found copy: after the
+                        // latch the ambient fallback 404s, which would otherwise
+                        // blame the repository rather than the token.
+                        Text("Your private-repo token was revoked or expired — save a new one to resume tracking private repositories.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    } else if let patStatus {
+                        Text(patStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Give the token Read access to Metadata, Contents, Issues, Pull requests and Actions. If the repository belongs to an organization, set the token's resource owner to that organization — a token owned by your personal account cannot see it, and the failure looks exactly like \"not found\".")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(6)
+            }
+        }
+    }
+
+    private func savePAT() {
+        do {
+            try KeychainTokenStore.gitHubPATStore().saveToken(patInput)
+            // A new identity invalidates every stored ETag and revives both
+            // latches. Never diff the old secret to detect a change — the action
+            // firing is the signal.
+            repoStore.clearAllETags()
+            repoAccess.resetTokenState()
+            patInput = ""
+            validatePAT()
+        } catch {
+            patStatus = GitHubError.userMessage(for: error)
+        }
+    }
+
+    private func removePAT() {
+        try? KeychainTokenStore.gitHubPATStore().deleteToken()
+        repoStore.clearAllETags()
+        repoAccess.resetTokenState()
+        patInput = ""
+        patStatus = nil
+    }
+
+    private func validatePAT() {
+        guard let token = KeychainTokenStore.loadGitHubPAT() else {
+            patStatus = nil
+            return
+        }
+        Task {
+            do {
+                let login = try await gitHubClient.fetchAuthenticatedLogin(token: token)
+                await MainActor.run { patStatus = "Token active for \(login)." }
+            } catch {
+                await MainActor.run { patStatus = GitHubError.userMessage(for: error) }
+            }
+        }
     }
 
     private var repositorySection: some View {
@@ -491,12 +573,22 @@ struct SettingsView: View {
         validationMessage = nil
         Task {
             do {
-                let repoResult = try await gitHubClient.fetchRepo(owner: owner, name: name, etag: nil)
-                guard !repoResult.value.private else { throw GitHubError.notFoundOrPrivate }
-                let releasesResult = try await gitHubClient.fetchReleases(owner: owner, name: name, etag: nil)
+                // No TrackedRepo exists yet and the user typed a bare owner/name,
+                // so privacy is unknown: GitHub 404s identically for "missing"
+                // and "you can't see it". The seam's ladder resolves it.
+                let outcome = try await repoAccess.fetchRepo(
+                    owner: owner, name: name, etag: nil, knownPrivate: false, repoID: nil
+                )
+                guard case .fetched(let repoResult, let isPrivate, let authToken) = outcome else {
+                    // etag: nil was sent, so a 304 is impossible here.
+                    throw GitHubError.notFoundOrPrivate
+                }
+                let releasesResult = try await gitHubClient.fetchReleases(
+                    owner: owner, name: name, etag: nil, optionalAuthToken: authToken
+                )
                 let downloads = ReleaseDownloadAggregator.totalDownloads(from: releasesResult.value)
-                let stars = repoResult.value.stargazersCount
-                let forks = repoResult.value.forksCount
+                let stars = isPrivate ? 0 : repoResult.value.stargazersCount
+                let forks = isPrivate ? 0 : repoResult.value.forksCount
                 let checkedAt = Date()
                 // Release summaries come from the releases response we already
                 // fetched, so populate them immediately — no extra request.
@@ -511,6 +603,7 @@ struct SettingsView: View {
                         owner: owner,
                         name: name,
                         source: source,
+                        isPrivate: isPrivate,
                         lastStars: stars,
                         lastDownloads: downloads,
                         lastForks: forks,
@@ -529,7 +622,7 @@ struct SettingsView: View {
                     }
                     validationMessage = .success("Tracking \(owner)/\(name).")
                     isValidating = false
-                    backfillDetails(owner: owner, name: name, stars: stars, forks: forks, latestRelease: latestRelease, checkedAt: checkedAt)
+                    backfillDetails(owner: owner, name: name, isPrivate: isPrivate, authToken: authToken, stars: stars, forks: forks, latestRelease: latestRelease, checkedAt: checkedAt)
                 }
             } catch TrackedRepoStoreError.maximumReached(let maximum) {
                 await MainActor.run {
@@ -549,6 +642,8 @@ struct SettingsView: View {
     private func backfillDetails(
         owner: String,
         name: String,
+        isPrivate: Bool,
+        authToken: String?,
         stars: Int,
         forks: Int,
         latestRelease: LatestReleaseSummary?,
@@ -559,19 +654,26 @@ struct SettingsView: View {
             let releaseAnchor = activityWindow == .off ? nil : latestRelease.flatMap {
                 ReleaseDynamics.isFresh(publishedAt: $0.publishedAt, now: checkedAt) ? $0.publishedAt : nil
             }
-            async let pointsTask = fetchTrendPoints(
-                owner: owner,
-                name: name,
-                stars: stars,
-                forks: forks,
-                checkedAt: checkedAt
-            )
+            // Private repos: no star/fork trend to chart, and the radar must
+            // carry the token that actually worked — the ambient one cannot see
+            // this repo, so it would 404 into blank rows with no error, right
+            // after the user's first success.
+            async let pointsTask: [RepoTrendPoint] = isPrivate
+                ? []
+                : fetchTrendPoints(
+                    owner: owner,
+                    name: name,
+                    stars: stars,
+                    forks: forks,
+                    checkedAt: checkedAt
+                )
             async let radarTask = gitHubClient.fetchMaintainerRadar(
                 owner: owner,
                 name: name,
                 activityWindow: activityWindow,
                 releaseAnchor: releaseAnchor,
-                now: checkedAt
+                now: checkedAt,
+                optionalAuthToken: authToken
             )
             let (points, radar) = await (pointsTask, radarTask)
 

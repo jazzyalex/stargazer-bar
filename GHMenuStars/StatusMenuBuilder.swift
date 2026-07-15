@@ -11,7 +11,7 @@ struct StatusMenuBuilder {
         let menu = NSMenu()
         if repoStore.trackedRepos.isEmpty {
             menu.addItem(titleItem("No repositories tracked", imageName: "star.slash"))
-            menu.addItem(titleItem("Add up to \(TrackedRepoStore.maximumTrackedRepos) public repositories in Settings."))
+            menu.addItem(titleItem("Add up to \(TrackedRepoStore.maximumTrackedRepos) repositories in Settings."))
         } else {
             for repo in repoStore.trackedRepos {
                 menu.addItem(repoSelectionItem(repo, target: target))

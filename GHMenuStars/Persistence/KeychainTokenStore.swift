@@ -81,6 +81,20 @@ struct KeychainTokenStore {
         return String(data: data, encoding: .utf8)
     }
 
+    func deleteToken() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        // Already absent is success: removing a token that isn't there is the
+        // state the caller wanted.
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw GitHubError.transport("Keychain delete failed: \(status)")
+        }
+    }
+
     func hasToken() -> Bool {
         (try? loadToken(allowUserInteraction: false)) != nil
     }
