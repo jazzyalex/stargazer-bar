@@ -536,6 +536,89 @@ final class GitHubModelTests: XCTestCase {
         let sinceString = ISO8601DateFormatter().string(from: anchor)
         XCTAssertTrue(MockURLProtocol.requestedPaths.contains { $0.contains(sinceString) })
     }
+
+    func testMaintainerRadarPrefersSuppliedTokenOverAmbientProvider() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        var ambientCallCount = 0
+        let client = GitHubClient(session: session, optionalTokenProvider: {
+            ambientCallCount += 1
+            return "ambient-oauth"
+        })
+
+        // .off suppresses the created:>= calls, whose paths embed Date() and so
+        // cannot be pre-keyed. Leaves exactly 3 deterministic paths.
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        _ = await client.fetchMaintainerRadar(
+            owner: "owner", name: "repo", activityWindow: .off, optionalAuthToken: "pat-token"
+        )
+
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations.count, 3)
+        // The whole feature: any radar call carrying the ambient token 404s on a
+        // private repo, and the optional* wrappers turn that into a blank row
+        // with no error at all.
+        XCTAssertTrue(
+            MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer pat-token" },
+            "radar used the ambient token: \(MockURLProtocol.requestedAuthorizations)"
+        )
+        XCTAssertEqual(ambientCallCount, 0, "a supplied token must short-circuit the ambient provider")
+    }
+
+    func testMaintainerRadarFallsBackToAmbientWhenNoTokenSupplied() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session, optionalTokenProvider: { "ambient-oauth" })
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off)
+
+        // Public repos must behave exactly as before this change.
+        XCTAssertTrue(MockURLProtocol.requestedAuthorizations.allSatisfy { $0 == "Bearer ambient-oauth" })
+    }
+
+    func testFetchRepoAndReleasesAcceptSuppliedToken() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = GitHubClient(session: session, optionalTokenProvider: { "ambient-oauth" })
+
+        MockURLProtocol.responses = [
+            "/repos/owner/repo": MockURLProtocol.Response(
+                data: Data(#"{"full_name":"owner/repo","stargazers_count":0,"forks_count":0,"private":true}"#.utf8)
+            ),
+            "/repos/owner/repo/releases?per_page=100": MockURLProtocol.Response(data: Data("[]".utf8))
+        ]
+
+        _ = try await client.fetchRepo(owner: "owner", name: "repo", etag: nil, optionalAuthToken: "pat-token")
+        _ = try await client.fetchReleases(owner: "owner", name: "repo", etag: nil, optionalAuthToken: "pat-token")
+
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer pat-token", "Bearer pat-token"])
+    }
+
 }
 
 private final class MockURLProtocol: URLProtocol {

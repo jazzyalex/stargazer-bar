@@ -209,19 +209,31 @@ final class GitHubClient {
         optionalTokenProvider() != nil ? Self.trendBackfillPageLimitAuthenticated : Self.trendPageLimit
     }
 
-    func fetchRepo(owner: String, name: String, etag: String?) async throws -> GitHubHTTPResult<GitHubRepoResponse> {
+    func fetchRepo(
+        owner: String,
+        name: String,
+        etag: String?,
+        optionalAuthToken: String? = nil
+    ) async throws -> GitHubHTTPResult<GitHubRepoResponse> {
         try await request(
             path: "/repos/\(owner)/\(name)",
             etag: etag,
-            requiresAuth: false
+            requiresAuth: false,
+            optionalAuthToken: optionalAuthToken
         )
     }
 
-    func fetchReleases(owner: String, name: String, etag: String?) async throws -> GitHubHTTPResult<[GitHubRelease]> {
+    func fetchReleases(
+        owner: String,
+        name: String,
+        etag: String?,
+        optionalAuthToken: String? = nil
+    ) async throws -> GitHubHTTPResult<[GitHubRelease]> {
         try await request(
             path: "/repos/\(owner)/\(name)/releases?per_page=100",
             etag: etag,
-            requiresAuth: false
+            requiresAuth: false,
+            optionalAuthToken: optionalAuthToken
         )
     }
 
@@ -336,10 +348,15 @@ final class GitHubClient {
         name: String,
         activityWindow: MaintainerRadarActivityWindow,
         releaseAnchor: Date? = nil,
-        now: Date = Date()
+        now: Date = Date(),
+        optionalAuthToken: String? = nil
     ) async -> RepoMaintainerRadar {
         let activityStart = releaseAnchor ?? activityWindow.startDate(now: now)
-        let optionalAuthToken = optionalTokenProvider()
+        // A supplied token wins. For a private repo this is the PAT; the ambient
+        // provider only ever holds the OAuth token, which cannot see the repo —
+        // every call would 404 and the optional* wrappers below would swallow it
+        // into blank rows with no error.
+        let optionalAuthToken = optionalAuthToken ?? optionalTokenProvider()
         async let openPullRequests = optionalSearchIssueCount(
             query: "repo:\(owner)/\(name) is:pr is:open",
             optionalAuthToken: optionalAuthToken
