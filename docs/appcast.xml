@@ -5,6 +5,60 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.6.0</title>
+            <pubDate>Thu, 16 Jul 2026 11:32:47 -0700</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<style>
+.rn { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 13px; line-height: 1.55; color: #1d1d1f; -webkit-font-smoothing: antialiased; padding: 2px; }
+.rn h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 2px; }
+.rn h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #86868b; margin: 18px 0 6px; }
+.rn h3.hl { color: #0071e3; }
+.rn ul { margin: 0; padding-left: 18px; }
+.rn li { margin: 5px 0; }
+.rn ul.highlights li { margin: 9px 0; }
+.rn strong { font-weight: 650; }
+.rn code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 5px; }
+.rn a { color: #0071e3; text-decoration: none; }
+.rn .more { color: #86868b; font-size: 12px; margin-top: 16px; }
+@media (prefers-color-scheme: dark) {
+  .rn { color: #f5f5f7; }
+  .rn h3 { color: #98989d; }
+  .rn h3.hl { color: #2997ff; }
+  .rn code { background: rgba(255,255,255,0.13); }
+  .rn a { color: #2997ff; }
+}
+</style>
+<div class="rn">
+<h2>What's New in 0.6.0</h2>
+<h3>Features</h3>
+<ul>
+<li><strong>Track private repositories.</strong> Add a private repo the same way you add any other — paste <code>owner/repo</code> or its URL and press Add. If it needs access, Stargazer Bar asks for a fine-grained token right then, with a button to create one on GitHub, and picks up the add where it left off.</li>
+<li><strong>Menu bar counters for commits and attention.</strong> Two new options under Settings → Menu Bar → Counter: *Selected repo needs me* and *Selected repo commits*, with a commit window of 24 hours, 7 days, or 30 days. Picking a repo now always shows that repo&#x27;s own headline — stars for public, needs-me for private.</li>
+</ul>
+<h3>Fixes</h3>
+<ul>
+<li>Saving a GitHub token no longer deletes the old one before storing the new one — a failed save could previously leave you with no token at all.</li>
+<li>A single unreadable stored repository no longer wipes the whole tracked list; the rest survive, and the original data is kept for recovery.</li>
+<li>A failed refresh no longer reports as a successful check. Authentication failures, deleted repositories and network errors are now recorded and shown, instead of a fresh timestamp sitting on top of stale numbers.</li>
+<li>&quot;CI failing&quot; now says when it failed. A workflow that broke months ago no longer reads the same as one that broke minutes ago.</li>
+<li>Settings scrolls, so longer content is no longer cut off mid-sentence.</li>
+</ul>
+<h3>Privacy</h3>
+<ul>
+<li>Your private-repo token lives in its own Keychain entry, separate from GitHub sign-in, and is only ever read when a private repository is actually being checked — never while tracking public ones. It&#x27;s sent only to <code>api.github.com</code>, and read-only access is all Stargazer Bar asks for.</li>
+<li>Private repositories never produce a shareable milestone image, and never contribute to total-star counts.</li>
+<li>Still no backend and no telemetry.</li>
+</ul>
+<p class="more">If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
+<p class="more">Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.6.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.6.0</a></p>
+</div>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.6.0/Stargazer-Bar-0.6.0.zip" length="3665489" type="application/octet-stream" sparkle:edSignature="c2sFPljHfPbyW4dslDxKegR2P2OsNwujiWoyDZKJdu3b4Z1PgIXHgvjeup5eDDPsnyhdPLpa+PMVJkcR4NC0Dg=="/>
+        </item>
+        <item>
             <title>0.5.2</title>
             <pubDate>Mon, 13 Jul 2026 12:08:21 -0700</pubDate>
             <sparkle:version>13</sparkle:version>
@@ -62,30 +116,6 @@
 <p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1</a></p>
 ]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.1/Stargazer-Bar-0.5.1.zip" length="3521206" type="application/octet-stream" sparkle:edSignature="NwqDqY6ooWistEFxbwRTaFx5p1MXoICtpVh0W7tRtvUtXLtG6WQ1LvULUY1Z2ZZH/x4fovMb+7tOMymkoTMRAQ=="/>
-        </item>
-        <item>
-            <title>0.5.0</title>
-            <pubDate>Thu, 02 Jul 2026 16:40:00 -0700</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<h2>What's New in 0.5.0</h2>
-<h3>Features</h3>
-<ul>
-<li>Track **any public repository**, not just your own — adding a popular repo like `steipete/CodexBar` now populates the full submenu (trend chart, latest release, last-30-days, and maintainer radar), the same as owned repos.</li>
-<li>Adding a repository is now **instant**: it appears immediately with star/download/fork counts and latest-release details, while the slower star/fork trend and maintainer radar backfill in the background instead of blocking the Add button.</li>
-</ul>
-<h3>Improvements</h3>
-<ul>
-<li>Trend refreshes are now **incremental**: after the one-time history backfill, each poll fetches only the stars and forks added since the last check and merges them, so tracking large, active repositories stays cheap.</li>
-<li>The full stargazer/fork history backfill is page-bounded to respect the GitHub rate limit — full history when signed in, capped when anonymous so a popular repo can&#x27;t exhaust the unauthenticated quota.</li>
-<li>The activity line in the maintainer radar now reads &quot;N commits on main&quot; for clarity.</li>
-</ul>
-<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
-<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.0</a></p>
-]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.0/Stargazer-Bar-0.5.0.zip" length="3502711" type="application/octet-stream" sparkle:edSignature="52UedHywx+baJk6it2oiNTsL0TD/D/uMCrFvxd6gtV1igoWbXLqw+sVtITZMVLWydkVRDvHxsFxlyYaJzw1KAA=="/>
         </item>
     </channel>
 </rss>
