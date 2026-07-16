@@ -20,7 +20,7 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
         case .totalDownloads:
             return "Total downloads"
         case .selectedRepoCommits:
-            return "Selected repo commits (7d)"
+            return "Selected repo commits"
         }
     }
 

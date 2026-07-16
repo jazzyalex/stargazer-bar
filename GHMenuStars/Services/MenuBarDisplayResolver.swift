@@ -19,13 +19,13 @@ enum MenuBarDisplayResolver {
         // measures instead: what needs attention.
         if let selected, selected.isPrivate, settings.menuBarDisplayMode.isStarMode {
             let value = selected.commitActivity.map {
-                CommitActivityBuilder.total($0, since: Self.commitWindowStart())
+                CommitActivityBuilder.total($0, since: settings.commitActivityWindow.startDate())
             }
             return MenuBarDisplayValue(
                 symbolName: "chevron.left.forwardslash.chevron.right",
                 text: formatted(value),
                 accessibilityLabel: accessibility(
-                    metric: "commits in the last 7 days",
+                    metric: "commits in the last \(settings.commitActivityWindow.displayName)",
                     repoName: selected.displayName,
                     value: value
                 )
@@ -73,13 +73,13 @@ enum MenuBarDisplayResolver {
             // moves when you work. Read from the stored daily buckets, so
             // changing the window costs no extra API calls.
             let value = selected?.commitActivity.map {
-                CommitActivityBuilder.total($0, since: Self.commitWindowStart())
+                CommitActivityBuilder.total($0, since: settings.commitActivityWindow.startDate())
             }
             return MenuBarDisplayValue(
                 symbolName: "chevron.left.forwardslash.chevron.right",
                 text: formatted(value),
                 accessibilityLabel: accessibility(
-                    metric: "commits in the last 7 days",
+                    metric: "commits in the last \(settings.commitActivityWindow.displayName)",
                     repoName: selected?.displayName,
                     value: value
                 )
@@ -98,10 +98,24 @@ enum MenuBarDisplayResolver {
         }
     }
 
-    /// The menu bar commit count covers 7 days: long enough that a normal day
-    /// off doesn't read as "stalled", short enough to still mean "lately".
-    static func commitWindowStart(now: Date = Date()) -> Date {
-        now.addingTimeInterval(-7 * 86_400)
+
+
+    /// The mode to land on when the user picks a repo for the menu bar.
+    ///
+    /// Selecting a repo has to *visibly* do something. Total-* modes ignore the
+    /// selection entirely, so leaving one in place made the radio button look
+    /// broken. And a private repo has no stars — only commits are guaranteed to
+    /// be real — so a star mode there shows a number that was never fetched.
+    static func modeAfterSelecting(
+        isPrivate: Bool,
+        current: MenuBarDisplayMode
+    ) -> MenuBarDisplayMode {
+        if isPrivate {
+            // Downloads is respected as a deliberate choice; anything else lands
+            // on commits, the one metric a private repo always has.
+            return current == .selectedRepoDownloads ? current : .selectedRepoCommits
+        }
+        return current.requiresSelectedRepo ? current : .selectedRepoStars
     }
 
     static func selectedRepo(in repos: [TrackedRepo], id: UUID?) -> TrackedRepo? {

@@ -1519,6 +1519,55 @@ final class ServiceLogicTests: XCTestCase {
                         "the original bytes must be kept for recovery")
     }
 
+
+    func testSelectingARepoAlwaysLandsOnAModeThatShowsIt() {
+        // Total-* modes ignore the selected repo entirely, so leaving one in
+        // place made the radio button look broken: you click it, nothing moves.
+        for mode in MenuBarDisplayMode.allCases {
+            let publicMode = MenuBarDisplayResolver.modeAfterSelecting(isPrivate: false, current: mode)
+            XCTAssertTrue(publicMode.requiresSelectedRepo,
+                          "picking a repo from \(mode) must land somewhere that shows it")
+
+            let privateMode = MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: mode)
+            XCTAssertTrue(privateMode.requiresSelectedRepo)
+            // A private repo has no stars, so a star mode would render a number
+            // that was never fetched.
+            XCTAssertFalse(privateMode.isStarMode, "private repos must never land on a star mode")
+        }
+    }
+
+    func testSelectingAPrivateRepoRespectsADeliberateDownloadsChoice() {
+        XCTAssertEqual(
+            MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoDownloads),
+            .selectedRepoDownloads,
+            "downloads is an explicit choice, not a fallback to override"
+        )
+        XCTAssertEqual(
+            MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoStars),
+            .selectedRepoCommits
+        )
+    }
+
+    func testCommitWindowChangesTheCountWithoutRefetching() {
+        var repo = TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true)
+        // One 30-day fetch backs every window: changing it is a filter over
+        // stored buckets, not a new request.
+        repo.commitActivity = [
+            CommitDayCount(date: Date().addingTimeInterval(-20 * 86_400), count: 50),
+            CommitDayCount(date: Date().addingTimeInterval(-3 * 86_400), count: 4),
+            CommitDayCount(date: Date().addingTimeInterval(-1 * 86_400), count: 6)
+        ]
+        var settings = AppSettings()
+        settings.menuBarDisplayMode = .selectedRepoCommits
+        settings.selectedMenuBarRepoID = repo.id
+
+        settings.commitActivityWindow = .sevenDays
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [repo], settings: settings).text, "10")
+
+        settings.commitActivityWindow = .thirtyDays
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [repo], settings: settings).text, "60")
+    }
+
 }
 
 private extension NSMenuItem {

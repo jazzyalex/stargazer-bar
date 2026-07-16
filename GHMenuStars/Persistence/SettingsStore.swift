@@ -120,6 +120,42 @@ enum MaintainerRadarActivityWindow: String, Codable, CaseIterable, Identifiable 
     }
 }
 
+/// How far back the menu bar's commit counter looks.
+///
+/// Cheap to change: the poll stores 30 days of daily buckets, so every window
+/// here is a filter over data already fetched — no extra API calls.
+enum CommitActivityWindow: String, Codable, CaseIterable, Identifiable {
+    case oneDay
+    case sevenDays
+    case thirtyDays
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .oneDay: return "24 Hours"
+        case .sevenDays: return "7 Days"
+        case .thirtyDays: return "30 Days"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .oneDay: return "24h"
+        case .sevenDays: return "7d"
+        case .thirtyDays: return "30d"
+        }
+    }
+
+    func startDate(now: Date = Date()) -> Date {
+        switch self {
+        case .oneDay: return now.addingTimeInterval(-86_400)
+        case .sevenDays: return now.addingTimeInterval(-7 * 86_400)
+        case .thirtyDays: return now.addingTimeInterval(-30 * 86_400)
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable {
     var refreshInterval: RefreshInterval = .tenMinutes
     var hideDockIcon: Bool = true
@@ -142,6 +178,7 @@ struct AppSettings: Codable, Equatable {
     /// keeping it here means the UI never reads the Keychain just to decide
     /// whether to show a Remove button — that read prompts for a password.
     var hasPrivateRepoToken: Bool = false
+    var commitActivityWindow: CommitActivityWindow = .sevenDays
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -159,6 +196,7 @@ struct AppSettings: Codable, Equatable {
         case maintainerRadarActivityWindow
         case enablePrivateRepos
         case hasPrivateRepoToken
+        case commitActivityWindow
     }
 
     init() {}
@@ -181,6 +219,7 @@ struct AppSettings: Codable, Equatable {
         maintainerRadarActivityWindow = try container.decodeIfPresent(MaintainerRadarActivityWindow.self, forKey: .maintainerRadarActivityWindow) ?? .oneDay
         enablePrivateRepos = try container.decodeIfPresent(Bool.self, forKey: .enablePrivateRepos) ?? false
         hasPrivateRepoToken = try container.decodeIfPresent(Bool.self, forKey: .hasPrivateRepoToken) ?? false
+        commitActivityWindow = try container.decodeIfPresent(CommitActivityWindow.self, forKey: .commitActivityWindow) ?? .sevenDays
     }
 }
 

@@ -319,6 +319,17 @@ struct SettingsView: View {
                     .disabled(repoStore.trackedRepos.isEmpty)
                 }
 
+                if settingsStore.settings.menuBarDisplayMode == .selectedRepoCommits {
+                    Picker("Commit window", selection: Binding(
+                        get: { settingsStore.settings.commitActivityWindow },
+                        set: { newValue in settingsStore.update { $0.commitActivityWindow = newValue } }
+                    )) {
+                        ForEach(CommitActivityWindow.allCases) { window in
+                            Text(window.displayName).tag(window)
+                        }
+                    }
+                }
+
                 Picker("Trend range", selection: Binding(
                     get: { settingsStore.settings.repoTrendRange },
                     set: { newValue in settingsStore.update { $0.repoTrendRange = newValue } }
@@ -792,13 +803,10 @@ struct SettingsView: View {
             // Picking a private repo used to force a star mode, which shows a
             // number that was never fetched. Commits is what a private repo
             // actually has, so select that instead of a metric it lacks.
-            if isPrivate {
-                if settings.menuBarDisplayMode.isStarMode {
-                    settings.menuBarDisplayMode = .selectedRepoCommits
-                }
-            } else if !settings.menuBarDisplayMode.requiresSelectedRepo {
-                settings.menuBarDisplayMode = .selectedRepoStars
-            }
+            settings.menuBarDisplayMode = MenuBarDisplayResolver.modeAfterSelecting(
+                isPrivate: isPrivate,
+                current: settings.menuBarDisplayMode
+            )
         }
     }
 
