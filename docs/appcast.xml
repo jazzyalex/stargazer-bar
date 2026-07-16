@@ -5,6 +5,46 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.7.0</title>
+            <pubDate>Thu, 16 Jul 2026 14:40:10 -0700</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<style>
+.rn { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 13px; line-height: 1.55; color: #1d1d1f; -webkit-font-smoothing: antialiased; padding: 2px; }
+.rn h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 2px; }
+.rn h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #86868b; margin: 18px 0 6px; }
+.rn h3.hl { color: #0071e3; }
+.rn ul { margin: 0; padding-left: 18px; }
+.rn li { margin: 5px 0; }
+.rn ul.highlights li { margin: 9px 0; }
+.rn strong { font-weight: 650; }
+.rn code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 5px; }
+.rn a { color: #0071e3; text-decoration: none; }
+.rn .more { color: #86868b; font-size: 12px; margin-top: 16px; }
+@media (prefers-color-scheme: dark) {
+  .rn { color: #f5f5f7; }
+  .rn h3 { color: #98989d; }
+  .rn h3.hl { color: #2997ff; }
+  .rn code { background: rgba(255,255,255,0.13); }
+  .rn a { color: #2997ff; }
+}
+</style>
+<div class="rn">
+<h2>What's New in 0.7.0</h2>
+<h3>Features</h3>
+<ul>
+<li><strong>Redesigned Repository settings.</strong> Your repositories — public and private — are saved and shown the moment you open Settings, and refresh quietly in the background. No more empty list when you reopen Settings, and no &quot;Load Repos&quot; button to find. Adding a repo is now one search-and-filter list with inline <strong>+</strong> buttons (All / Public / Private, private repos flagged with a lock), plus a field to paste <code>owner/repo</code> or a URL for anything not listed.</li>
+<li><strong>Far fewer Keychain password prompts.</strong> Your GitHub tokens now live in a single Keychain item, and Stargazer Bar only asks for your Keychain password on deliberate actions — Refresh, Reconnect, or adding a private repo. Launch, background refreshes, and installing updates never prompt. (Loading repos used to ask twice, and every update re-prompted.) Your existing sign-in and private-repo token migrate automatically.</li>
+</ul>
+<p class="more">If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
+<p class="more">Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.7.0">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.7.0</a></p>
+</div>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.7.0/Stargazer-Bar-0.7.0.zip" length="3717415" type="application/octet-stream" sparkle:edSignature="BmR+6EKNSpdH8zSzu0sGhZBmxQNMx3e9T8zsuODbmt9BdxdnOMxIGlCvDoyMzkrLLx7do01Xcj/fLYkjZoCjCQ=="/>
+        </item>
+        <item>
             <title>0.6.0</title>
             <pubDate>Thu, 16 Jul 2026 11:32:47 -0700</pubDate>
             <sparkle:version>14</sparkle:version>
@@ -95,27 +135,6 @@
 <p class="more">Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2</a></p>
 </div>]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.2/Stargazer-Bar-0.5.2.zip" length="3537857" type="application/octet-stream" sparkle:edSignature="sSKerqwG4sAMi8lvNmlnDOCxyz4F7rX5lIvkxmnZjV+e+GiDE9+4mRplnqc28rVGyJsXUmBDfRM+dlap1AnJBw=="/>
-        </item>
-        <item>
-            <title>0.5.1</title>
-            <pubDate>Thu, 02 Jul 2026 17:13:00 -0700</pubDate>
-            <sparkle:version>12</sparkle:version>
-            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<h2>What's New in 0.5.1</h2>
-<h3>Features</h3>
-<ul>
-<li>Added a per-repository **Mute** control in Settings: silence all alerts (notification, sound, celebration, and growth prompt) for a specific repository, independent of its chosen star sound. Star counts and trends keep updating in the background.</li>
-</ul>
-<h3>Fixes</h3>
-<ul>
-<li>Removing a tracked repository now asks for confirmation before deleting it.</li>
-</ul>
-<p>If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
-<p>Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.1</a></p>
-]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.1/Stargazer-Bar-0.5.1.zip" length="3521206" type="application/octet-stream" sparkle:edSignature="NwqDqY6ooWistEFxbwRTaFx5p1MXoICtpVh0W7tRtvUtXLtG6WQ1LvULUY1Z2ZZH/x4fovMb+7tOMymkoTMRAQ=="/>
         </item>
     </channel>
 </rss>
