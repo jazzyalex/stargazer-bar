@@ -204,7 +204,7 @@ struct StatusMenuBuilder {
         guard best != nil || peak != nil else { return }
 
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(titleItem("Highlights"))
+        submenu.addItem(headerItem("Highlights"))
         if let best {
             submenu.addItem(titleItem(
                 "Best day: +\(Self.formattedCount(best.gain)) ⭐ · \(Self.dayLabel(best.date))",
@@ -291,7 +291,7 @@ struct StatusMenuBuilder {
         )
         guard !rows.isEmpty else { return }
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(titleItem("Last 30 days"))
+        submenu.addItem(headerItem("Last 30 days"))
         for row in rows {
             submenu.addItem(titleItem(row.text, imageName: row.image))
         }
@@ -347,7 +347,7 @@ struct StatusMenuBuilder {
             activityParts.append("+\(Self.formattedCount(stars)) ⭐")
         }
         if !activityParts.isEmpty {
-            submenu.addItem(titleItem(label))
+            submenu.addItem(headerItem(label))
             submenu.addItem(urlItem(
                 activityParts.joined(separator: " · "),
                 imageName: "chart.line.uptrend.xyaxis",
