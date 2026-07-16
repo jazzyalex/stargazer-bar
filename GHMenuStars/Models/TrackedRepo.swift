@@ -6,6 +6,46 @@ struct RepoTrendPoint: Codable, Equatable {
     var forks: Int
 }
 
+/// One day's commit count, across every branch. Deliberately not a
+/// `RepoTrendPoint`: that models a cumulative all-time curve pinned to a known
+/// total, whereas this is a sliding window with no total to pin to, whose oldest
+/// points fall off as it slides.
+struct CommitDayCount: Codable, Equatable, Identifiable {
+    var date: Date
+    var count: Int
+    var id: Date { date }
+}
+
+enum CommitActivityBuilder {
+    /// Buckets commit dates into one entry per day, including empty days — a
+    /// chart with gaps silently omitted reads as "no data" rather than "no work".
+    static func buckets(
+        from dates: [Date],
+        since: Date,
+        now: Date = Date(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) -> [CommitDayCount] {
+        let start = calendar.startOfDay(for: since)
+        let end = calendar.startOfDay(for: now)
+        var counts: [Date: Int] = [:]
+        for date in dates where date >= since {
+            counts[calendar.startOfDay(for: date), default: 0] += 1
+        }
+        var result: [CommitDayCount] = []
+        var day = start
+        while day <= end {
+            result.append(CommitDayCount(date: day, count: counts[day] ?? 0))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return result
+    }
+
+    static func total(_ buckets: [CommitDayCount], since: Date) -> Int {
+        buckets.filter { $0.date >= since }.reduce(0) { $0 + $1.count }
+    }
+}
+
 struct RepoWorkflowFailure: Codable, Equatable {
     var name: String
     var url: String
@@ -343,6 +383,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     /// When a refresh was last *attempted*, successful or not — distinct from
     /// lastCheckedAt, which must only mean "we got data".
     var lastAttemptedCheckAt: Date?
+    /// Daily commit counts across all branches, rebuilt wholesale each poll.
+    var commitActivity: [CommitDayCount]?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -374,6 +416,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case lastStarAskPromptedAt
         case lastRefreshFailure
         case lastAttemptedCheckAt
+        case commitActivity
     }
 
     init(
@@ -405,7 +448,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         starAskPromptStatus: StarAskPromptStatus = .notShown,
         lastStarAskPromptedAt: Date? = nil,
         lastRefreshFailure: RepoRefreshFailure? = nil,
-        lastAttemptedCheckAt: Date? = nil
+        lastAttemptedCheckAt: Date? = nil,
+        commitActivity: [CommitDayCount]? = nil
     ) {
         self.id = id
         self.owner = owner
@@ -436,6 +480,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.lastStarAskPromptedAt = lastStarAskPromptedAt
         self.lastRefreshFailure = lastRefreshFailure
         self.lastAttemptedCheckAt = lastAttemptedCheckAt
+        self.commitActivity = commitActivity
     }
 
     init(from decoder: Decoder) throws {
@@ -470,6 +515,7 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
         lastRefreshFailure = try container.decodeIfPresent(RepoRefreshFailure.self, forKey: .lastRefreshFailure)
         lastAttemptedCheckAt = try container.decodeIfPresent(Date.self, forKey: .lastAttemptedCheckAt)
+        commitActivity = try container.decodeIfPresent([CommitDayCount].self, forKey: .commitActivity)
     }
 
 }

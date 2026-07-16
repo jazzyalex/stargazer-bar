@@ -125,8 +125,13 @@ private struct GitHubRepoActivity: Decodable {
     }
 }
 
-private struct GitHubCommitSHA: Decodable {
+private struct GitHubCommitDate: Decodable {
+    struct Commit: Decodable {
+        struct Author: Decodable { var date: Date }
+        var author: Author
+    }
     var sha: String
+    var commit: Commit
 }
 
 private struct GitHubSearchCount: Decodable, Equatable {
@@ -551,13 +556,18 @@ final class GitHubClient {
     /// which branches actually moved; we then fan out only over those. Commits
     /// must be deduped by SHA, because a branch cut from main replays main's
     /// shared history and naive summing would multiply-count it.
-    func fetchCrossBranchCommitCount(
+    /// Commit *dates* across every branch touched in the window.
+    ///
+    /// Dates rather than a count, because one fetch then feeds both surfaces:
+    /// the radar's windowed number and the chart's daily buckets. Counting
+    /// twice would double the API cost to say the same thing.
+    func fetchCrossBranchCommitDates(
         owner: String,
         name: String,
         since: Date,
         now: Date = Date(),
         optionalAuthToken: String? = nil
-    ) async -> Int? {
+    ) async -> [Date]? {
         do {
             let period = Self.activityTimePeriod(since: since, now: now)
             let activity: GitHubHTTPResult<[GitHubRepoActivity]> = try await request(
@@ -572,11 +582,13 @@ final class GitHubClient {
                     .filter { $0.activityType.contains("push") }
                     .compactMap { $0.ref.split(separator: "/").last.map(String.init) }
             )
-            guard !refs.isEmpty else { return 0 }
+            guard !refs.isEmpty else { return [] }
 
-            var shas: Set<String> = []
+            // Dedupe by SHA: a branch cut from main replays main's shared
+            // history, so summing per-ref counts multiplies the same commits.
+            var seen: [String: Date] = [:]
             for ref in refs.sorted() {
-                let commits: GitHubHTTPResult<[GitHubCommitSHA]> = try await request(
+                let commits: GitHubHTTPResult<[GitHubCommitDate]> = try await request(
                     path: Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
                         URLQueryItem(name: "sha", value: ref),
                         URLQueryItem(name: "since", value: Self.iso8601String(from: since)),
@@ -586,9 +598,11 @@ final class GitHubClient {
                     requiresAuth: false,
                     optionalAuthToken: optionalAuthToken
                 )
-                shas.formUnion(commits.value.map(\.sha))
+                for commit in commits.value where seen[commit.sha] == nil {
+                    seen[commit.sha] = commit.commit.author.date
+                }
             }
-            return shas.count
+            return Array(seen.values).sorted()
         } catch {
             return nil
         }
@@ -612,9 +626,9 @@ final class GitHubClient {
         optionalAuthToken: String?
     ) async -> Int? {
         guard let since else { return nil }
-        return await fetchCrossBranchCommitCount(
+        return await fetchCrossBranchCommitDates(
             owner: owner, name: name, since: since, now: now, optionalAuthToken: optionalAuthToken
-        )
+        )?.count
     }
 
     private func optionalCommitCount(

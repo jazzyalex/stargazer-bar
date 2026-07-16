@@ -1442,24 +1442,50 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(RepoPollingService.classify(GitHubError.server(500), isPATDead: false), .server)
     }
 
-    func testPrivateSelectedRepoShowsRadarNotStarZero() {
+    func testPrivateSelectedRepoShowsCommitsNotStarZero() {
+        // A private repo in the menu bar is the entire reason to tolerate the
+        // token, the Keychain prompt and the resource-owner trap. A star mode
+        // renders "star 0" — a number never fetched, about a metric it lacks.
         var priv = TrackedRepo(owner: "o", name: "secret", source: .manual, isPrivate: true)
         priv.lastStars = 0
-        priv.maintainerRadar = RepoMaintainerRadar(
-            openPullRequests: 2, newPullRequests: 1, newIssues: 2, unansweredIssues: 0,
-            recentCommits: 0, activityWindow: .oneDay, latestFailedWorkflow: nil,
-            workflowChecked: true, checkedAt: Date()
-        )
+        priv.commitActivity = [
+            CommitDayCount(date: Date().addingTimeInterval(-2 * 86_400), count: 9),
+            CommitDayCount(date: Date().addingTimeInterval(-1 * 86_400), count: 17)
+        ]
         var settings = AppSettings()
         settings.menuBarDisplayMode = .selectedRepoStars
         settings.selectedMenuBarRepoID = priv.id
 
         let value = MenuBarDisplayResolver.value(repos: [priv], settings: settings)
 
-        // Star modes render "star 0" for a private repo: a number never fetched,
-        // about a metric it doesn't have.
         XCTAssertNotEqual(value.symbolName, "star.fill")
-        XCTAssertEqual(value.text, "3", "1 new PR + 2 new issues need attention")
+        XCTAssertEqual(value.text, "26", "commits are what a private repo actually has")
+    }
+
+    func testSelectedRepoCommitsModeCountsTheLastSevenDays() {
+        var repo = TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true)
+        repo.commitActivity = [
+            // Outside the 7-day window: must not be counted.
+            CommitDayCount(date: Date().addingTimeInterval(-20 * 86_400), count: 100),
+            CommitDayCount(date: Date().addingTimeInterval(-3 * 86_400), count: 4),
+            CommitDayCount(date: Date().addingTimeInterval(-1 * 86_400), count: 6)
+        ]
+        var settings = AppSettings()
+        settings.menuBarDisplayMode = .selectedRepoCommits
+        settings.selectedMenuBarRepoID = repo.id
+
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [repo], settings: settings).text, "10")
+    }
+
+    func testCommitBucketsIncludeEmptyDays() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let dates = [now.addingTimeInterval(-2 * 86_400), now.addingTimeInterval(-2 * 86_400), now]
+        let buckets = CommitActivityBuilder.buckets(from: dates, since: now.addingTimeInterval(-3 * 86_400), now: now)
+
+        // A day with no commits must appear as zero, not be omitted: a gap reads
+        // as "no data" when it means "no work".
+        XCTAssertEqual(buckets.count, 4)
+        XCTAssertEqual(buckets.map(\.count), [0, 2, 0, 1])
     }
 
     func testTotalStarsExcludesPrivateRepos() {

@@ -507,10 +507,10 @@ final class GitHubModelTests: XCTestCase {
                 data: Data(#"[{"activity_type":"push","ref":"refs/heads/main","timestamp":"2026-06-13T18:00:00Z"},{"activity_type":"push","ref":"refs/heads/feature","timestamp":"2026-06-14T09:00:00Z"}]"#.utf8)
             ),
             "/repos/owner/repo/commits?sha=feature&since=2026-06-13T12:00:00Z&per_page=100": MockURLProtocol.Response(
-                data: Data(#"[{"sha":"a"},{"sha":"b"},{"sha":"c"},{"sha":"shared"}]"#.utf8)
+                data: Data(#"[{"sha":"a","commit":{"author":{"date":"2026-06-14T09:00:00Z"}}},{"sha":"b","commit":{"author":{"date":"2026-06-14T09:10:00Z"}}},{"sha":"c","commit":{"author":{"date":"2026-06-14T09:20:00Z"}}},{"sha":"shared","commit":{"author":{"date":"2026-06-13T18:00:00Z"}}}]"#.utf8)
             ),
             "/repos/owner/repo/commits?sha=main&since=2026-06-13T12:00:00Z&per_page=100": MockURLProtocol.Response(
-                data: Data(#"[{"sha":"d"},{"sha":"e"},{"sha":"f"},{"sha":"shared"}]"#.utf8)
+                data: Data(#"[{"sha":"d","commit":{"author":{"date":"2026-06-13T19:00:00Z"}}},{"sha":"e","commit":{"author":{"date":"2026-06-13T20:00:00Z"}}},{"sha":"f","commit":{"author":{"date":"2026-06-13T21:00:00Z"}}},{"sha":"shared","commit":{"author":{"date":"2026-06-13T18:00:00Z"}}}]"#.utf8)
             ),
             "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
                 data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)

@@ -212,6 +212,16 @@ final class RepoPollingService {
                     forks: forks,
                     checkedAt: checkedAt
                 )
+            // 30 days of commit dates, fetched once: the chart buckets them by
+            // day and the menu bar counts a 7-day slice of the same data, so
+            // neither surface costs an extra request.
+            async let commitDates: [Date]? = gitHubClient.fetchCrossBranchCommitDates(
+                owner: repo.owner,
+                name: repo.name,
+                since: checkedAt.addingTimeInterval(-30 * 86_400),
+                now: checkedAt,
+                optionalAuthToken: authToken
+            )
             async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,
@@ -222,6 +232,14 @@ final class RepoPollingService {
                 // call, and the optional* wrappers render blank rows with no error.
                 optionalAuthToken: authToken
             )
+            let resolvedCommitDates = await commitDates
+            let resolvedCommitActivity = resolvedCommitDates.map {
+                CommitActivityBuilder.buckets(
+                    from: $0,
+                    since: checkedAt.addingTimeInterval(-30 * 86_400),
+                    now: checkedAt
+                )
+            }
             let resolvedTrendPoints = await trendPoints
             let resolvedMaintainerRadar = await maintainerRadar
             let radarSnapshot = resolvedMaintainerRadar.hasData ? resolvedMaintainerRadar : nil
@@ -237,7 +255,8 @@ final class RepoPollingService {
                 maintainerRadar: radarSnapshot,
                 latestRelease: latestRelease,
                 recentReleases: recentReleases,
-                isPrivate: isPrivate
+                isPrivate: isPrivate,
+                commitActivity: resolvedCommitActivity
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)

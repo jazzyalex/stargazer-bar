@@ -5,6 +5,7 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
     case selectedRepoDownloads
     case totalStars
     case totalDownloads
+    case selectedRepoCommits
 
     var id: String { rawValue }
 
@@ -18,6 +19,8 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
             return "Total stars"
         case .totalDownloads:
             return "Total downloads"
+        case .selectedRepoCommits:
+            return "Selected repo commits (7d)"
         }
     }
 
@@ -27,14 +30,14 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .selectedRepoStars, .totalStars:
             return true
-        case .selectedRepoDownloads, .totalDownloads:
+        case .selectedRepoDownloads, .totalDownloads, .selectedRepoCommits:
             return false
         }
     }
 
     var requiresSelectedRepo: Bool {
         switch self {
-        case .selectedRepoStars, .selectedRepoDownloads:
+        case .selectedRepoStars, .selectedRepoDownloads, .selectedRepoCommits:
             return true
         case .totalStars, .totalDownloads:
             return false

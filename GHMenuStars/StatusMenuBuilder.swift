@@ -147,10 +147,17 @@ struct StatusMenuBuilder {
     private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
         let submenu = NSMenu()
         submenu.addItem(titleItem(repo.displayName))
-        if !repo.isPrivate {
-            // Skipped for private repos: their star/fork history is never
-            // fetched, so this item would show a spinner that never resolves —
-            // worse than no row at all.
+        if repo.isPrivate {
+            // A private repo has no star history to chart, but it does have
+            // commits — which is the thing being watched. Removing the chart
+            // entirely (as this did) threw away the surface because the old
+            // data didn't fit, instead of putting the right data in it.
+            if let buckets = repo.commitActivity, !buckets.isEmpty {
+                let item = NSMenuItem()
+                item.view = RepoCommitActivityView(repo: repo, buckets: buckets)
+                submenu.addItem(item)
+            }
+        } else {
             submenu.addItem(trendItem(for: repo))
             addTrendHighlightItems(to: submenu, for: repo)
         }
@@ -482,6 +489,80 @@ struct StatusMenuBuilder {
         item.target = target
         item.representedObject = representedObject
         return item
+    }
+}
+
+/// Daily commits as bars.
+///
+/// A count answers "how much"; only a shape answers "is this moving or stalled",
+/// which is the question a private WIP repo is actually being watched for. Bars
+/// rather than a line: daily commit counts are discrete events, and a line
+/// implies continuity between days that doesn't exist.
+private final class RepoCommitActivityView: NSView {
+    private let repo: TrackedRepo
+    private let buckets: [CommitDayCount]
+    private let calendar = Calendar(identifier: .gregorian)
+
+    init(repo: TrackedRepo, buckets: [CommitDayCount]) {
+        self.repo = repo
+        self.buckets = buckets
+        super.init(frame: NSRect(x: 0, y: 0, width: 310, height: 96))
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 310, height: 96) }
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let title = "Commits · last 30 days"
+        title.draw(at: NSPoint(x: 14, y: bounds.height - 18), withAttributes: [
+            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ])
+
+        let total = buckets.reduce(0) { $0 + $1.count }
+        let totalText = "\(total)"
+        let totalAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: NSColor.labelColor
+        ]
+        let totalSize = totalText.size(withAttributes: totalAttrs)
+        totalText.draw(at: NSPoint(x: bounds.width - 14 - totalSize.width, y: bounds.height - 18), withAttributes: totalAttrs)
+
+        guard !buckets.isEmpty else { return }
+
+        let plot = NSRect(x: 14, y: 22, width: bounds.width - 28, height: bounds.height - 48)
+        let maxCount = max(buckets.map(\.count).max() ?? 0, 1)
+        let slot = plot.width / CGFloat(buckets.count)
+        let barWidth = max(2, slot * 0.7)
+
+        for (index, bucket) in buckets.enumerated() {
+            // Zero days still get a baseline tick: a gap would read as "no data"
+            // rather than "no work", and those are different facts.
+            let height = bucket.count == 0 ? 1 : max(2, plot.height * CGFloat(bucket.count) / CGFloat(maxCount))
+            let x = plot.minX + slot * CGFloat(index) + (slot - barWidth) / 2
+            let rect = NSRect(x: x, y: plot.minY, width: barWidth, height: height)
+            (bucket.count == 0 ? NSColor.quaternaryLabelColor : NSColor.controlAccentColor).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 1, yRadius: 1).fill()
+        }
+
+        let axisAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 9),
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ]
+        if let first = buckets.first?.date, let last = buckets.last?.date {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMM"
+            formatter.string(from: first).draw(at: NSPoint(x: plot.minX, y: 6), withAttributes: axisAttrs)
+            let lastText = formatter.string(from: last)
+            let lastSize = lastText.size(withAttributes: axisAttrs)
+            lastText.draw(at: NSPoint(x: plot.maxX - lastSize.width, y: 6), withAttributes: axisAttrs)
+        }
     }
 }
 

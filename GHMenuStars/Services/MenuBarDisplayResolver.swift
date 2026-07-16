@@ -17,14 +17,16 @@ enum MenuBarDisplayResolver {
         // star mode would render "star 0" — a number nobody looked up, about a
         // metric the repo doesn't have. Show what a private repo actually
         // measures instead: what needs attention.
-        if selected?.isPrivate == true, settings.menuBarDisplayMode.isStarMode {
-            let value = selected?.maintainerRadar?.attentionCount
+        if let selected, selected.isPrivate, settings.menuBarDisplayMode.isStarMode {
+            let value = selected.commitActivity.map {
+                CommitActivityBuilder.total($0, since: Self.commitWindowStart())
+            }
             return MenuBarDisplayValue(
-                symbolName: "dot.radiowaves.left.and.right",
+                symbolName: "chevron.left.forwardslash.chevron.right",
                 text: formatted(value),
                 accessibilityLabel: accessibility(
-                    metric: "items needing attention",
-                    repoName: selected?.displayName,
+                    metric: "commits in the last 7 days",
+                    repoName: selected.displayName,
                     value: value
                 )
             )
@@ -66,6 +68,22 @@ enum MenuBarDisplayResolver {
                     value: value
                 )
             )
+        case .selectedRepoCommits:
+            // The reason private repos are worth tracking at all: a number that
+            // moves when you work. Read from the stored daily buckets, so
+            // changing the window costs no extra API calls.
+            let value = selected?.commitActivity.map {
+                CommitActivityBuilder.total($0, since: Self.commitWindowStart())
+            }
+            return MenuBarDisplayValue(
+                symbolName: "chevron.left.forwardslash.chevron.right",
+                text: formatted(value),
+                accessibilityLabel: accessibility(
+                    metric: "commits in the last 7 days",
+                    repoName: selected?.displayName,
+                    value: value
+                )
+            )
         case .totalDownloads:
             let value = total(repos.map(\.lastDownloads))
             return MenuBarDisplayValue(
@@ -78,6 +96,12 @@ enum MenuBarDisplayResolver {
                 )
             )
         }
+    }
+
+    /// The menu bar commit count covers 7 days: long enough that a normal day
+    /// off doesn't read as "stalled", short enough to still mean "lately".
+    static func commitWindowStart(now: Date = Date()) -> Date {
+        now.addingTimeInterval(-7 * 86_400)
     }
 
     static func selectedRepo(in repos: [TrackedRepo], id: UUID?) -> TrackedRepo? {

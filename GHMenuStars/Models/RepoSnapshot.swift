@@ -15,4 +15,5 @@ struct RepoSnapshot: Equatable {
     /// Authoritative, read from the repo response body. Declared last so the
     /// memberwise init stays compatible with existing call sites.
     var isPrivate: Bool = false
+    var commitActivity: [CommitDayCount]? = nil
 }

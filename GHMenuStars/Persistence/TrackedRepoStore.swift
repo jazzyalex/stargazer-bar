@@ -142,6 +142,11 @@ final class TrackedRepoStore: ObservableObject {
             repo.trendPoints = trendPoints
             repo.trendRange = snapshot.trendRange
         }
+        if let commitActivity = snapshot.commitActivity {
+            // Rebuilt wholesale each poll: the window slides, so old days must
+            // fall off rather than accumulate.
+            repo.commitActivity = commitActivity
+        }
         if let maintainerRadar = snapshot.maintainerRadar {
             repo.maintainerRadar = maintainerRadar
         }

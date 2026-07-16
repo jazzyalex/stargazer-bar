@@ -786,9 +786,17 @@ struct SettingsView: View {
     }
 
     private func selectMenuBarRepo(_ repoID: UUID) {
+        let isPrivate = repoStore.trackedRepos.first { $0.id == repoID }?.isPrivate == true
         settingsStore.update { settings in
             settings.selectedMenuBarRepoID = repoID
-            if !settings.menuBarDisplayMode.requiresSelectedRepo {
+            // Picking a private repo used to force a star mode, which shows a
+            // number that was never fetched. Commits is what a private repo
+            // actually has, so select that instead of a metric it lacks.
+            if isPrivate {
+                if settings.menuBarDisplayMode.isStarMode {
+                    settings.menuBarDisplayMode = .selectedRepoCommits
+                }
+            } else if !settings.menuBarDisplayMode.requiresSelectedRepo {
                 settings.menuBarDisplayMode = .selectedRepoStars
             }
         }
