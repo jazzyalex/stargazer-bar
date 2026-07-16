@@ -9,6 +9,9 @@ struct RepoTrendPoint: Codable, Equatable {
 struct RepoWorkflowFailure: Codable, Equatable {
     var name: String
     var url: String
+    /// When the failing run happened. A months-old failure and a fresh one are
+    /// not the same news.
+    var failedAt: Date?
 }
 
 struct RepoMaintainerRadar: Codable, Equatable {

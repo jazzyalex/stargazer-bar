@@ -641,7 +641,7 @@ final class ServiceLogicTests: XCTestCase {
         // Redesigned dense layout: one packed activity line + one open-state row.
         XCTAssertTrue(titles.contains("CI failing: Tests"))
         XCTAssertTrue(titles.contains("Last 24h"))
-        XCTAssertTrue(titles.contains("7 commits on main · 1 new PR · 3 new issues"))
+        XCTAssertTrue(titles.contains("7 commits · 1 new PR · 3 new issues"))
         XCTAssertTrue(titles.contains("2 open PRs · 5 need first reply"))
         XCTAssertTrue(titles.contains("Open Discussions"))
         XCTAssertTrue(titles.contains { $0.hasPrefix("updated ") })
@@ -654,7 +654,7 @@ final class ServiceLogicTests: XCTestCase {
             true
         )
         XCTAssertEqual(
-            (Self.menuItem(titled: "7 commits on main · 1 new PR · 3 new issues", in: menu)?.representedObject as? URL)?
+            (Self.menuItem(titled: "7 commits · 1 new PR · 3 new issues", in: menu)?.representedObject as? URL)?
                 .absoluteString,
             "https://github.com/owner/repo/commits"
         )

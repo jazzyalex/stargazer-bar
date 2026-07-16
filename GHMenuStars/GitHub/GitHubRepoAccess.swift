@@ -38,6 +38,11 @@ final class GitHubRepoAccess {
     /// recover if an org later approved the token or the repo was recreated.
     private var doubleFailedAt: [UUID: Date] = [:]
 
+    /// Session cache. A tracked private repo genuinely needs the token, but
+    /// re-reading the Keychain on every poll is pointless traffic — and on an
+    /// unsigned/ad-hoc build each read can re-prompt. Cleared by resetTokenState().
+    private var cachedPAT: String??
+
     /// How long a double-404 verdict stands before the ladder retries. Long
     /// enough that a dead repo isn't costing two calls a poll, short enough that
     /// a permissions change heals within an hour without a relaunch.
@@ -69,6 +74,7 @@ final class GitHubRepoAccess {
     func resetTokenState() {
         patIsDead = false
         doubleFailedAt.removeAll()
+        cachedPAT = nil
     }
 
     /// Reads the PAT from the Keychain — and *only* when a private repo is
@@ -81,7 +87,10 @@ final class GitHubRepoAccess {
     /// a stored token must never be consulted for any reason.
     private func loadPATIfPermitted() -> String? {
         guard privateAccessEnabled(), !patIsDead else { return nil }
-        return patProvider()
+        if let cachedPAT { return cachedPAT }
+        let token = patProvider()
+        cachedPAT = token
+        return token
     }
 
     func fetchRepo(

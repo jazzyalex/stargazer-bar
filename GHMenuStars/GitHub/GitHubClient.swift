@@ -113,6 +113,22 @@ struct GitHubAuthenticatedUser: Decodable, Equatable {
     var login: String
 }
 
+private struct GitHubRepoActivity: Decodable {
+    var activityType: String
+    var ref: String
+    var timestamp: Date
+
+    enum CodingKeys: String, CodingKey {
+        case activityType = "activity_type"
+        case ref
+        case timestamp
+    }
+}
+
+private struct GitHubCommitSHA: Decodable {
+    var sha: String
+}
+
 private struct GitHubSearchCount: Decodable, Equatable {
     var totalCount: Int
 
@@ -443,10 +459,11 @@ final class GitHubClient {
             query: "repo:\(owner)/\(name) is:issue is:open comments:0",
             optionalAuthToken: optionalAuthToken
         )
-        async let recentCommits = optionalCommitCount(
+        async let recentCommits = optionalCrossBranchCommitCount(
             owner: owner,
             name: name,
             since: activityStart,
+            now: now,
             optionalAuthToken: optionalAuthToken
         )
         async let workflowFailure = optionalLatestFailedWorkflow(
@@ -522,6 +539,84 @@ final class GitHubClient {
         return result.value.totalCount
     }
 
+    /// Counts commits across **every branch** touched in the window, not just the
+    /// default one.
+    ///
+    /// `/repos/{o}/{r}/commits` only ever reports the default branch. On a repo
+    /// whose work lives on a feature branch that reads 0 while the author is
+    /// committing daily — measured on a real repo: 0 on `main`, 100+ on the
+    /// feature branch, same week.
+    ///
+    /// `/activity` reports pushes across all refs in one call, so it tells us
+    /// which branches actually moved; we then fan out only over those. Commits
+    /// must be deduped by SHA, because a branch cut from main replays main's
+    /// shared history and naive summing would multiply-count it.
+    func fetchCrossBranchCommitCount(
+        owner: String,
+        name: String,
+        since: Date,
+        now: Date = Date(),
+        optionalAuthToken: String? = nil
+    ) async -> Int? {
+        do {
+            let period = Self.activityTimePeriod(since: since, now: now)
+            let activity: GitHubHTTPResult<[GitHubRepoActivity]> = try await request(
+                path: "/repos/\(owner)/\(name)/activity?time_period=\(period)&per_page=100",
+                etag: nil,
+                requiresAuth: false,
+                optionalAuthToken: optionalAuthToken
+            )
+            let refs = Set(
+                activity.value
+                    .filter { $0.timestamp >= since }
+                    .filter { $0.activityType.contains("push") }
+                    .compactMap { $0.ref.split(separator: "/").last.map(String.init) }
+            )
+            guard !refs.isEmpty else { return 0 }
+
+            var shas: Set<String> = []
+            for ref in refs.sorted() {
+                let commits: GitHubHTTPResult<[GitHubCommitSHA]> = try await request(
+                    path: Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
+                        URLQueryItem(name: "sha", value: ref),
+                        URLQueryItem(name: "since", value: Self.iso8601String(from: since)),
+                        URLQueryItem(name: "per_page", value: "100")
+                    ]),
+                    etag: nil,
+                    requiresAuth: false,
+                    optionalAuthToken: optionalAuthToken
+                )
+                shas.formUnion(commits.value.map(\.sha))
+            }
+            return shas.count
+        } catch {
+            return nil
+        }
+    }
+
+    /// `/activity` windows server-side but only offers coarse periods, so pick the
+    /// smallest one that still contains `since`; the caller filters precisely.
+    static func activityTimePeriod(since: Date, now: Date = Date()) -> String {
+        let interval = now.timeIntervalSince(since)
+        if interval <= 86_400 { return "day" }
+        if interval <= 7 * 86_400 { return "week" }
+        if interval <= 30 * 86_400 { return "month" }
+        return "quarter"
+    }
+
+    private func optionalCrossBranchCommitCount(
+        owner: String,
+        name: String,
+        since: Date?,
+        now: Date,
+        optionalAuthToken: String?
+    ) async -> Int? {
+        guard let since else { return nil }
+        return await fetchCrossBranchCommitCount(
+            owner: owner, name: name, since: since, now: now, optionalAuthToken: optionalAuthToken
+        )
+    }
+
     private func optionalCommitCount(
         owner: String,
         name: String,
@@ -586,7 +681,8 @@ final class GitHubClient {
             guard Self.isFailingWorkflowConclusion(run.conclusion) else { continue }
             return RepoWorkflowFailure(
                 name: run.name ?? run.displayTitle ?? "Workflow failure",
-                url: run.htmlURL
+                url: run.htmlURL,
+                failedAt: run.createdAt
             )
         }
         return nil

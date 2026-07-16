@@ -444,7 +444,11 @@ final class GitHubModelTests: XCTestCase {
 
         XCTAssertEqual(radar.openPullRequests, 2)
         XCTAssertEqual(radar.unansweredIssues, 5)
-        XCTAssertEqual(radar.latestFailedWorkflow, RepoWorkflowFailure(name: "CI", url: "https://github.com/owner/repo/actions/runs/1"))
+        XCTAssertEqual(radar.latestFailedWorkflow?.name, "CI")
+        XCTAssertEqual(radar.latestFailedWorkflow?.url, "https://github.com/owner/repo/actions/runs/1")
+        // Dated, so the menu can distinguish "broke minutes ago" from a failure
+        // that has sat there for months.
+        XCTAssertNotNil(radar.latestFailedWorkflow?.failedAt)
         XCTAssertTrue(radar.workflowChecked)
         XCTAssertEqual(radar.attentionCount, 6)
     }
@@ -495,11 +499,18 @@ final class GitHubModelTests: XCTestCase {
             "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
                 data: Data(#"{"total_count":4,"incomplete_results":false,"items":[]}"#.utf8)
             ),
-            "/repos/owner/repo/commits?since=2026-06-13T12:00:00Z&per_page=1": MockURLProtocol.Response(
-                headers: [
-                    "Link": #"<https://api.github.com/repos/owner/repo/commits?since=2026-06-13T12:00:00Z&per_page=1&page=7>; rel="last""#
-                ],
-                data: Data(#"[{"sha":"abc"}]"#.utf8)
+            // Commits now come from /activity -> active refs -> per-ref fan-out,
+            // deduped by SHA: the default-branch-only path reported 0 on a repo
+            // with 100+ commits that week on a feature branch. Two refs moved,
+            // and they share one commit — 7 unique, not 8.
+            "/repos/owner/repo/activity?time_period=day&per_page=100": MockURLProtocol.Response(
+                data: Data(#"[{"activity_type":"push","ref":"refs/heads/main","timestamp":"2026-06-13T18:00:00Z"},{"activity_type":"push","ref":"refs/heads/feature","timestamp":"2026-06-14T09:00:00Z"}]"#.utf8)
+            ),
+            "/repos/owner/repo/commits?sha=feature&since=2026-06-13T12:00:00Z&per_page=100": MockURLProtocol.Response(
+                data: Data(#"[{"sha":"a"},{"sha":"b"},{"sha":"c"},{"sha":"shared"}]"#.utf8)
+            ),
+            "/repos/owner/repo/commits?sha=main&since=2026-06-13T12:00:00Z&per_page=100": MockURLProtocol.Response(
+                data: Data(#"[{"sha":"d"},{"sha":"e"},{"sha":"f"},{"sha":"shared"}]"#.utf8)
             ),
             "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
                 data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)

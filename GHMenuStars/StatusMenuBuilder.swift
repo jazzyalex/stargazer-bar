@@ -81,8 +81,22 @@ struct StatusMenuBuilder {
     /// glyph here would render a number nobody looked up.
     static func repoLineText(_ repo: TrackedRepo) -> String {
         let downloads = RepoDeltaFormatter.metricLine(label: "⤓", value: repo.lastDownloads, delta: repo.lastDownloadsDelta)
+        // A private WIP repo usually has no releases, so a downloads figure is a
+        // zero that measures nothing. What it does have is commits and things
+        // needing attention — show those, and only mention downloads if any exist.
         guard !repo.isPrivate else {
-            return "\(repo.displayName)  \(downloads)"
+            var parts: [String] = [repo.displayName]
+            if let commits = repo.maintainerRadar?.recentCommits, commits > 0 {
+                parts.append("⎇ \(Self.formattedCount(commits))")
+            }
+            if let attention = repo.maintainerRadar?.attentionCount, attention > 0 {
+                parts.append("◈ \(Self.formattedCount(attention))")
+            }
+            if let dl = repo.lastDownloads, dl > 0 {
+                parts.append(downloads)
+            }
+            if parts.count == 1 { parts.append("—") }
+            return parts.joined(separator: "  ")
         }
         let stars = RepoDeltaFormatter.metricLine(label: "☆", value: repo.lastStars, delta: repo.lastStarsDelta)
         return "\(repo.displayName)  \(stars)  \(downloads)"
@@ -279,8 +293,14 @@ struct StatusMenuBuilder {
 
         let ciFailing = radar.latestFailedWorkflow
         if let workflow = ciFailing {
+            // Date it. Without this a run that failed months ago and never ran
+            // again reads identically to one that broke minutes ago — and on a
+            // private repo, where the radar is the whole display, that stale
+            // verdict is the loudest thing on screen.
+            let when = workflow.failedAt.map { RelativeDateTimeFormatter.menu.string(for: $0) ?? "" } ?? ""
+            let suffix = when.isEmpty ? "" : " (\(when))"
             submenu.addItem(urlItem(
-                "CI failing: \(workflow.name)",
+                "CI failing: \(workflow.name)\(suffix)",
                 imageName: "xmark.circle.fill",
                 url: URL(string: workflow.url) ?? gitHubURL(for: repo, path: "/actions"),
                 target: target
@@ -299,7 +319,7 @@ struct StatusMenuBuilder {
         }
         var activityParts: [String] = []
         if let commits = radar.recentCommits, commits > 0 {
-            activityParts.append("\(Self.formattedCount(commits)) \(commits == 1 ? "commit" : "commits") on main")
+            activityParts.append("\(Self.formattedCount(commits)) \(commits == 1 ? "commit" : "commits")")
         }
         if let prs = radar.newPullRequests, prs > 0 {
             activityParts.append("\(Self.formattedCount(prs)) new \(prs == 1 ? "PR" : "PRs")")
