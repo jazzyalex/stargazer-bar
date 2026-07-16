@@ -146,6 +146,11 @@ struct StatusMenuBuilder {
 
     private func trendMenu(for repo: TrackedRepo, target: StatusItemController) -> NSMenu {
         let submenu = NSMenu()
+        // Off, so a no-action item isn't auto-disabled and greyed. Grey items
+        // opt in via isEnabled = false (titleItem); the black header stays
+        // enabled. Nothing here uses validateMenuItem, so this changes only
+        // appearance, and actionable rows keep working via their target/action.
+        submenu.autoenablesItems = false
         submenu.addItem(titleItem(repo.displayName))
         if repo.isPrivate {
             // A private repo has no star history to chart, but it does have
@@ -476,11 +481,10 @@ struct StatusMenuBuilder {
     /// so the header reads as a header rather than more secondary text.
     private func headerItem(_ title: String) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        item.attributedTitle = NSAttributedString(string: title, attributes: [
-            .font: NSFont.menuFont(ofSize: 0),
-            .foregroundColor: NSColor.labelColor
-        ])
+        // Enabled (so it isn't dimmed) but actionless, so it reads as a heading
+        // in full label colour rather than the grey of the surrounding rows.
+        // Relies on the submenu's autoenablesItems = false.
+        item.isEnabled = true
         return item
     }
 
