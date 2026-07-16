@@ -357,6 +357,27 @@ xcrun notarytool submit "$DMG" "${NOTARY_AUTH_ARGS[@]}" --wait
 xcrun stapler staple "$DMG"
 spctl --assess --type open --context context:primary-signature -vv "$DMG"
 
+echo "==> Guardrail: app inside shipped DMG must be stapled"
+GUARD_MP=$(mktemp -d)
+hdiutil attach "$DMG" -nobrowse -mountpoint "$GUARD_MP" -quiet
+GUARD_APP=$(find "$GUARD_MP" -maxdepth 1 -name '*.app' | head -n1)
+if [[ -z "$GUARD_APP" ]]; then
+  hdiutil detach "$GUARD_MP" -quiet || true
+  rmdir "$GUARD_MP" 2>/dev/null || true
+  red "Guardrail: no .app found inside $DMG"
+  exit 4
+fi
+if ! xcrun stapler validate "$GUARD_APP"; then
+  hdiutil detach "$GUARD_MP" -quiet || true
+  rmdir "$GUARD_MP" 2>/dev/null || true
+  red "Guardrail: app inside DMG is NOT stapled — aborting release."
+  red "  Users would hit the 'Apple could not verify ... free of malware' dialog on first launch."
+  exit 4
+fi
+hdiutil detach "$GUARD_MP" -quiet || true
+rmdir "$GUARD_MP" 2>/dev/null || true
+green "Guardrail: app inside DMG carries a stapled notarization ticket."
+
 echo "==> Checksumming"
 (cd "$DIST" && shasum -a 256 "$DMG_BASENAME") | tee "$DMG.sha256"
 (cd "$DIST" && shasum -a 256 "$ZIP_BASENAME") | tee "$ZIP.sha256"
