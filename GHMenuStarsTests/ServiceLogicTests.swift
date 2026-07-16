@@ -1379,6 +1379,26 @@ final class ServiceLogicTests: XCTestCase {
                        "no prompt may be presented during a test run")
     }
 
+
+    func testPickerMergePutsPrivateFirstAndDedupesByID() {
+        let owner = GitHubRepoSummary.Owner(login: "jazzyalex")
+        let publicRepos = [
+            GitHubRepoSummary(id: 1, name: "open", fullName: "jazzyalex/open", owner: owner),
+            GitHubRepoSummary(id: 2, name: "shared", fullName: "jazzyalex/shared", owner: owner)
+        ]
+        let privateRepos = [
+            GitHubRepoSummary(id: 9, name: "Triada", fullName: "jazzyalex/Triada", owner: owner, isPrivate: true),
+            // A broadly-scoped PAT can return repos the public listing already
+            // covered — the merge must not show them twice.
+            GitHubRepoSummary(id: 2, name: "shared", fullName: "jazzyalex/shared", owner: owner, isPrivate: false)
+        ]
+
+        let merged = SettingsView.merged(public: publicRepos, private: privateRepos)
+
+        XCTAssertEqual(merged.map(\.id), [9, 2, 1], "private first, then public, no duplicates")
+        XCTAssertEqual(merged.filter { $0.id == 2 }.count, 1)
+    }
+
 }
 
 private extension NSMenuItem {

@@ -461,7 +461,7 @@ struct SettingsView: View {
                                 track(owner: repo.owner.login, name: repo.name, source: .oauth)
                             } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: "book.closed")
+                                    Image(systemName: repo.isPrivate ? "lock" : "book.closed")
                                         .foregroundStyle(.secondary)
                                     Text(repo.fullName)
                                 }
@@ -802,8 +802,13 @@ struct SettingsView: View {
             do {
                 let authenticatedClient = GitHubClient(tokenProvider: { token })
                 let repos = try await authenticatedClient.fetchAccessiblePublicRepos()
+                // The OAuth scope is public_repo, so private repos need the PAT
+                // on a separate call. Failing that call must not empty the
+                // picker: a user with a dead PAT still deserves their public
+                // list, so this degrades to public-only rather than throwing.
+                let privateRepos = await loadPrivateReposIfAvailable(client: authenticatedClient)
                 await MainActor.run {
-                    publicRepos = repos
+                    publicRepos = merged(public: repos, private: privateRepos)
                     authState = .connected
                     hasLoadedPublicRepos = true
                     isLoadingRepos = false
@@ -815,6 +820,35 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private func loadPrivateReposIfAvailable(client: GitHubClient) async -> [GitHubRepoSummary] {
+        guard settingsStore.settings.enablePrivateRepos,
+              let pat = KeychainTokenStore.loadGitHubPAT() else {
+            return []
+        }
+        // Best-effort: a revoked PAT must not take the public picker down with it.
+        return (try? await client.fetchAccessiblePrivateRepos(token: pat)) ?? []
+    }
+
+    /// Private repos first — they're the ones the user can't reach any other way,
+    /// and a picker that buries them under 25 public repos hasn't solved
+    /// anything. Deduped by id, since a PAT with broad access can return repos
+    /// the public listing already covered.
+    static func merged(
+        public publicRepos: [GitHubRepoSummary],
+        private privateRepos: [GitHubRepoSummary]
+    ) -> [GitHubRepoSummary] {
+        var seen = Set<Int>()
+        var result: [GitHubRepoSummary] = []
+        for repo in privateRepos + publicRepos where seen.insert(repo.id).inserted {
+            result.append(repo)
+        }
+        return result
+    }
+
+    private func merged(public publicRepos: [GitHubRepoSummary], private privateRepos: [GitHubRepoSummary]) -> [GitHubRepoSummary] {
+        Self.merged(public: publicRepos, private: privateRepos)
     }
 
     private func loadGitHubTokenForRepoList() throws -> String? {

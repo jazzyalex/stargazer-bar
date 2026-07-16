@@ -162,12 +162,34 @@ struct GitHubRepoSummary: Decodable, Identifiable, Equatable {
     var name: String
     var fullName: String
     var owner: Owner
+    var isPrivate: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
         case fullName = "full_name"
         case owner
+        case isPrivate = "private"
+    }
+
+    // Hand-written because Swift's synthesized decoder ignores a property's
+    // default value: a missing "private" key throws keyNotFound rather than
+    // falling back to false.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        fullName = try container.decode(String.self, forKey: .fullName)
+        owner = try container.decode(Owner.self, forKey: .owner)
+        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
+    }
+
+    init(id: Int, name: String, fullName: String, owner: Owner, isPrivate: Bool = false) {
+        self.id = id
+        self.name = name
+        self.fullName = fullName
+        self.owner = owner
+        self.isPrivate = isPrivate
     }
 }
 
@@ -342,6 +364,30 @@ final class GitHubClient {
             optionalAuthToken: token
         )
         return result.value.login
+    }
+
+    /// Lists the private repos a fine-grained PAT can reach.
+    ///
+    /// Deliberately separate from the OAuth-backed public listing rather than
+    /// replacing it: the OAuth scope (`public_repo`) cannot see private repos at
+    /// all, and routing the whole picker through the PAT would empty it entirely
+    /// the moment that token expires — or for any user who never adds one.
+    func fetchAccessiblePrivateRepos(token: String) async throws -> [GitHubRepoSummary] {
+        var repos: [GitHubRepoSummary] = []
+        var path: String? = "/user/repos?visibility=private&affiliation=owner,collaborator&sort=updated&per_page=100"
+
+        while let currentPath = path {
+            let result: GitHubHTTPResult<[GitHubRepoSummary]> = try await request(
+                path: currentPath,
+                etag: nil,
+                requiresAuth: false,
+                optionalAuthToken: token
+            )
+            repos.append(contentsOf: result.value)
+            path = result.nextPagePath
+        }
+
+        return repos
     }
 
     func fetchAccessiblePublicRepos() async throws -> [GitHubRepoSummary] {

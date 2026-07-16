@@ -638,4 +638,35 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer pat-token"])
     }
 
+
+    func testFetchAccessiblePrivateReposUsesThePATAndMarksThemPrivate() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        // The OAuth scope is public_repo and cannot see private repos, so this
+        // must go out on the PAT, not the ambient token.
+        let client = GitHubClient(session: session, optionalTokenProvider: { "ambient-oauth" })
+
+        MockURLProtocol.responses = [
+            "/user/repos?visibility=private&affiliation=owner,collaborator&sort=updated&per_page=100":
+                MockURLProtocol.Response(
+                    data: Data(#"[{"id":9,"name":"Triada","full_name":"jazzyalex/Triada","owner":{"login":"jazzyalex"},"private":true}]"#.utf8)
+                )
+        ]
+
+        let repos = try await client.fetchAccessiblePrivateRepos(token: "pat-token")
+
+        XCTAssertEqual(repos.map(\.fullName), ["jazzyalex/Triada"])
+        XCTAssertTrue(repos[0].isPrivate)
+        XCTAssertEqual(MockURLProtocol.requestedAuthorizations, ["Bearer pat-token"])
+    }
+
+    func testPublicRepoSummariesDecodeAsNotPrivate() throws {
+        // The public listing omits nothing, but older fixtures have no "private"
+        // key — those must decode as public rather than throwing.
+        let data = Data(#"[{"id":1,"name":"one","full_name":"owner/one","owner":{"login":"owner"}}]"#.utf8)
+        let repos = try JSONDecoder().decode([GitHubRepoSummary].self, from: data)
+        XCTAssertFalse(repos[0].isPrivate)
+    }
+
 }
