@@ -159,10 +159,14 @@ struct StatusMenuBuilder {
             }
         } else {
             submenu.addItem(trendItem(for: repo))
-            addTrendHighlightItems(to: submenu, for: repo)
         }
         addLatestReleaseItems(to: submenu, for: repo)
         addRecentReleasesItems(to: submenu, for: repo)
+        if !repo.isPrivate {
+            // Highlights sits after the release sections now: releases are the
+            // headline, Best day / Peak week are the footnote.
+            addTrendHighlightItems(to: submenu, for: repo)
+        }
         submenu.addItem(NSMenuItem.separator())
         addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
@@ -265,14 +269,11 @@ struct StatusMenuBuilder {
     private func addLatestReleaseItems(to submenu: NSMenu, for repo: TrackedRepo) {
         guard let release = repo.latestRelease else { return }
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(titleItem("Latest release"))
+        submenu.addItem(headerItem("Latest release"))
         let age = RelativeDateTimeFormatter.menu.string(for: release.publishedAt) ?? "recently"
         let tagLine = "\(release.tag) · \(age)" + (release.isPrerelease ? " · pre" : "")
         submenu.addItem(titleItem(tagLine, imageName: "tag"))
         submenu.addItem(titleItem(ReleaseLineFormatter.adoptionLine(release), imageName: "arrow.down.circle"))
-        if let assetLine = ReleaseLineFormatter.assetLine(release) {
-            submenu.addItem(titleItem(assetLine, imageName: "shippingbox"))
-        }
     }
 
     private func addRecentReleasesItems(to submenu: NSMenu, for repo: TrackedRepo) {
@@ -468,6 +469,19 @@ struct StatusMenuBuilder {
             attributed.addAttribute(.font, value: boldFont, range: range)
         }
         return attributed
+    }
+
+    /// A section header in solid label colour. A plain disabled item renders
+    /// grey; an attributedTitle with an explicit colour overrides that dimming,
+    /// so the header reads as a header rather than more secondary text.
+    private func headerItem(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        item.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.menuFont(ofSize: 0),
+            .foregroundColor: NSColor.labelColor
+        ])
+        return item
     }
 
     private func titleItem(_ title: String, imageName: String? = nil) -> NSMenuItem {
