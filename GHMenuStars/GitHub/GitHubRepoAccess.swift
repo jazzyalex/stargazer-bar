@@ -26,6 +26,9 @@ final class GitHubRepoAccess {
     private let client: GitHubClient
     private let patProvider: () -> String?
     private let ambientProvider: () -> String?
+    /// Non-secret "is a token stored" check. Consulted before the Keychain so a
+    /// user with no private repos never reaches it, even on an error path.
+    private let hasStoredPAT: () -> Bool
 
     /// A revoked or expired PAT is dead for every repo, not one. In-memory only:
     /// never persist auth state that can be cheaply re-derived. Cleared by
@@ -53,11 +56,13 @@ final class GitHubRepoAccess {
         client: GitHubClient,
         patProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubPAT() },
         ambientProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubOAuthToken() },
+        hasStoredPAT: @escaping () -> Bool = { false },
         now: @escaping () -> Date = { Date() }
     ) {
         self.client = client
         self.patProvider = patProvider
         self.ambientProvider = ambientProvider
+        self.hasStoredPAT = hasStoredPAT
         self.now = now
     }
 
@@ -83,7 +88,10 @@ final class GitHubRepoAccess {
     /// caller below is on a branch that has already established a token is the
     /// only thing that can answer.
     private func loadPATIfPermitted() -> String? {
-        guard !patIsDead else { return nil }
+        // hasStoredPAT first: it reads settings, not the Keychain, so a user with
+        // no token never touches the item — including when a public repo 404s
+        // because it was deleted, renamed, or made private.
+        guard !patIsDead, hasStoredPAT() else { return nil }
         if let cachedPAT { return cachedPAT }
         let token = patProvider()
         cachedPAT = token

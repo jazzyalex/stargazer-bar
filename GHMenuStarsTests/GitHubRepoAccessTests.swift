@@ -25,7 +25,8 @@ final class GitHubRepoAccessTests: XCTestCase {
         return GitHubRepoAccess(
             client: GitHubClient(session: URLSession(configuration: configuration)),
             patProvider: { pat },
-            ambientProvider: { ambient }
+            ambientProvider: { ambient },
+            hasStoredPAT: { pat != nil }
         )
     }
 
@@ -251,7 +252,7 @@ final class GitHubRepoAccessTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let client = GitHubClient(session: URLSession(configuration: configuration))
-        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" })
+        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" }, hasStoredPAT: { true })
         let repoStore = TrackedRepoStore(
             defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
             legacyDefaults: nil
@@ -377,7 +378,8 @@ final class GitHubRepoAccessTests: XCTestCase {
         let access = GitHubRepoAccess(
             client: GitHubClient(session: URLSession(configuration: configuration)),
             patProvider: { patReads += 1; return pat },
-            ambientProvider: { ambient }
+            ambientProvider: { ambient },
+            hasStoredPAT: { pat != nil }
         )
         return (access, { patReads })
     }

@@ -236,7 +236,11 @@ final class RepoPollingService {
                 now: checkedAt,
                 // Without this the radar authenticates as OAuth, 404s on every
                 // call, and the optional* wrappers render blank rows with no error.
-                optionalAuthToken: authToken
+                optionalAuthToken: authToken,
+                // Only private repos pay for the branch walk: their commits are
+                // the headline, and /commits alone reports 0 on a repo whose work
+                // lives on a feature branch.
+                crossBranchCommits: isPrivate
             )
             let resolvedCommitDates = await commitDates
             let resolvedCommitActivity = resolvedCommitDates.map {

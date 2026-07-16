@@ -38,6 +38,23 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether this mode can ever produce a number for the given repo.
+    ///
+    /// Offering a mode that structurally cannot have data is worse than not
+    /// offering it: the menu bar just reads "--" forever and the user has no way
+    /// to know why. Commits and needs-me are only populated for private repos;
+    /// stars are only real for public ones.
+    func isApplicable(toPrivateRepo isPrivate: Bool) -> Bool {
+        switch self {
+        case .selectedRepoStars, .totalStars:
+            return !isPrivate
+        case .selectedRepoCommits, .selectedRepoNeedsMe:
+            return isPrivate
+        case .selectedRepoDownloads, .totalDownloads:
+            return true
+        }
+    }
+
     var requiresSelectedRepo: Bool {
         switch self {
         case .selectedRepoStars, .selectedRepoDownloads, .selectedRepoCommits, .selectedRepoNeedsMe:

@@ -237,6 +237,13 @@ final class GitHubClient {
     /// menu bar, and the cap stops a pathological repo from stalling a poll.
     static let commitPageLimit = 20
 
+    /// Cap on branches walked per repo. /activity can report up to 100 distinct
+    /// refs, and at 20 pages each that is 2,000 sequential requests for a single
+    /// repo — enough to exhaust the hourly budget and stall every later repo,
+    /// since the poller runs them one at a time. The most recently pushed
+    /// branches are the ones anyone is watching.
+    static let commitRefLimit = 8
+
     private let session: URLSession
     private let tokenProvider: () -> String?
     private let optionalTokenProvider: () -> String?
@@ -439,7 +446,8 @@ final class GitHubClient {
         activityWindow: MaintainerRadarActivityWindow,
         releaseAnchor: Date? = nil,
         now: Date = Date(),
-        optionalAuthToken: String? = nil
+        optionalAuthToken: String? = nil,
+        crossBranchCommits: Bool = false
     ) async -> RepoMaintainerRadar {
         let activityStart = releaseAnchor ?? activityWindow.startDate(now: now)
         // A supplied token wins. For a private repo this is the PAT; the ambient
@@ -469,13 +477,24 @@ final class GitHubClient {
             query: "repo:\(owner)/\(name) is:issue is:open comments:0",
             optionalAuthToken: optionalAuthToken
         )
-        async let recentCommits = optionalCrossBranchCommitCount(
-            owner: owner,
-            name: name,
-            since: activityStart,
-            now: now,
-            optionalAuthToken: optionalAuthToken
-        )
+        async let recentCommits = crossBranchCommits
+            ? optionalCrossBranchCommitCount(
+                owner: owner,
+                name: name,
+                since: activityStart,
+                now: now,
+                optionalAuthToken: optionalAuthToken
+            )
+            // Public repos keep the cheap single-request default-branch count.
+            // The branch walk costs /activity plus up to 20 commit pages per
+            // active ref, sequentially — a heavy price on a busy public repo for
+            // a number nobody reads there, since its headline is stars.
+            : optionalCommitCount(
+                owner: owner,
+                name: name,
+                since: activityStart,
+                optionalAuthToken: optionalAuthToken
+            )
         async let workflowFailure = optionalLatestFailedWorkflow(
             owner: owner,
             name: name,
@@ -581,18 +600,21 @@ final class GitHubClient {
                 requiresAuth: false,
                 optionalAuthToken: optionalAuthToken
             )
-            let refs = Set(
-                activity.value
-                    .filter { $0.timestamp >= since }
-                    .filter { $0.activityType.contains("push") }
-                    .compactMap { $0.ref.split(separator: "/").last.map(String.init) }
-            )
+            // Most-recent-first, capped: /activity is newest-first, so this keeps
+            // the branches actually being worked on.
+            var refs: [String] = []
+            for entry in activity.value
+                where entry.timestamp >= since && entry.activityType.contains("push") {
+                guard let branch = Self.branchName(fromRef: entry.ref) else { continue }
+                if !refs.contains(branch) { refs.append(branch) }
+                if refs.count >= Self.commitRefLimit { break }
+            }
             guard !refs.isEmpty else { return [] }
 
             // Dedupe by SHA: a branch cut from main replays main's shared
             // history, so summing per-ref counts multiplies the same commits.
             var seen: [String: Date] = [:]
-            for ref in refs.sorted() {
+            for ref in refs {
                 // Follow pages. A single per_page=100 request silently caps at
                 // exactly 100, so a branch with 137 commits reported "100" — a
                 // number that looks real and is wrong, which is worse than an
@@ -625,6 +647,19 @@ final class GitHubClient {
 
     /// `/activity` windows server-side but only offers coarse periods, so pick the
     /// smallest one that still contains `since`; the caller filters precisely.
+    /// Strips only the `refs/heads/` prefix.
+    ///
+    /// Taking the last path component instead turns `refs/heads/feature/foo`
+    /// into `foo`, which is not a branch: the commits API answers 422, the whole
+    /// fetch collapses to nil, and the chart silently keeps stale data under a
+    /// fresh timestamp. Slashes in branch names are the norm, not an edge case.
+    static func branchName(fromRef ref: String) -> String? {
+        let prefix = "refs/heads/"
+        guard ref.hasPrefix(prefix) else { return nil }
+        let name = String(ref.dropFirst(prefix.count))
+        return name.isEmpty ? nil : name
+    }
+
     static func activityTimePeriod(since: Date, now: Date = Date()) -> String {
         let interval = now.timeIntervalSince(since)
         if interval <= 86_400 { return "day" }

@@ -521,7 +521,10 @@ final class GitHubModelTests: XCTestCase {
             owner: "owner",
             name: "repo",
             activityWindow: .oneDay,
-            now: now
+            now: now,
+            // Private-repo path: this test covers the cross-branch dedup.
+            // Public repos take the cheap default-branch count instead.
+            crossBranchCommits: true
         )
 
         XCTAssertEqual(radar.openPullRequests, 9)
@@ -712,6 +715,75 @@ final class GitHubModelTests: XCTestCase {
         // Without following the Link header this reports exactly 100: a number
         // that looks plausible and is simply wrong.
         XCTAssertEqual(dates?.count, 137)
+    }
+
+
+    func testBranchNameKeepsSlashesInsteadOfTakingTheLastComponent() {
+        // Taking the last path component turned refs/heads/feature/foo into
+        // "foo", which is not a branch: the commits API answers 422, the whole
+        // fetch collapses to nil, and the chart keeps stale data under a fresh
+        // timestamp. Slashes in branch names are the norm.
+        XCTAssertEqual(GitHubClient.branchName(fromRef: "refs/heads/main"), "main")
+        XCTAssertEqual(GitHubClient.branchName(fromRef: "refs/heads/feature/private-repos"), "feature/private-repos")
+        XCTAssertEqual(GitHubClient.branchName(fromRef: "refs/heads/release/0.6"), "release/0.6")
+        XCTAssertEqual(GitHubClient.branchName(fromRef: "refs/heads/dependabot/swift/foo"), "dependabot/swift/foo")
+        // Tags and other refs aren't branches and must not be walked.
+        XCTAssertNil(GitHubClient.branchName(fromRef: "refs/tags/v1.0"))
+        XCTAssertNil(GitHubClient.branchName(fromRef: "refs/heads/"))
+    }
+
+    func testPublicRadarUsesTheCheapDefaultBranchCountNotTheBranchWalk() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-06-14T12:00:00Z")!
+
+        MockURLProtocol.responses = [
+            "/search/issues?q=repo:owner/repo%20is:pr%20is:open&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/search/issues?q=repo:owner/repo%20is:issue%20is:open%20comments:0&per_page=1": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
+            ),
+            "/repos/owner/repo/actions/runs?per_page=20": MockURLProtocol.Response(
+                data: Data(#"{"total_count":0,"workflow_runs":[]}"#.utf8)
+            )
+        ]
+
+        _ = await client.fetchMaintainerRadar(owner: "owner", name: "repo", activityWindow: .off, now: now)
+
+        // The branch walk costs /activity plus up to 20 commit pages per active
+        // ref, sequentially. A public repo's headline is stars; it must not pay.
+        XCTAssertFalse(MockURLProtocol.requestedPaths.contains { $0.contains("/activity") },
+                       "public repos must not walk branches: \(MockURLProtocol.requestedPaths)")
+    }
+
+    func testCrossBranchWalkCapsTheNumberOfBranches() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-06-14T12:00:00Z")!
+        let since = formatter.date(from: "2026-06-13T12:00:00Z")!
+
+        // /activity can report up to 100 distinct refs. At 20 pages each that is
+        // 2,000 sequential requests for one repo, which would exhaust the budget
+        // and stall every repo after it.
+        let refs = (1...40).map { #"{"activity_type":"push","ref":"refs/heads/b\#($0)","timestamp":"2026-06-14T09:00:00Z"}"# }
+        MockURLProtocol.handler = { request in
+            let path = request.url?.path ?? ""
+            if path.contains("/activity") {
+                return .init(data: Data(("[" + refs.joined(separator: ",") + "]").utf8))
+            }
+            return .init(data: Data(#"[{"sha":"x","commit":{"author":{"date":"2026-06-14T09:00:00Z"}}}]"#.utf8))
+        }
+
+        _ = await client.fetchCrossBranchCommitDates(owner: "o", name: "n", since: since, now: now)
+
+        let commitCalls = MockURLProtocol.requestedPaths.filter { $0.contains("/commits") }.count
+        XCTAssertLessThanOrEqual(commitCalls, GitHubClient.commitRefLimit,
+                                 "walked \(commitCalls) branches; cap is \(GitHubClient.commitRefLimit)")
     }
 
 }

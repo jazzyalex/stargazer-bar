@@ -20,7 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var repoAccess = GitHubRepoAccess(
         client: gitHubClient,
         patProvider: { KeychainTokenStore.loadGitHubPAT() },
-        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() }
+        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() },
+        hasStoredPAT: { [settingsStore] in settingsStore.settings.hasPrivateRepoToken }
     )
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,

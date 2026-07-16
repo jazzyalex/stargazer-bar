@@ -140,6 +140,11 @@ struct SettingsView: View {
         return "Can't see \(owner)/\(name) with your saved token. Check the token grants access to this repository — and if it belongs to an organization, that the token's resource owner is that organization, not your personal account."
     }
 
+    private var applicableMenuBarModes: [MenuBarDisplayMode] {
+        let isPrivate = repoStore.repo(id: settingsStore.settings.selectedMenuBarRepoID)?.isPrivate == true
+        return MenuBarDisplayMode.allCases.filter { $0.isApplicable(toPrivateRepo: isPrivate) }
+    }
+
     private var needsTokenToProceed: Bool {
         repoNeedingToken != nil
     }
@@ -303,7 +308,10 @@ struct SettingsView: View {
                         }
                     }
                 )) {
-                    ForEach(MenuBarDisplayMode.allCases) { mode in
+                    // Only modes that can actually produce a number for the
+                    // selected repo. A mode that structurally has no data just
+                    // shows "--" forever with no explanation.
+                    ForEach(applicableMenuBarModes) { mode in
                         Text(mode.displayName).tag(mode)
                     }
                 }
