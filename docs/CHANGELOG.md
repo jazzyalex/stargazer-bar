@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0] - 2026-07-16
+
+### Features
+
+- **Redesigned Repository settings.** Your repositories — public and private — are saved and shown the moment you open Settings, and refresh quietly in the background. No more empty list when you reopen Settings, and no "Load Repos" button to find. Adding a repo is now one search-and-filter list with inline **+** buttons (All / Public / Private, private repos flagged with a lock), plus a field to paste `owner/repo` or a URL for anything not listed.
+
+- **Far fewer Keychain password prompts.** Your GitHub tokens now live in a single Keychain item, and Stargazer Bar only asks for your Keychain password on deliberate actions — Refresh, Reconnect, or adding a private repo. Launch, background refreshes, and installing updates never prompt. (Loading repos used to ask twice, and every update re-prompted.) Your existing sign-in and private-repo token migrate automatically.
+
 ## [0.6.0] - 2026-07-16
 
 ### Features

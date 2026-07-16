@@ -1060,6 +1060,343 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(capturedQuery[kSecUseAuthenticationUI as String] as? String, kSecUseAuthenticationUISkip as String)
     }
 
+    func testSilentKeychainReadTreatsAccessDenialAsMissingToken() throws {
+        // Post-update ACL mismatch surfaces as errSecAuthFailed once the
+        // process-global interaction switch is off. Launch-time callers must
+        // see "no token", never an error and never a password dialog.
+        let store = KeychainTokenStore(service: "test-service") { _, _ in errSecAuthFailed }
+        XCTAssertNil(try store.loadToken(allowUserInteraction: false))
+    }
+
+    func testInteractiveKeychainReadTreatsUserCancelAsMissingToken() throws {
+        // Cancelling the keychain password dialog means "I can't unlock the
+        // old token" — the caller should fall through to re-auth, not show
+        // a raw Keychain error code.
+        let cancelStore = KeychainTokenStore(service: "test-service") { _, _ in errSecUserCanceled }
+        XCTAssertNil(try cancelStore.loadToken(allowUserInteraction: true))
+
+        let denyStore = KeychainTokenStore(service: "test-service") { _, _ in errSecAuthFailed }
+        XCTAssertNil(try denyStore.loadToken(allowUserInteraction: true))
+    }
+
+    func testHealingLoadRecreatesItemWhenSilentReadIsDenied() throws {
+        var deleteCount = 0
+        var addedTokens: [String] = []
+        let store = KeychainTokenStore(
+            service: "test-service",
+            updateItem: { _, _ in errSecItemNotFound },
+            addItem: { attributes in
+                let dict = attributes as! [String: Any]
+                if let data = dict[kSecValueData as String] as? Data {
+                    addedTokens.append(String(data: data, encoding: .utf8)!)
+                }
+                return errSecSuccess
+            },
+            deleteItem: { _ in
+                deleteCount += 1
+                return errSecSuccess
+            }
+        ) { query, result in
+            let dict = query as! [String: Any]
+            let isSilent = dict[kSecUseAuthenticationContext as String] != nil
+            if isSilent { return errSecAuthFailed }
+            result?.pointee = Data("tok-123".utf8) as AnyObject
+            return errSecSuccess
+        }
+
+        XCTAssertEqual(try store.loadTokenRequestingAccessIfNeeded(), "tok-123")
+        // The denied item must be recreated (delete + add) so its ACL trusts
+        // the binary that's actually running — one prompt per update, not one
+        // per launch.
+        XCTAssertEqual(deleteCount, 1)
+        XCTAssertEqual(addedTokens, ["tok-123"])
+    }
+
+    func testHealingLoadDoesNotRewriteWhenSilentReadSucceeds() throws {
+        var deleteCount = 0
+        var addCount = 0
+        let store = KeychainTokenStore(
+            service: "test-service",
+            addItem: { _ in
+                addCount += 1
+                return errSecSuccess
+            },
+            deleteItem: { _ in
+                deleteCount += 1
+                return errSecSuccess
+            }
+        ) { _, result in
+            result?.pointee = Data("tok-abc".utf8) as AnyObject
+            return errSecSuccess
+        }
+
+        XCTAssertEqual(try store.loadTokenRequestingAccessIfNeeded(), "tok-abc")
+        XCTAssertEqual(deleteCount, 0)
+        XCTAssertEqual(addCount, 0)
+    }
+
+    func testHealingLoadReturnsNilWhenItemAbsent() throws {
+        let store = KeychainTokenStore(service: "test-service") { _, _ in errSecItemNotFound }
+        XCTAssertNil(try store.loadTokenRequestingAccessIfNeeded())
+    }
+
+    func testConcurrentSilentReadsBothGetTheToken() {
+        // Regression: an early try()-bail turned lock contention between two
+        // silent reads into a spurious "no token" for the loser, silently
+        // downgrading concurrent poll requests to anonymous.
+        let store = KeychainTokenStore(service: "test-service-concurrent") { _, result in
+            Thread.sleep(forTimeInterval: 0.2)
+            result?.pointee = Data("tok-race".utf8) as AnyObject
+            return errSecSuccess
+        }
+
+        let expectation1 = expectation(description: "first silent read")
+        let expectation2 = expectation(description: "second silent read")
+        var tokens: [String?] = []
+        let resultsLock = NSLock()
+        for exp in [expectation1, expectation2] {
+            DispatchQueue.global().async {
+                let token = try? store.loadToken(allowUserInteraction: false)
+                resultsLock.lock()
+                tokens.append(token)
+                resultsLock.unlock()
+                exp.fulfill()
+            }
+        }
+        waitForExpectations(timeout: 5)
+        XCTAssertEqual(tokens.compactMap { $0 }, ["tok-race", "tok-race"])
+    }
+
+    func testSilentReadServesLastKnownTokenWhileInteractiveDialogIsUp() throws {
+        // While an interactive read blocks on the keychain password dialog
+        // (it holds the lock for as long as the user stares at it), silent
+        // readers must neither block behind it nor report the token missing —
+        // they serve the last value this store successfully read.
+        let interactiveStarted = DispatchSemaphore(value: 0)
+        let releaseInteractive = DispatchSemaphore(value: 0)
+        let store = KeychainTokenStore(service: "test-service-dialog") { query, result in
+            let dict = query as! [String: Any]
+            let isSilent = dict[kSecUseAuthenticationContext as String] != nil
+            if isSilent {
+                result?.pointee = Data("tok-live".utf8) as AnyObject
+                return errSecSuccess
+            }
+            interactiveStarted.signal()
+            releaseInteractive.wait()
+            return errSecUserCanceled
+        }
+
+        // Populate the last-known cache with a successful silent read.
+        XCTAssertEqual(try store.loadToken(allowUserInteraction: false), "tok-live")
+
+        let interactiveDone = expectation(description: "interactive read returns")
+        DispatchQueue.global().async {
+            _ = try? store.loadToken(allowUserInteraction: true)
+            interactiveDone.fulfill()
+        }
+        XCTAssertEqual(interactiveStarted.wait(timeout: .now() + 5), .success)
+
+        // The "dialog" is up. A silent read must return promptly with the
+        // cached token instead of nil or deadlocking.
+        XCTAssertEqual(try store.loadToken(allowUserInteraction: false), "tok-live")
+
+        releaseInteractive.signal()
+        waitForExpectations(timeout: 5)
+    }
+
+    func testSaveTokenRecreatesItemWhenUpdateIsDenied() throws {
+        var deleteCount = 0
+        var addedTokens: [String] = []
+        let store = KeychainTokenStore(
+            service: "test-service",
+            updateItem: { _, _ in errSecAuthFailed },
+            addItem: { attributes in
+                let dict = attributes as! [String: Any]
+                if let data = dict[kSecValueData as String] as? Data {
+                    addedTokens.append(String(data: data, encoding: .utf8)!)
+                }
+                return errSecSuccess
+            },
+            deleteItem: { _ in
+                deleteCount += 1
+                return errSecSuccess
+            }
+        ) { _, _ in errSecItemNotFound }
+
+        try store.saveToken("fresh-token")
+        XCTAssertEqual(deleteCount, 1)
+        XCTAssertEqual(addedTokens, ["fresh-token"])
+    }
+
+    // MARK: - GitHubCredentialStore
+
+    /// Backs KeychainTokenStore seams with a dictionary keyed by (service,
+    /// account), modelling enough SecItem semantics for the credential store.
+    private final class InMemoryKeychain {
+        private var storage: [String: Data] = [:]
+
+        private func key(_ query: [String: Any]) -> String {
+            let service = query[kSecAttrService as String] as? String ?? ""
+            let account = query[kSecAttrAccount as String] as? String ?? ""
+            return service + "\u{1F}" + account
+        }
+
+        func store(service: String, account: String) -> KeychainTokenStore {
+            KeychainTokenStore(
+                service: service,
+                account: account,
+                updateItem: { [weak self] query, attributes in
+                    guard let self else { return errSecInteractionNotAllowed }
+                    let key = self.key(query as! [String: Any])
+                    guard self.storage[key] != nil else { return errSecItemNotFound }
+                    if let data = (attributes as! [String: Any])[kSecValueData as String] as? Data {
+                        self.storage[key] = data
+                    }
+                    return errSecSuccess
+                },
+                addItem: { [weak self] attributes in
+                    guard let self else { return errSecInteractionNotAllowed }
+                    let dict = attributes as! [String: Any]
+                    let key = self.key(dict)
+                    if self.storage[key] != nil { return errSecDuplicateItem }
+                    self.storage[key] = (dict[kSecValueData as String] as? Data) ?? Data()
+                    return errSecSuccess
+                },
+                deleteItem: { [weak self] query in
+                    guard let self else { return errSecInteractionNotAllowed }
+                    let key = self.key(query as! [String: Any])
+                    return self.storage.removeValue(forKey: key) == nil ? errSecItemNotFound : errSecSuccess
+                },
+                copyMatching: { [weak self] query, result in
+                    guard let self else { return errSecInteractionNotAllowed }
+                    let key = self.key(query as! [String: Any])
+                    guard let data = self.storage[key] else { return errSecItemNotFound }
+                    result?.pointee = data as AnyObject
+                    return errSecSuccess
+                }
+            )
+        }
+    }
+
+    private func makeCredentialStore(
+        _ keychain: InMemoryKeychain,
+        suffix: String = #function
+    ) -> GitHubCredentialStore {
+        // Unique services per test so the KeychainTokenStore static last-known
+        // cache can't bleed across tests.
+        GitHubCredentialStore(
+            combined: keychain.store(service: "cred-combined-\(suffix)", account: "github"),
+            legacyOAuth: keychain.store(service: "cred-legacy-oauth-\(suffix)", account: "github-oauth"),
+            legacyPAT: keychain.store(service: "cred-legacy-pat-\(suffix)", account: "github-pat")
+        )
+    }
+
+    func testCredentialStoreRoundTripsBothTokens() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.save(GitHubCredentials(oauth: "oauth-tok", pat: "pat-tok"))
+        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "oauth-tok", pat: "pat-tok"))
+    }
+
+    func testCredentialStoreSetOAuthPreservesPAT() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.save(GitHubCredentials(oauth: nil, pat: "keep-me"))
+        try store.setOAuth("new-oauth")
+        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "new-oauth", pat: "keep-me"))
+    }
+
+    func testCredentialStoreSetPATPreservesOAuth() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.save(GitHubCredentials(oauth: "keep-oauth", pat: nil))
+        try store.setPAT("new-pat")
+        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "keep-oauth", pat: "new-pat"))
+    }
+
+    func testCredentialStoreMigratesLegacyItemsThenDeletesThem() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        // Seed the two legacy items; leave the combined item absent.
+        try store.legacyOAuth.saveToken("legacy-oauth")
+        try store.legacyPAT.saveToken("legacy-pat")
+
+        // First silent load migrates.
+        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat"))
+        // Combined item now holds both, legacy items are gone.
+        XCTAssertEqual(store.combined.hasToken(), true)
+        XCTAssertNil(try store.legacyOAuth.loadToken(allowUserInteraction: false))
+        XCTAssertNil(try store.legacyPAT.loadToken(allowUserInteraction: false))
+    }
+
+    func testCredentialStorePrefersCombinedOverLegacy() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.save(GitHubCredentials(oauth: "current", pat: nil))
+        try store.legacyOAuth.saveToken("stale-legacy")
+
+        XCTAssertEqual(store.loadSilently()?.oauth, "current")
+        // Legacy item is untouched because the combined item already existed.
+        XCTAssertEqual(try store.legacyOAuth.loadToken(allowUserInteraction: false), "stale-legacy")
+    }
+
+    func testCredentialStoreEmptySaveDeletesItem() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.save(GitHubCredentials(oauth: "x", pat: "y"))
+        try store.save(GitHubCredentials(oauth: nil, pat: nil))
+        XCTAssertNil(store.loadSilently())
+        XCTAssertFalse(store.combined.hasToken())
+    }
+
+    // MARK: - RepoDirectoryStore
+
+    private func makeTestDefaults(_ suffix: String = #function) -> UserDefaults {
+        let name = "test-repo-directory-\(suffix)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    func testRepoDirectoryRoundTrips() {
+        let defaults = makeTestDefaults()
+        let directory = RepoDirectory(
+            repos: [
+                GitHubRepoSummary(id: 1, name: "public-repo", fullName: "me/public-repo", owner: .init(login: "me"), isPrivate: false),
+                GitHubRepoSummary(id: 2, name: "secret", fullName: "me/secret", owner: .init(login: "me"), isPrivate: true)
+            ],
+            login: "me",
+            lastRefreshed: nil
+        )
+        RepoDirectoryStore.save(directory, defaults: defaults)
+        let loaded = RepoDirectoryStore.load(defaults: defaults)
+        XCTAssertEqual(loaded?.login, "me")
+        XCTAssertEqual(loaded?.repos.count, 2)
+        XCTAssertEqual(loaded?.repos.first(where: { $0.id == 2 })?.isPrivate, true)
+        XCTAssertEqual(loaded?.repos.first(where: { $0.id == 2 })?.fullName, "me/secret")
+    }
+
+    func testRepoDirectoryLoadReturnsNilForCorruptData() {
+        let defaults = makeTestDefaults()
+        defaults.set(Data("not json".utf8), forKey: RepoDirectoryStore.key)
+        XCTAssertNil(RepoDirectoryStore.load(defaults: defaults))
+    }
+
+    func testRepoDirectoryClearRemovesCache() {
+        let defaults = makeTestDefaults()
+        RepoDirectoryStore.save(RepoDirectory(repos: [], login: "x", lastRefreshed: nil), defaults: defaults)
+        RepoDirectoryStore.clear(defaults: defaults)
+        XCTAssertNil(RepoDirectoryStore.load(defaults: defaults))
+    }
+
+    func testGitHubRepoSummaryCodableRoundTripPreservesPrivacy() throws {
+        let repo = GitHubRepoSummary(id: 7, name: "n", fullName: "o/n", owner: .init(login: "o"), isPrivate: true)
+        let data = try JSONEncoder().encode(repo)
+        let decoded = try JSONDecoder().decode(GitHubRepoSummary.self, from: data)
+        XCTAssertEqual(decoded, repo)
+        XCTAssertTrue(decoded.isPrivate)
+    }
+
     private static func menuTitles(in menu: NSMenu) -> [String] {
         menu.items.flatMap { item -> [String] in
             let title = item.title.isEmpty ? [] : [item.title]

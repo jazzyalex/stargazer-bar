@@ -174,8 +174,8 @@ private struct GitHubWorkflowRun: Decodable, Equatable {
     }
 }
 
-struct GitHubRepoSummary: Decodable, Identifiable, Equatable {
-    struct Owner: Decodable, Equatable {
+struct GitHubRepoSummary: Codable, Identifiable, Equatable {
+    struct Owner: Codable, Equatable {
         var login: String
     }
 

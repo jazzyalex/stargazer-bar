@@ -8,10 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updaterController = UpdaterController()
     private lazy var gitHubClient = GitHubClient(
         tokenProvider: {
-            KeychainTokenStore.loadGitHubOAuthToken()
+            GitHubCredentialStore.loadOAuthTokenSilently()
         },
         optionalTokenProvider: {
-            KeychainTokenStore.loadGitHubOAuthToken()
+            GitHubCredentialStore.loadOAuthTokenSilently()
         }
     )
     /// One shared instance: the PAT-dead and double-404 latches are
@@ -19,8 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// knows are dead.
     private lazy var repoAccess = GitHubRepoAccess(
         client: gitHubClient,
-        patProvider: { KeychainTokenStore.loadGitHubPAT() },
-        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() },
+        patProvider: { GitHubCredentialStore.loadPATSilently() },
+        ambientProvider: { GitHubCredentialStore.loadOAuthTokenSilently() },
         hasStoredPAT: { [settingsStore] in settingsStore.settings.hasPrivateRepoToken }
     )
     private lazy var pollingService = RepoPollingService(

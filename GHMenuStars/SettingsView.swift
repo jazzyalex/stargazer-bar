@@ -11,6 +11,20 @@ enum AppExternalLinks {
     static let xProfile = URL(string: "https://x.com/jazzyalex")!
 }
 
+private enum RepoVisibilityFilter: Hashable {
+    case all
+    case publicOnly
+    case privateOnly
+
+    func includes(_ repo: GitHubRepoSummary) -> Bool {
+        switch self {
+        case .all: return true
+        case .publicOnly: return !repo.isPrivate
+        case .privateOnly: return repo.isPrivate
+        }
+    }
+}
+
 private enum GitHubAuthViewState: Equatable {
     case disconnected
     case requestingCode
@@ -47,6 +61,10 @@ struct SettingsView: View {
     @State private var publicRepos: [GitHubRepoSummary] = []
     @State private var isLoadingRepos = false
     @State private var hasLoadedPublicRepos = false
+    /// The authenticated GitHub login, shown in the connection footer and cached
+    /// with the directory so it survives relaunch.
+    @State private var currentLogin: String?
+    @State private var repoVisibilityFilter: RepoVisibilityFilter = .all
     @State private var repoFilter = ""
     @State private var repoPendingDeletion: TrackedRepo?
     @State private var patInput = ""
@@ -55,9 +73,6 @@ struct SettingsView: View {
     /// The repo whose add failed for want of a usable token. Non-nil is what
     /// makes the inline token field appear.
     @State private var repoNeedingToken: (owner: String, name: String, source: RepoSource)?
-    /// Remembers that the pending text came from the picker rather than being
-    /// typed, so the tracked repo is attributed correctly. Cleared on any edit.
-    @State private var pickerSource: RepoSource?
 
     init(
         repoStore: TrackedRepoStore,
@@ -86,6 +101,15 @@ struct SettingsView: View {
         }
         .padding(.top, 8)
         .frame(width: Self.contentWidth, height: Self.contentHeight)
+        .onAppear {
+            // The badge should reflect the stored token, not just this
+            // window's session. Silent read — never shows keychain UI.
+            if authState == .disconnected, GitHubCredentialStore.hasOAuthTokenSilently() {
+                authState = .connected
+            }
+            // Show the cached repo list at once, then refresh silently.
+            loadCachedDirectoryAndRefresh()
+        }
     }
 
     private var generalTab: some View {
@@ -107,18 +131,38 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// Anchors the loaded-repo picker so a successful Load Repos can scroll it
+    /// into view — the GitHub section sits at the bottom of this tab, so the
+    /// freshly loaded list would otherwise appear below the fold, invisible
+    /// until the user thinks to scroll.
+    private static let repoPickerAnchorID = "repoPicker"
+
     private var repositoryTab: some View {
         // Scrolls rather than clips. This window is a fixed 520x580 and content
         // has outgrown it three times now — each time truncating its own help
         // text mid-sentence. A taller window just moves the next overflow.
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                repositorySection
-                menuBarSection
-                accountSection
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    repositorySection
+                    addRepositorySection
+                    menuBarSection
+                    connectionSection
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .onChange(of: hasLoadedPublicRepos) { loaded in
+                guard loaded else { return }
+                // Let the picker lay out before scrolling to it — publicRepos
+                // and this flag are set in the same state update, so the target
+                // view may not exist yet when onChange first fires.
+                DispatchQueue.main.async {
+                    withAnimation {
+                        proxy.scrollTo(Self.repoPickerAnchorID, anchor: .bottom)
+                    }
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -160,7 +204,7 @@ struct SettingsView: View {
     private func saveTokenAndResumeAdd() {
         guard let pending = repoNeedingToken else { return }
         do {
-            try KeychainTokenStore.gitHubPATStore().saveToken(patInput)
+            try GitHubCredentialStore.standard().setPAT(patInput)
             repoStore.clearAllETags()
             repoAccess.resetTokenState()
             patInput = ""
@@ -175,7 +219,7 @@ struct SettingsView: View {
     }
 
     private func removePAT() {
-        try? KeychainTokenStore.gitHubPATStore().deleteToken()
+        try? GitHubCredentialStore.standard().clearPAT()
         repoStore.clearAllETags()
         repoAccess.resetTokenState()
         patInput = ""
@@ -184,7 +228,7 @@ struct SettingsView: View {
     }
 
     private func validatePAT() {
-        guard let token = KeychainTokenStore.loadGitHubPAT() else {
+        guard let token = GitHubCredentialStore.loadPATSilently() else {
             patStatus = nil
             return
         }
@@ -205,11 +249,13 @@ struct SettingsView: View {
     }
 
     private var repositorySection: some View {
-        GroupBox("Repositories") {
+        GroupBox("Your Repositories") {
             VStack(alignment: .leading, spacing: 10) {
                 if repoStore.trackedRepos.isEmpty {
-                    Text("No repositories tracked yet.")
+                    Text("No repositories tracked yet. Add one below.")
+                        .font(.callout)
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     VStack(spacing: 6) {
                         ForEach(repoStore.trackedRepos) { repo in
@@ -228,35 +274,12 @@ struct SettingsView: View {
                     }
                 }
 
-                HStack(spacing: 8) {
-                    TextField("owner/repo", text: $repoText)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { validateManualRepo() }
-                        .onChange(of: repoText) { _ in pickerSource = nil }
-
-                    Button {
-                        validateManualRepo()
-                    } label: {
-                        if isValidating {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text("Add")
-                        }
-                    }
-                    .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
                 HStack {
-                    Text("\(repoStore.trackedRepos.count)/\(TrackedRepoStore.maximumTrackedRepos) repositories")
+                    Text("\(repoStore.trackedRepos.count) of \(TrackedRepoStore.maximumTrackedRepos) tracked")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-
-                if let validationMessage {
-                    SettingsMessageView(message: validationMessage)
-                }
-
             }
             .padding(8)
         }
@@ -472,85 +495,161 @@ struct SettingsView: View {
         }
     }
 
-    private var accountSection: some View {
+    private var addRepositorySection: some View {
+        GroupBox("Add a Repository") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    TextField("Search your repositories", text: $repoFilter)
+                        .textFieldStyle(.roundedBorder)
+                    Picker("", selection: $repoVisibilityFilter) {
+                        Text("All").tag(RepoVisibilityFilter.all)
+                        Text("Public").tag(RepoVisibilityFilter.publicOnly)
+                        Text("Private").tag(RepoVisibilityFilter.privateOnly)
+                    }
+                    .labelsHidden()
+                    .frame(width: 110)
+                }
+
+                if publicRepos.isEmpty {
+                    Text(directoryPlaceholder)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(repoPickerCountLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(filteredRepos.prefix(50)) { repo in
+                                directoryRow(repo)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 200)
+                }
+
+                Divider()
+
+                HStack(spacing: 8) {
+                    TextField("owner/repo or URL", text: $repoText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { validateManualRepo() }
+                    Button {
+                        validateManualRepo()
+                    } label: {
+                        if isValidating {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Add")
+                        }
+                    }
+                    .disabled(isValidating || repoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                if let validationMessage {
+                    SettingsMessageView(message: validationMessage)
+                }
+            }
+            .padding(8)
+            .id(Self.repoPickerAnchorID)
+        }
+    }
+
+    private func directoryRow(_ repo: GitHubRepoSummary) -> some View {
+        let isTracked = repoStore.containsRepo(owner: repo.owner.login, name: repo.name)
+        return HStack(spacing: 6) {
+            Image(systemName: repo.isPrivate ? "lock" : "book.closed")
+                .foregroundStyle(.secondary)
+            Text(repo.fullName)
+                .lineLimit(1)
+            if repo.isPrivate {
+                Text("private")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.15)))
+            }
+            Spacer()
+            if isTracked {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .help("Already tracked")
+            } else {
+                Button {
+                    addRepoFromDirectory(repo)
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isValidating)
+                .help("Track this repository")
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var directoryPlaceholder: String {
+        if isLoadingRepos { return "Loading your repositories…" }
+        if authState == .connected { return "No repositories found. Try Refresh." }
+        return "Connect GitHub in the section below to list your repositories."
+    }
+
+    private var connectionSection: some View {
         GroupBox("GitHub") {
             VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Button(authButtonTitle) { startDeviceFlow() }
-                    .disabled(authState.isBusy)
-                Button {
-                    loadPublicRepos()
-                } label: {
-                    if isLoadingRepos {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text("Load Repos")
-                    }
-                }
-                .disabled(isLoadingRepos || authState.isBusy)
-                Spacer()
-                authStateBadge
-            }
-
-            if let deviceCode {
-                DeviceCodePanel(deviceCode: deviceCode)
-            }
-
-            // No token field here. It appears inline under the Add error, at the
-            // moment a private repo actually fails — a permanent second input
-            // competes with the Add field above, which already takes any repo.
-            // This is only a place to see and remove a token that exists.
-            if settingsStore.settings.hasPrivateRepoToken {
-                Divider()
                 HStack(spacing: 8) {
-                    if repoAccess.isPATDead {
-                        Label("Private repo token was revoked or expired", systemImage: "exclamationmark.triangle")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    } else {
-                        Label(patStatusText, systemImage: "lock")
+                    authStateBadge
+                    if authState == .connected, let currentLogin {
+                        Text("@\(currentLogin)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Remove") { removePAT() }
-                        .controlSize(.small)
-                }
-            }
-
-            if case .failed(let message) = authState {
-                SettingsMessageView(message: .warning(message))
-            }
-
-            if !publicRepos.isEmpty {
-                TextField("Filter", text: $repoFilter)
-                    .textFieldStyle(.roundedBorder)
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(filteredRepos.prefix(50)) { repo in
-                            Button {
-                                // Fills the one input. Adding is still the Add
-                                // button's job — a list row that silently tracks
-                                // is a second way to add.
-                                repoText = repo.fullName
-                                // After the assignment: onChange(of: repoText)
-                                // clears this, and it fires first.
-                                DispatchQueue.main.async { pickerSource = .oauth }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: repo.isPrivate ? "lock" : "book.closed")
-                                        .foregroundStyle(.secondary)
-                                    Text(repo.fullName)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    if authState == .connected {
+                        Button {
+                            refreshDirectory(interactive: true)
+                        } label: {
+                            if isLoadingRepos {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text("Refresh")
                             }
-                            .buttonStyle(.link)
                         }
+                        .disabled(isLoadingRepos || authState.isBusy)
+                    }
+                    Button(authButtonTitle) { startDeviceFlow() }
+                        .disabled(authState.isBusy)
+                }
+
+                if let deviceCode {
+                    DeviceCodePanel(deviceCode: deviceCode)
+                }
+
+                // A place to see and remove a stored private-repo token. The
+                // token is asked for inline, only when an add actually needs it.
+                if settingsStore.settings.hasPrivateRepoToken {
+                    Divider()
+                    HStack(spacing: 8) {
+                        if repoAccess.isPATDead {
+                            Label("Private repo token was revoked or expired", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        } else {
+                            Label(patStatusText, systemImage: "lock")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Remove") { removePAT() }
+                            .controlSize(.small)
                     }
                 }
-                .frame(maxHeight: 220)
-            }
+
+                if case .failed(let message) = authState {
+                    SettingsMessageView(message: .warning(message))
+                }
             }
             .padding(8)
         }
@@ -626,20 +725,42 @@ struct SettingsView: View {
 
     private var filteredRepos: [GitHubRepoSummary] {
         let query = repoFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return publicRepos }
-        return publicRepos.filter { $0.fullName.lowercased().contains(query) }
+        return publicRepos.filter { repo in
+            repoVisibilityFilter.includes(repo)
+                && (query.isEmpty || repo.fullName.lowercased().contains(query))
+        }
+    }
+
+    /// Names the picker so it reads as a result, not decoration — the list can
+    /// land below the fold on load, and a labelled count is the cue that Load
+    /// Repos did something and there's more to scroll to. The 50-row display cap
+    /// is surfaced so a long list doesn't look silently truncated.
+    private var repoPickerCountLabel: String {
+        let total = publicRepos.count
+        let noun = total == 1 ? "repository" : "repositories"
+        if total > 50 {
+            return "\(total) \(noun) — showing first 50, filter to narrow"
+        }
+        return "\(total) \(noun)"
     }
 
     private func validateManualRepo() {
         let input = repoText
         do {
             let parsed = try RepoURLParser.parse(input)
-            // pickerSource survives only while the text is exactly what the
-            // picker put there, so a picked repo is still attributed to oauth.
-            validateRepo(owner: parsed.owner, name: parsed.name, source: pickerSource ?? .manual)
+            // The paste field is for repos not in your list — attributed manual.
+            // Repos added from the directory go through addRepoFromDirectory.
+            validateRepo(owner: parsed.owner, name: parsed.name, source: .manual)
         } catch {
             validationMessage = .warning(GitHubError.userMessage(for: error))
         }
+    }
+
+    /// Adds a repo straight from the directory list. Goes through the same
+    /// validate/add path as the paste field (so the 5-repo cap, private-token
+    /// prompt, and error messages all apply), attributed to the OAuth source.
+    private func addRepoFromDirectory(_ repo: GitHubRepoSummary) {
+        validateRepo(owner: repo.owner.login, name: repo.name, source: .oauth)
     }
 
     private func validateRepo(owner: String, name: String, source: RepoSource) {
@@ -850,11 +971,11 @@ struct SettingsView: View {
                     deviceCode: response.deviceCode,
                     interval: response.interval
                 )
-                try KeychainTokenStore.gitHubOAuthStore().saveToken(token.accessToken)
+                try GitHubCredentialStore.standard().setOAuth(token.accessToken)
                 await MainActor.run {
                     authState = .connected
                     deviceCode = nil
-                    loadPublicRepos()
+                    refreshDirectory(interactive: true)
                 }
             } catch {
                 await MainActor.run {
@@ -864,63 +985,88 @@ struct SettingsView: View {
         }
     }
 
-    private func loadPublicRepos() {
+    /// Loads the cached directory immediately and kicks off a silent refresh.
+    /// Called on Settings appear — the list (including private repos) is visible
+    /// at once, then updated in the background if a token is readable.
+    private func loadCachedDirectoryAndRefresh() {
+        if let cached = RepoDirectoryStore.load() {
+            if publicRepos.isEmpty { publicRepos = cached.repos }
+            if currentLogin == nil { currentLogin = cached.login }
+        }
+        refreshDirectory(interactive: false)
+    }
+
+    /// Refreshes the browsable repo directory (public + private).
+    ///
+    /// The two paths honour the "prompt only on real actions" rule:
+    /// - `interactive` (Refresh button, device-flow completion) may show the
+    ///   keychain dialog once and heals the item, surfaces errors, and starts
+    ///   the device flow when there is no token.
+    /// - silent (Settings auto-refresh) never prompts, never disturbs the cached
+    ///   list on failure, and quietly updates when it can.
+    ///
+    /// Both tokens come from a single keychain read of the combined item, so a
+    /// refresh costs at most one prompt and private repos ride along without a
+    /// second dialog.
+    private func refreshDirectory(interactive: Bool) {
+        guard !isLoadingRepos else { return }
         isLoadingRepos = true
-        hasLoadedPublicRepos = false
-        let shouldRestoreSettingsAfterPrompt = PreferencesWindow.shared.canRestoreAfterExternalPrompt
+        if interactive { hasLoadedPublicRepos = false }
+        let priorLogin = currentLogin
+        let shouldRestore = interactive ? PreferencesWindow.shared.canRestoreAfterExternalPrompt : false
         Task {
-            let token: String
-            do {
-                guard let keychainToken = try loadGitHubTokenForRepoList(), !keychainToken.isEmpty else {
-                    await MainActor.run {
-                        isLoadingRepos = false
-                        PreferencesWindow.shared.restoreAfterExternalPrompt(if: shouldRestoreSettingsAfterPrompt)
-                        startDeviceFlow()
-                    }
-                    return
-                }
-                token = keychainToken
+            let credentials = await Task.detached {
+                interactive
+                    ? GitHubCredentialStore.standard().loadRequestingAccessIfNeeded()
+                    : GitHubCredentialStore.standard().loadSilently()
+            }.value
+            if interactive {
                 await MainActor.run {
-                    PreferencesWindow.shared.restoreAfterExternalPrompt(if: shouldRestoreSettingsAfterPrompt)
+                    PreferencesWindow.shared.restoreAfterExternalPrompt(if: shouldRestore)
                 }
-            } catch {
+            }
+
+            guard let oauth = credentials?.oauth, !oauth.isEmpty else {
                 await MainActor.run {
-                    authState = .failed(GitHubError.userMessage(for: error))
                     isLoadingRepos = false
-                    PreferencesWindow.shared.restoreAfterExternalPrompt(if: shouldRestoreSettingsAfterPrompt)
+                    // Explicit refresh/connect with no token starts the flow; a
+                    // passive refresh just leaves the cache in place.
+                    if interactive { startDeviceFlow() }
                 }
                 return
             }
 
             do {
-                let authenticatedClient = GitHubClient(tokenProvider: { token })
-                let repos = try await authenticatedClient.fetchAccessiblePublicRepos()
-                // The OAuth scope is public_repo, so private repos need the PAT
-                // on a separate call. Failing that call must not empty the
-                // picker: a user with a dead PAT still deserves their public
-                // list, so this degrades to public-only rather than throwing.
-                let privateRepos = await loadPrivateReposIfAvailable(client: authenticatedClient)
+                let client = GitHubClient(tokenProvider: { oauth })
+                let publicResult = try await client.fetchAccessiblePublicRepos()
+                // A revoked PAT degrades to public-only rather than emptying the
+                // picker — the user with a dead token still deserves their list.
+                let privateResult: [GitHubRepoSummary]
+                if let pat = credentials?.pat, !pat.isEmpty {
+                    privateResult = (try? await client.fetchAccessiblePrivateRepos(token: pat)) ?? []
+                } else {
+                    privateResult = []
+                }
+                let mergedRepos = Self.merged(public: publicResult, private: privateResult)
+                let login = (try? await client.fetchAuthenticatedLogin(token: oauth)) ?? priorLogin
+                let directory = RepoDirectory(repos: mergedRepos, login: login, lastRefreshed: Date())
+                RepoDirectoryStore.save(directory)
                 await MainActor.run {
-                    publicRepos = merged(public: repos, private: privateRepos)
+                    publicRepos = mergedRepos
+                    currentLogin = login
                     authState = .connected
-                    hasLoadedPublicRepos = true
                     isLoadingRepos = false
+                    if interactive { hasLoadedPublicRepos = true }
                 }
             } catch {
                 await MainActor.run {
-                    authState = .failed(GitHubError.userMessage(for: error))
+                    // A failed refresh keeps the cached list; only the explicit
+                    // path surfaces the error.
+                    if interactive { authState = .failed(GitHubError.userMessage(for: error)) }
                     isLoadingRepos = false
                 }
             }
         }
-    }
-
-    private func loadPrivateReposIfAvailable(client: GitHubClient) async -> [GitHubRepoSummary] {
-        guard let pat = KeychainTokenStore.loadGitHubPAT() else {
-            return []
-        }
-        // Best-effort: a revoked PAT must not take the public picker down with it.
-        return (try? await client.fetchAccessiblePrivateRepos(token: pat)) ?? []
     }
 
     /// Private repos first — they're the ones the user can't reach any other way,
@@ -941,20 +1087,6 @@ struct SettingsView: View {
 
     private func merged(public publicRepos: [GitHubRepoSummary], private privateRepos: [GitHubRepoSummary]) -> [GitHubRepoSummary] {
         Self.merged(public: publicRepos, private: privateRepos)
-    }
-
-    private func loadGitHubTokenForRepoList() throws -> String? {
-        let currentStore = KeychainTokenStore.gitHubOAuthStore()
-        if let token = try currentStore.loadToken(allowUserInteraction: true) {
-            return token
-        }
-
-        let legacyStore = KeychainTokenStore(service: KeychainTokenStore.legacyGitHubOAuthService)
-        guard let legacyToken = try legacyStore.loadToken(allowUserInteraction: true) else {
-            return nil
-        }
-        try currentStore.saveToken(legacyToken)
-        return legacyToken
     }
 }
 

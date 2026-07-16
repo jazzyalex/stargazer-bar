@@ -54,8 +54,8 @@ final class GitHubRepoAccess {
 
     init(
         client: GitHubClient,
-        patProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubPAT() },
-        ambientProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubOAuthToken() },
+        patProvider: @escaping () -> String? = { GitHubCredentialStore.loadPATSilently() },
+        ambientProvider: @escaping () -> String? = { GitHubCredentialStore.loadOAuthTokenSilently() },
         hasStoredPAT: @escaping () -> Bool = { false },
         now: @escaping () -> Date = { Date() }
     ) {
