@@ -247,9 +247,33 @@ final class RepoPollingService {
             }
         } catch GitHubError.rateLimited(let state) {
             repoStore.updateRateLimit(state)
-            repoStore.markChecked(repoID: repo.id)
+            repoStore.markRefreshFailed(repoID: repo.id, failure: .rateLimited)
         } catch {
-            repoStore.markChecked(repoID: repo.id)
+            // Previously every failure called markChecked, which stamps
+            // lastCheckedAt — so a revoked token, a deleted repo and an offline
+            // machine all looked like a fresh successful check sitting on top of
+            // stale data. Record what actually happened instead.
+            repoStore.markRefreshFailed(repoID: repo.id, failure: Self.classify(error, isPATDead: repoAccess.isPATDead))
+        }
+    }
+
+    /// Maps a poll error onto something the user can act on. The PAT-dead latch
+    /// disambiguates the one case GitHub cannot: a 404 that really means "your
+    /// token died", not "this repo is gone".
+    nonisolated static func classify(_ error: Error, isPATDead: Bool) -> RepoRefreshFailure {
+        switch error {
+        case GitHubError.notFoundOrPrivate:
+            return isPATDead ? .privateTokenRejected : .notFoundOrNoAccess
+        case GitHubError.unauthorized, GitHubError.missingToken:
+            return .privateTokenRejected
+        case GitHubError.rateLimited:
+            return .rateLimited
+        case GitHubError.server, GitHubError.decoding:
+            return .server
+        case GitHubError.transport:
+            return .offline
+        default:
+            return .server
         }
     }
 

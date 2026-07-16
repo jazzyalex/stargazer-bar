@@ -12,6 +12,24 @@ enum MenuBarDisplayResolver {
         settings: AppSettings
     ) -> MenuBarDisplayValue {
         let selected = selectedRepo(in: repos, id: settings.selectedMenuBarRepoID)
+
+        // A private repo's stars are never fetched and are stored as 0, so a
+        // star mode would render "star 0" — a number nobody looked up, about a
+        // metric the repo doesn't have. Show what a private repo actually
+        // measures instead: what needs attention.
+        if selected?.isPrivate == true, settings.menuBarDisplayMode.isStarMode {
+            let value = selected?.maintainerRadar?.attentionCount
+            return MenuBarDisplayValue(
+                symbolName: "dot.radiowaves.left.and.right",
+                text: formatted(value),
+                accessibilityLabel: accessibility(
+                    metric: "items needing attention",
+                    repoName: selected?.displayName,
+                    value: value
+                )
+            )
+        }
+
         switch settings.menuBarDisplayMode {
         case .selectedRepoStars:
             let value = selected?.lastStars
@@ -36,7 +54,9 @@ enum MenuBarDisplayResolver {
                 )
             )
         case .totalStars:
-            let value = total(repos.map(\.lastStars))
+            // Private repos contribute nothing here: their stars were never
+            // fetched, so summing their stored 0 is summing a non-measurement.
+            let value = total(repos.filter { !$0.isPrivate }.map(\.lastStars))
             return MenuBarDisplayValue(
                 symbolName: "star.fill",
                 text: formatted(value),

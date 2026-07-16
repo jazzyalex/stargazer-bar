@@ -145,7 +145,11 @@ struct StatusMenuBuilder {
         submenu.addItem(NSMenuItem.separator())
         addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
-        submenu.addItem(shareMenuItem(title: "Share Milestone", for: repo, target: target))
+        // The share factory refuses private repos, so building this for one
+        // yields a submenu whose every action is dead. Omit it instead.
+        if !repo.isPrivate {
+            submenu.addItem(shareMenuItem(title: "Share Milestone", for: repo, target: target))
+        }
         submenu.addItem(openRepoItem(repo, target: target))
         return submenu
     }

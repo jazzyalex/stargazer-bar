@@ -23,7 +23,7 @@ final class TrackedRepoStore: ObservableObject {
         legacyDefaults: UserDefaults? = UserDefaults(suiteName: "com.jazzyalex.GHMenuStars")
     ) {
         self.defaults = defaults
-        self.trackedRepos = Self.decode([TrackedRepo].self, key: reposKey, defaults: defaults)
+        self.trackedRepos = Self.decodeRepos(key: reposKey, defaults: defaults)
             ?? Self.migrate([TrackedRepo].self, key: reposKey, from: legacyDefaults, to: defaults)
             ?? []
         self.lastDelta = Self.decode(RepoDelta.self, key: deltaKey, defaults: defaults)
@@ -130,6 +130,9 @@ final class TrackedRepoStore: ObservableObject {
         repo.lastForks = snapshot.forks
         repo.lastCheckedAt = snapshot.checkedAt
         repo.lastSuccessfulCheckAt = snapshot.checkedAt
+        repo.lastAttemptedCheckAt = snapshot.checkedAt
+        // A usable snapshot landed, so any previous failure is history.
+        repo.lastRefreshFailure = nil
         repo.lastStarsDelta = delta.starsDelta
         repo.lastDownloadsDelta = delta.downloadsDelta
         repo.lastForksDelta = delta.forksDelta
@@ -153,6 +156,16 @@ final class TrackedRepoStore: ObservableObject {
         rateLimitState = nil
         saveAll()
         return delta
+    }
+
+    /// Records a failed attempt. Deliberately does NOT touch lastCheckedAt: a
+    /// refresh that fetched nothing is not a check, and showing its timestamp
+    /// made a revoked token look like fresh data.
+    func markRefreshFailed(repoID: UUID, failure: RepoRefreshFailure, at date: Date = Date()) {
+        guard let index = trackedRepos.firstIndex(where: { $0.id == repoID }) else { return }
+        trackedRepos[index].lastAttemptedCheckAt = date
+        trackedRepos[index].lastRefreshFailure = failure
+        saveAll()
     }
 
     func markChecked(repoID: UUID, at date: Date = Date()) {
@@ -229,6 +242,48 @@ final class TrackedRepoStore: ObservableObject {
     private func encode<T: Encodable>(_ value: T, key: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
         defaults.set(data, forKey: key)
+    }
+
+    /// Decodes tracked repos one at a time.
+    ///
+    /// `try? JSONDecoder().decode([TrackedRepo].self, ...)` fails whole: one
+    /// malformed or forward-incompatible entry returns nil, the caller falls back
+    /// to [], and every repo the user configured disappears with no warning.
+    /// Salvaging the entries that still parse turns a total loss into a partial
+    /// one, and the raw bytes are kept so nothing is unrecoverable.
+    private static func decodeRepos(key: String, defaults: UserDefaults) -> [TrackedRepo]? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        let decoder = JSONDecoder()
+        if let repos = try? decoder.decode([TrackedRepo].self, from: data) { return repos }
+
+        guard let elements = try? decoder.decode([FailableRepo].self, from: data) else {
+            // Not even array-shaped. Keep the bytes rather than overwriting them
+            // on the next save, so the data is recoverable by hand.
+            preserveCorruptData(data, key: key, defaults: defaults)
+            return nil
+        }
+        let salvaged = elements.compactMap(\.value)
+        if salvaged.count != elements.count {
+            preserveCorruptData(data, key: key, defaults: defaults)
+        }
+        return salvaged
+    }
+
+    /// Keeps a copy of bytes we could not fully decode. Without this the next
+    /// saveAll() overwrites the only evidence of what the user had.
+    private static func preserveCorruptData(_ data: Data, key: String, defaults: UserDefaults) {
+        let backupKey = "\(key).corrupt"
+        guard defaults.data(forKey: backupKey) == nil else { return }
+        defaults.set(data, forKey: backupKey)
+    }
+
+    /// Decodes an element, or records that it failed, without taking the whole
+    /// array down with it.
+    private struct FailableRepo: Decodable {
+        let value: TrackedRepo?
+        init(from decoder: Decoder) throws {
+            value = try? TrackedRepo(from: decoder)
+        }
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, key: String, defaults: UserDefaults) -> T? {

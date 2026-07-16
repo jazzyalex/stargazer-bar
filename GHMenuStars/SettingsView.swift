@@ -4,6 +4,10 @@ import SwiftUI
 enum AppExternalLinks {
     static let projectPage = URL(string: "https://jazzyalex.github.io/stargazer-bar/")!
     static let gitHubRepository = URL(string: "https://github.com/jazzyalex/stargazer-bar")!
+    /// Fine-grained token creation. GitHub does not document query-parameter
+    /// prefill for this page the way it does for classic tokens, so the sheet
+    /// lists the permissions instead of pretending they can be pre-ticked.
+    static let newFineGrainedToken = URL(string: "https://github.com/settings/personal-access-tokens/new")!
     static let xProfile = URL(string: "https://x.com/jazzyalex")!
 }
 
@@ -51,6 +55,9 @@ struct SettingsView: View {
     /// The repo whose add failed for want of a usable token. Non-nil is what
     /// makes the inline token field appear.
     @State private var repoNeedingToken: (owner: String, name: String, source: RepoSource)?
+    /// Remembers that the pending text came from the picker rather than being
+    /// typed, so the tracked repo is attributed correctly. Cleared on any edit.
+    @State private var pickerSource: RepoSource?
 
     init(
         repoStore: TrackedRepoStore,
@@ -122,10 +129,10 @@ struct SettingsView: View {
             return GitHubError.userMessage(for: error)
         }
         if repoAccess.isPATDead {
-            return "Can't see \(owner)/\(name). Your private repo token was revoked or expired — save a new one under GitHub below."
+            return "Can't see \(owner)/\(name). Your private repo token was revoked or expired."
         }
         if !settingsStore.settings.hasPrivateRepoToken {
-            return "Can't see \(owner)/\(name). If it's private, add a fine-grained token under GitHub below and try again."
+            return "Can't see \(owner)/\(name). If it's private, it needs a token."
         }
         return "Can't see \(owner)/\(name) with your saved token. Check the token grants access to this repository — and if it belongs to an organization, that the token's resource owner is that organization, not your personal account."
     }
@@ -139,9 +146,10 @@ struct SettingsView: View {
         return "Private repo token saved"
     }
 
-    /// Save the pasted token, then immediately retry the add that prompted it —
-    /// the user asked for a repo, not for a token; the token is a detour.
-    private func saveTokenAndRetryAdd() {
+    /// Save the token, dismiss the sheet, and resume the Add the user already
+    /// asked for. There is no separate "add" action here: authenticating is a
+    /// detour on the way to the thing they wanted.
+    private func saveTokenAndResumeAdd() {
         guard let pending = repoNeedingToken else { return }
         do {
             try KeychainTokenStore.gitHubPATStore().saveToken(patInput)
@@ -216,6 +224,7 @@ struct SettingsView: View {
                     TextField("owner/repo", text: $repoText)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit { validateManualRepo() }
+                        .onChange(of: repoText) { _ in pickerSource = nil }
 
                     Button {
                         validateManualRepo()
@@ -240,26 +249,24 @@ struct SettingsView: View {
                     SettingsMessageView(message: validationMessage)
                 }
 
-                // Progressive disclosure: the token field exists only while the
-                // add you just tried needs one. Answer the problem where the
-                // problem happened, rather than pointing at another box.
-                if needsTokenToProceed {
-                    HStack(spacing: 8) {
-                        SecureField("Fine-grained token (github_pat_…)", text: $patInput)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit { saveTokenAndRetryAdd() }
-                        Button("Save & Add") { saveTokenAndRetryAdd() }
-                            .disabled(patInput.isEmpty)
-                    }
-                    Text("Needs Read access to Metadata, Contents, Issues, Pull requests and Actions. If the repo belongs to an organization, set the token's resource owner to that organization.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let patStatus {
-                        SettingsMessageView(message: patStatus)
-                    }
-                }
             }
             .padding(8)
+        }
+        .sheet(isPresented: Binding(
+            get: { repoNeedingToken != nil },
+            set: { if !$0 { repoNeedingToken = nil } }
+        )) {
+            PrivateAccessSheet(
+                repoName: repoNeedingToken.map { "\($0.owner)/\($0.name)" } ?? "",
+                token: $patInput,
+                status: patStatus,
+                wasRevoked: repoAccess.isPATDead,
+                cancel: {
+                    repoNeedingToken = nil
+                    patInput = ""
+                },
+                save: { saveTokenAndResumeAdd() }
+            )
         }
         .alert(
             "Stop tracking \(repoPendingDeletion?.displayName ?? "this repository")?",
@@ -501,7 +508,13 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(filteredRepos.prefix(50)) { repo in
                             Button {
-                                track(owner: repo.owner.login, name: repo.name, source: .oauth)
+                                // Fills the one input. Adding is still the Add
+                                // button's job — a list row that silently tracks
+                                // is a second way to add.
+                                repoText = repo.fullName
+                                // After the assignment: onChange(of: repoText)
+                                // clears this, and it fires first.
+                                DispatchQueue.main.async { pickerSource = .oauth }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: repo.isPrivate ? "lock" : "book.closed")
@@ -599,7 +612,9 @@ struct SettingsView: View {
         let input = repoText
         do {
             let parsed = try RepoURLParser.parse(input)
-            validateRepo(owner: parsed.owner, name: parsed.name, source: .manual)
+            // pickerSource survives only while the text is exactly what the
+            // picker put there, so a picked repo is still attributed to oauth.
+            validateRepo(owner: parsed.owner, name: parsed.name, source: pickerSource ?? .manual)
         } catch {
             validationMessage = .warning(GitHubError.userMessage(for: error))
         }
@@ -997,6 +1012,76 @@ private struct RepositoryRow: View {
         let stars = RepoDeltaFormatter.metricLine(label: "Stars", value: repo.lastStars, delta: repo.lastStarsDelta)
         let forks = RepoDeltaFormatter.metricLine(label: "Forks", value: repo.lastForks, delta: repo.lastForksDelta)
         return "\(stars)  \(downloads)  \(forks)"
+    }
+}
+
+/// Authenticating is a detour, not a second way to add a repo — so it happens in
+/// a sheet that interrupts, gets what it needs, and gets out of the way. The
+/// Settings window is a fixed 520x580, which is why this content cannot live
+/// inline: it truncated its own instructions there.
+private struct PrivateAccessSheet: View {
+    let repoName: String
+    @Binding var token: String
+    let status: SettingsMessage?
+    let wasRevoked: Bool
+    let cancel: () -> Void
+    let save: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(wasRevoked ? "Token expired" : "Private repository")
+                .font(.headline)
+
+            Text(wasRevoked
+                 ? "Your saved token no longer works, so \(repoName) can't be read. Create a new one to continue."
+                 : "\(repoName) isn't visible with your current access. If it's private, a fine-grained token will let Stargazer Bar read it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                NSWorkspace.shared.open(AppExternalLinks.newFineGrainedToken)
+            } label: {
+                Label("Create token on GitHub", systemImage: "arrow.up.forward.square")
+            }
+
+            GroupBox {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Set Repository access to \(repoName), then grant read-only:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach(["Metadata", "Contents", "Issues", "Pull requests", "Actions"], id: \.self) { permission in
+                        Text("• \(permission)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text("If the repository belongs to an organization, set Resource owner to that organization — otherwise GitHub reports it as not found.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(6)
+            }
+
+            SecureField("Paste token (github_pat_…)", text: $token)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { if !token.isEmpty { save() } }
+
+            if let status {
+                SettingsMessageView(message: status)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { cancel() }
+                Button("Save") { save() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(token.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
     }
 }
 

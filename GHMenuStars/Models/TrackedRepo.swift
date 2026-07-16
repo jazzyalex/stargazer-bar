@@ -282,6 +282,31 @@ enum RepoTrendBuilder {
     }
 }
 
+/// Why the last refresh failed, when it did. Persisted so the UI can say
+/// something true instead of showing a stale number under a fresh timestamp.
+enum RepoRefreshFailure: String, Codable, Equatable {
+    case notFoundOrNoAccess
+    case privateTokenRejected
+    case rateLimited
+    case server
+    case offline
+
+    var userMessage: String {
+        switch self {
+        case .notFoundOrNoAccess:
+            return "Can't see this repository — it may have been deleted, renamed, or made private."
+        case .privateTokenRejected:
+            return "Private repo token was revoked or expired."
+        case .rateLimited:
+            return "GitHub rate limit reached."
+        case .server:
+            return "GitHub returned an error."
+        case .offline:
+            return "Couldn't reach GitHub."
+        }
+    }
+}
+
 struct TrackedRepo: Codable, Identifiable, Equatable {
     var id: UUID
     var owner: String
@@ -310,6 +335,11 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
     var recentReleases: RecentReleasesSummary?
     var starAskPromptStatus: StarAskPromptStatus
     var lastStarAskPromptedAt: Date?
+    /// Non-nil when the most recent refresh failed. Cleared on success.
+    var lastRefreshFailure: RepoRefreshFailure?
+    /// When a refresh was last *attempted*, successful or not — distinct from
+    /// lastCheckedAt, which must only mean "we got data".
+    var lastAttemptedCheckAt: Date?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -339,6 +369,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         case recentReleases
         case starAskPromptStatus
         case lastStarAskPromptedAt
+        case lastRefreshFailure
+        case lastAttemptedCheckAt
     }
 
     init(
@@ -368,7 +400,9 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         latestRelease: LatestReleaseSummary? = nil,
         recentReleases: RecentReleasesSummary? = nil,
         starAskPromptStatus: StarAskPromptStatus = .notShown,
-        lastStarAskPromptedAt: Date? = nil
+        lastStarAskPromptedAt: Date? = nil,
+        lastRefreshFailure: RepoRefreshFailure? = nil,
+        lastAttemptedCheckAt: Date? = nil
     ) {
         self.id = id
         self.owner = owner
@@ -397,6 +431,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         self.recentReleases = recentReleases
         self.starAskPromptStatus = starAskPromptStatus
         self.lastStarAskPromptedAt = lastStarAskPromptedAt
+        self.lastRefreshFailure = lastRefreshFailure
+        self.lastAttemptedCheckAt = lastAttemptedCheckAt
     }
 
     init(from decoder: Decoder) throws {
@@ -429,6 +465,8 @@ struct TrackedRepo: Codable, Identifiable, Equatable {
         recentReleases = try container.decodeIfPresent(RecentReleasesSummary.self, forKey: .recentReleases)
         starAskPromptStatus = try container.decodeIfPresent(StarAskPromptStatus.self, forKey: .starAskPromptStatus) ?? .notShown
         lastStarAskPromptedAt = try container.decodeIfPresent(Date.self, forKey: .lastStarAskPromptedAt)
+        lastRefreshFailure = try container.decodeIfPresent(RepoRefreshFailure.self, forKey: .lastRefreshFailure)
+        lastAttemptedCheckAt = try container.decodeIfPresent(Date.self, forKey: .lastAttemptedCheckAt)
     }
 
 }

@@ -1399,6 +1399,100 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(merged.filter { $0.id == 2 }.count, 1)
     }
 
+
+    func testFailedRefreshDoesNotStampLastCheckedAt() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        let checked = Date(timeIntervalSince1970: 1_000_000)
+        try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, lastCheckedAt: checked))
+        let id = store.trackedRepos[0].id
+
+        store.markRefreshFailed(repoID: id, failure: .privateTokenRejected)
+
+        // A refresh that fetched nothing is not a check. Stamping lastCheckedAt
+        // made a revoked token look like fresh data sitting on a stale number.
+        XCTAssertEqual(store.trackedRepos[0].lastCheckedAt, checked, "a failure must not masquerade as a check")
+        XCTAssertEqual(store.trackedRepos[0].lastRefreshFailure, .privateTokenRejected)
+        XCTAssertNotNil(store.trackedRepos[0].lastAttemptedCheckAt)
+    }
+
+    func testSuccessfulSnapshotClearsAPreviousFailure() throws {
+        let store = TrackedRepoStore(
+            defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
+            legacyDefaults: nil
+        )
+        try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual))
+        let id = store.trackedRepos[0].id
+        store.markRefreshFailed(repoID: id, failure: .offline)
+
+        _ = store.apply(snapshot: RepoSnapshot(stars: 1, releaseDownloads: 0, forks: 0, checkedAt: Date()), to: id)
+
+        XCTAssertNil(store.trackedRepos[0].lastRefreshFailure)
+    }
+
+    func testPollFailureClassification() {
+        XCTAssertEqual(RepoPollingService.classify(GitHubError.notFoundOrPrivate, isPATDead: false), .notFoundOrNoAccess)
+        // The latch is what disambiguates the one case GitHub can't: a 404 that
+        // really means "your token died".
+        XCTAssertEqual(RepoPollingService.classify(GitHubError.notFoundOrPrivate, isPATDead: true), .privateTokenRejected)
+        XCTAssertEqual(RepoPollingService.classify(GitHubError.unauthorized, isPATDead: false), .privateTokenRejected)
+        XCTAssertEqual(RepoPollingService.classify(GitHubError.transport("offline"), isPATDead: false), .offline)
+        XCTAssertEqual(RepoPollingService.classify(GitHubError.server(500), isPATDead: false), .server)
+    }
+
+    func testPrivateSelectedRepoShowsRadarNotStarZero() {
+        var priv = TrackedRepo(owner: "o", name: "secret", source: .manual, isPrivate: true)
+        priv.lastStars = 0
+        priv.maintainerRadar = RepoMaintainerRadar(
+            openPullRequests: 2, newPullRequests: 1, newIssues: 2, unansweredIssues: 0,
+            recentCommits: 0, activityWindow: .oneDay, latestFailedWorkflow: nil,
+            workflowChecked: true, checkedAt: Date()
+        )
+        var settings = AppSettings()
+        settings.menuBarDisplayMode = .selectedRepoStars
+        settings.selectedMenuBarRepoID = priv.id
+
+        let value = MenuBarDisplayResolver.value(repos: [priv], settings: settings)
+
+        // Star modes render "star 0" for a private repo: a number never fetched,
+        // about a metric it doesn't have.
+        XCTAssertNotEqual(value.symbolName, "star.fill")
+        XCTAssertEqual(value.text, "3", "1 new PR + 2 new issues need attention")
+    }
+
+    func testTotalStarsExcludesPrivateRepos() {
+        var pub = TrackedRepo(owner: "o", name: "open", source: .manual)
+        pub.lastStars = 719
+        var priv = TrackedRepo(owner: "o", name: "secret", source: .manual, isPrivate: true)
+        priv.lastStars = 0
+        var settings = AppSettings()
+        settings.menuBarDisplayMode = .totalStars
+
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [pub, priv], settings: settings).text, "719")
+    }
+
+    func testOneBadStoredRepoDoesNotWipeTheRest() {
+        let defaults = UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!
+        // Second entry is missing required keys. Decoding the array whole
+        // returns nil, and the caller falls back to [] — losing every repo the
+        // user configured, silently.
+        let json = """
+        [{"id":"\(UUID().uuidString)","owner":"o","name":"good","displayName":"o/good",
+          "source":"manual","starSound":"glass","isMuted":false,"trendPoints":[],
+          "starAskPromptStatus":"notShown"},
+         {"garbage":true}]
+        """
+        defaults.set(Data(json.utf8), forKey: "GHMenuStars.TrackedRepos.v1")
+
+        let store = TrackedRepoStore(defaults: defaults, legacyDefaults: nil)
+
+        XCTAssertEqual(store.trackedRepos.map(\.name), ["good"], "the salvageable repo must survive")
+        XCTAssertNotNil(defaults.data(forKey: "GHMenuStars.TrackedRepos.v1.corrupt"),
+                        "the original bytes must be kept for recovery")
+    }
+
 }
 
 private extension NSMenuItem {

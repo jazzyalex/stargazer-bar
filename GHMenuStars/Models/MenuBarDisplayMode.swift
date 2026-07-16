@@ -21,6 +21,17 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Star-shaped modes have no meaning for a private repo, whose stars are
+    /// never fetched.
+    var isStarMode: Bool {
+        switch self {
+        case .selectedRepoStars, .totalStars:
+            return true
+        case .selectedRepoDownloads, .totalDownloads:
+            return false
+        }
+    }
+
     var requiresSelectedRepo: Bool {
         switch self {
         case .selectedRepoStars, .selectedRepoDownloads:
