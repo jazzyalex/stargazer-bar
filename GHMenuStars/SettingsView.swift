@@ -47,7 +47,7 @@ struct SettingsView: View {
     @State private var repoPendingDeletion: TrackedRepo?
     @State private var patInput = ""
     @State private var patStatus: SettingsMessage?
-    @State private var hasSavedPAT = KeychainTokenStore.hasGitHubPAT()
+
     /// The repo whose add failed for want of a usable token. Non-nil is what
     /// makes the inline token field appear.
     @State private var repoNeedingToken: (owner: String, name: String, source: RepoSource)?
@@ -124,7 +124,7 @@ struct SettingsView: View {
         if repoAccess.isPATDead {
             return "Can't see \(owner)/\(name). Your private repo token was revoked or expired — save a new one under GitHub below."
         }
-        if !KeychainTokenStore.hasGitHubPAT() {
+        if !settingsStore.settings.hasPrivateRepoToken {
             return "Can't see \(owner)/\(name). If it's private, add a fine-grained token under GitHub below and try again."
         }
         return "Can't see \(owner)/\(name) with your saved token. Check the token grants access to this repository — and if it belongs to an organization, that the token's resource owner is that organization, not your personal account."
@@ -148,7 +148,7 @@ struct SettingsView: View {
             repoStore.clearAllETags()
             repoAccess.resetTokenState()
             patInput = ""
-            hasSavedPAT = true
+            settingsStore.update { $0.hasPrivateRepoToken = true }
             patStatus = nil
             repoNeedingToken = nil
             validatePAT()
@@ -163,7 +163,7 @@ struct SettingsView: View {
         repoStore.clearAllETags()
         repoAccess.resetTokenState()
         patInput = ""
-        hasSavedPAT = false
+        settingsStore.update { $0.hasPrivateRepoToken = false }
         patStatus = nil
     }
 
@@ -471,7 +471,7 @@ struct SettingsView: View {
             // moment a private repo actually fails — a permanent second input
             // competes with the Add field above, which already takes any repo.
             // This is only a place to see and remove a token that exists.
-            if settingsStore.settings.enablePrivateRepos, hasSavedPAT {
+            if settingsStore.settings.enablePrivateRepos, settingsStore.settings.hasPrivateRepoToken {
                 Divider()
                 HStack(spacing: 8) {
                     if repoAccess.isPATDead {
@@ -681,7 +681,7 @@ struct SettingsView: View {
                     // user can see, and not when a good token already failed.
                     if case GitHubError.notFoundOrPrivate = error,
                        settingsStore.settings.enablePrivateRepos,
-                       !hasSavedPAT || repoAccess.isPATDead {
+                       !settingsStore.settings.hasPrivateRepoToken || repoAccess.isPATDead {
                         repoNeedingToken = (owner, name, source)
                     }
                     isValidating = false

@@ -26,25 +26,37 @@ final class GitHubRepoAccess {
     private let client: GitHubClient
     private let patProvider: () -> String?
     private let ambientProvider: () -> String?
+    private let privateAccessEnabled: () -> Bool
 
     /// A revoked or expired PAT is dead for every repo, not one. In-memory only:
     /// never persist auth state that can be cheaply re-derived. Cleared by
-    /// `resetTokenState()` and by relaunch, which makes "I fixed the token,
-    /// restart the app" a self-healing path rather than a support ticket.
+    /// `resetTokenState()` and by relaunch.
     private var patIsDead = false
 
-    /// Repos no identity can see — deleted upstream, or a typo tracked while the
-    /// repo was public. Without this they burn two calls on every poll forever.
-    private var doubleFailedRepoIDs: Set<UUID> = []
+    /// Repos no identity could see, and when we last proved it. Without this they
+    /// burn two calls every poll forever; with a plain `Set` they could never
+    /// recover if an org later approved the token or the repo was recreated.
+    private var doubleFailedAt: [UUID: Date] = [:]
+
+    /// How long a double-404 verdict stands before the ladder retries. Long
+    /// enough that a dead repo isn't costing two calls a poll, short enough that
+    /// a permissions change heals within an hour without a relaunch.
+    static let doubleFailedRetryInterval: TimeInterval = 30 * 60
+
+    private let now: () -> Date
 
     init(
         client: GitHubClient,
         patProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubPAT() },
-        ambientProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubOAuthToken() }
+        ambientProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubOAuthToken() },
+        privateAccessEnabled: @escaping () -> Bool = { false },
+        now: @escaping () -> Date = { Date() }
     ) {
         self.client = client
         self.patProvider = patProvider
         self.ambientProvider = ambientProvider
+        self.privateAccessEnabled = privateAccessEnabled
+        self.now = now
     }
 
     /// True once a PAT attempt has returned 401. Settings renders the
@@ -56,10 +68,21 @@ final class GitHubRepoAccess {
     /// Clears both latches. Call when the PAT is saved or removed.
     func resetTokenState() {
         patIsDead = false
-        doubleFailedRepoIDs.removeAll()
+        doubleFailedAt.removeAll()
     }
 
-    private var livePAT: String? { patIsDead ? nil : patProvider() }
+    /// Reads the PAT from the Keychain — and *only* when a private repo is
+    /// genuinely in play.
+    ///
+    /// This is deliberately a function, not a stored property: reading it eagerly
+    /// made every public-repo poll touch the private-token Keychain item, which
+    /// asks the user for their password to do something the app didn't need to
+    /// do. The flag gate is part of the same contract — with the feature off,
+    /// a stored token must never be consulted for any reason.
+    private func loadPATIfPermitted() -> String? {
+        guard privateAccessEnabled(), !patIsDead else { return nil }
+        return patProvider()
+    }
 
     func fetchRepo(
         owner: String,
@@ -68,36 +91,37 @@ final class GitHubRepoAccess {
         knownPrivate: Bool,
         repoID: UUID? = nil
     ) async throws -> Outcome {
-        let pat = livePAT
-        let ambient = ambientProvider()
-        // Prefer the PAT when we know it's needed, or when there is no ambient
-        // token to protect: a PAT-only user would otherwise poll public repos
-        // anonymously on the 60/hr per-IP bucket, and the global rate-limit gate
-        // would then starve the private repos the PAT could still serve.
-        let preferPAT = pat != nil && (knownPrivate || ambient == nil)
-        let firstToken = preferPAT ? pat : ambient
+        // A repo we already know is private: the PAT is the only identity that
+        // can see it, so spending the read (and a doomed ambient call) is
+        // justified. This is the one branch allowed to touch the Keychain first.
+        if knownPrivate, let pat = loadPATIfPermitted() {
+            do {
+                return try await attempt(owner: owner, name: name, etag: etag, token: pat)
+            } catch GitHubError.unauthorized {
+                // A revoked PAT answers 401, not 404. Fall back so a repo that
+                // flipped private -> public still recovers.
+                patIsDead = true
+                return try await attempt(owner: owner, name: name, etag: etag, token: ambientProvider())
+            }
+        }
 
+        // Public or not-yet-known: the ambient identity goes first and the PAT is
+        // not read at all unless this fails in the one way a token could fix.
         do {
-            return try await attempt(owner: owner, name: name, etag: etag, token: firstToken)
-        } catch GitHubError.unauthorized where preferPAT {
-            // Fires regardless of knownPrivate: a repo that flipped
-            // private -> public while the PAT was revoked must still recover, and
-            // a revoked PAT answers 401, so the 404 ladder alone would strand it.
-            patIsDead = true
-            return try await attempt(owner: owner, name: name, etag: etag, token: ambient)
-        } catch GitHubError.notFoundOrPrivate where !preferPAT && pat != nil && !isDoubleFailed(repoID) {
+            return try await attempt(owner: owner, name: name, etag: etag, token: ambientProvider())
+        } catch GitHubError.notFoundOrPrivate {
+            guard !isDoubleFailed(repoID), let pat = loadPATIfPermitted() else {
+                throw GitHubError.notFoundOrPrivate
+            }
             do {
                 return try await attempt(owner: owner, name: name, etag: etag, token: pat)
             } catch GitHubError.notFoundOrPrivate {
-                if let repoID { doubleFailedRepoIDs.insert(repoID) }
+                if let repoID { doubleFailedAt[repoID] = now() }
                 throw GitHubError.notFoundOrPrivate
             } catch GitHubError.unauthorized {
-                // The PAT is revoked or expired. Latch it, but report
-                // notFoundOrPrivate rather than letting the 401 escape: the
-                // ambient token already proved the repo is unreachable, and a
-                // raw 401 here surfaces as "GitHub authorization is required",
-                // which blames the app's sign-in instead of the token that
-                // actually failed.
+                // Report not-found, not a raw 401: the ambient token already
+                // proved the repo unreachable, and "GitHub authorization is
+                // required" blames the app's sign-in rather than the token.
                 patIsDead = true
                 throw GitHubError.notFoundOrPrivate
             }
@@ -107,8 +131,8 @@ final class GitHubRepoAccess {
     }
 
     private func isDoubleFailed(_ repoID: UUID?) -> Bool {
-        guard let repoID else { return false }
-        return doubleFailedRepoIDs.contains(repoID)
+        guard let repoID, let failedAt = doubleFailedAt[repoID] else { return false }
+        return now().timeIntervalSince(failedAt) < Self.doubleFailedRetryInterval
     }
 
     private func attempt(

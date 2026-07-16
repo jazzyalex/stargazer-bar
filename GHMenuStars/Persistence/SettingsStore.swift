@@ -138,6 +138,10 @@ struct AppSettings: Codable, Equatable {
     /// from main can't expose private-repo tracking before the menu bar has any
     /// answer for a private repo (phase 3). Flipped on in phase 2.
     var enablePrivateRepos: Bool = false
+    /// Whether a private-repo token is stored. Presence is not a secret, and
+    /// keeping it here means the UI never reads the Keychain just to decide
+    /// whether to show a Remove button — that read prompts for a password.
+    var hasPrivateRepoToken: Bool = false
 
     private enum CodingKeys: String, CodingKey {
         case refreshInterval
@@ -154,6 +158,7 @@ struct AppSettings: Codable, Equatable {
         case repoTrendRange
         case maintainerRadarActivityWindow
         case enablePrivateRepos
+        case hasPrivateRepoToken
     }
 
     init() {}
@@ -175,6 +180,7 @@ struct AppSettings: Codable, Equatable {
         repoTrendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .repoTrendRange) ?? .all
         maintainerRadarActivityWindow = try container.decodeIfPresent(MaintainerRadarActivityWindow.self, forKey: .maintainerRadarActivityWindow) ?? .oneDay
         enablePrivateRepos = try container.decodeIfPresent(Bool.self, forKey: .enablePrivateRepos) ?? false
+        hasPrivateRepoToken = try container.decodeIfPresent(Bool.self, forKey: .hasPrivateRepoToken) ?? false
     }
 }
 

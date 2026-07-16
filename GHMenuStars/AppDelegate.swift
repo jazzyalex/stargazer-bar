@@ -20,7 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var repoAccess = GitHubRepoAccess(
         client: gitHubClient,
         patProvider: { KeychainTokenStore.loadGitHubPAT() },
-        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() }
+        ambientProvider: { KeychainTokenStore.loadGitHubOAuthToken() },
+        // Gates token resolution itself, not merely Settings copy: with the
+        // feature off, a stored PAT must never be read or sent.
+        privateAccessEnabled: { [settingsStore] in settingsStore.settings.enablePrivateRepos }
     )
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,

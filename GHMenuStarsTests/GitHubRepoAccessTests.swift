@@ -25,7 +25,8 @@ final class GitHubRepoAccessTests: XCTestCase {
         return GitHubRepoAccess(
             client: GitHubClient(session: URLSession(configuration: configuration)),
             patProvider: { pat },
-            ambientProvider: { ambient }
+            ambientProvider: { ambient },
+            privateAccessEnabled: { true }
         )
     }
 
@@ -78,18 +79,6 @@ final class GitHubRepoAccessTests: XCTestCase {
         _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: true, repoID: UUID())
 
         XCTAssertEqual(tokens, ["Bearer pat"], "a known-private repo must not waste a doomed ambient call")
-    }
-
-    func testPATOnlyUserUsesPATForPublicReposRatherThanAnonymous() async throws {
-        // With no OAuth token, anonymous would put public repos on the 60/hr
-        // per-IP bucket, and the global rate-limit gate would then starve the
-        // private repos the PAT could still serve.
-        MockURLProtocol.responses = ["/repos/o/n": .init(data: repoBody(isPrivate: false))]
-        let access = makeAccess(pat: "pat", ambient: nil)
-
-        _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: UUID())
-
-        XCTAssertEqual(tokens, ["Bearer pat"])
     }
 
     func testNotModifiedCarriesTheTokenAndDoesNotThrow() async throws {
@@ -263,7 +252,7 @@ final class GitHubRepoAccessTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let client = GitHubClient(session: URLSession(configuration: configuration))
-        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" })
+        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" }, privateAccessEnabled: { true })
         let repoStore = TrackedRepoStore(
             defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
             legacyDefaults: nil
@@ -371,6 +360,87 @@ final class GitHubRepoAccessTests: XCTestCase {
         do { _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: repoID) }
         catch {}
         XCTAssertEqual(tokens, ["Bearer oauth"])
+    }
+
+
+    // MARK: - The PAT keychain item must not be touched unnecessarily
+
+    /// Counts provider invocations. Header assertions cannot see this bug: the
+    /// PAT can be read from the Keychain and then discarded, prompting the user
+    /// for a password while never appearing on any request.
+    private func makeCountingAccess(
+        pat: String?,
+        ambient: String?,
+        privateEnabled: Bool = true
+    ) -> (GitHubRepoAccess, () -> Int) {
+        var patReads = 0
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let access = GitHubRepoAccess(
+            client: GitHubClient(session: URLSession(configuration: configuration)),
+            patProvider: { patReads += 1; return pat },
+            ambientProvider: { ambient },
+            privateAccessEnabled: { privateEnabled }
+        )
+        return (access, { patReads })
+    }
+
+    func testPublicRepoFetchNeverReadsThePATKeychainItem() async throws {
+        MockURLProtocol.responses = ["/repos/o/n": .init(data: repoBody(isPrivate: false))]
+        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: "oauth")
+
+        _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: UUID())
+
+        XCTAssertEqual(patReads(), 0, "polling a public repo must not touch the private-token Keychain item")
+    }
+
+    func testPATOnlyUserStillDoesNotReadThePATForPublicRepos() async throws {
+        // Previously the "no ambient token to protect" optimization read the PAT
+        // for every public fetch — a Keychain prompt as the price of a rate-limit
+        // micro-optimization. Anonymous is the correct pre-existing behaviour.
+        MockURLProtocol.responses = ["/repos/o/n": .init(data: repoBody(isPrivate: false))]
+        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: nil)
+
+        _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: UUID())
+
+        XCTAssertEqual(patReads(), 0)
+        XCTAssertEqual(tokens, ["<none>"], "no OAuth token means anonymous, not PAT")
+    }
+
+    func testKnownPrivateRepoReadsThePATExactlyOnce() async throws {
+        MockURLProtocol.responses = ["/repos/o/n": .init(data: repoBody(isPrivate: true))]
+        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: "oauth")
+
+        _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: true, repoID: UUID())
+
+        XCTAssertEqual(patReads(), 1, "a private repo is the one case that justifies the read")
+    }
+
+    func testPATIsReadOnlyAfterAnUnknownRepo404s() async throws {
+        var calls = 0
+        MockURLProtocol.handler = { [self] _ in
+            calls += 1
+            return calls == 1 ? .init(statusCode: 404, data: Data("{}".utf8)) : .init(data: repoBody(isPrivate: true))
+        }
+        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: "oauth")
+
+        _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: UUID())
+
+        XCTAssertEqual(patReads(), 1, "read only once the ambient attempt proved a token was needed")
+    }
+
+    func testFlagOffNeverReadsThePATAtAll() async {
+        // Flag off must mean the feature does not exist: a build cut from main
+        // may not consult a stored PAT for any reason.
+        MockURLProtocol.responses = ["/repos/o/n": .init(statusCode: 404, data: Data("{}".utf8))]
+        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: "oauth", privateEnabled: false)
+
+        do {
+            _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: true, repoID: UUID())
+        } catch {}
+
+        XCTAssertEqual(patReads(), 0, "the flag must gate token resolution, not just Settings copy")
+        XCTAssertFalse(tokens.contains("Bearer pat"))
     }
 
 }

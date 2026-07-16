@@ -51,7 +51,19 @@ struct KeychainTokenStore {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-        SecItemDelete(query as CFDictionary)
+
+        // Update in place when an item exists. The previous delete-then-add left
+        // the user with no token at all if the add failed — destroying a working
+        // credential to store one that never landed.
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary
+        )
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else {
+            throw GitHubError.transport("Keychain update failed: \(updateStatus)")
+        }
+
         var add = query
         add[kSecValueData as String] = data
         let status = SecItemAdd(add as CFDictionary, nil)
