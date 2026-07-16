@@ -46,7 +46,8 @@ struct SettingsView: View {
     @State private var repoFilter = ""
     @State private var repoPendingDeletion: TrackedRepo?
     @State private var patInput = ""
-    @State private var patStatus: String?
+    @State private var patStatus: SettingsMessage?
+    @State private var hasSavedPAT = KeychainTokenStore.hasGitHubPAT()
 
     init(
         repoStore: TrackedRepoStore,
@@ -101,51 +102,29 @@ struct SettingsView: View {
             repositorySection
             menuBarSection
             accountSection
-            privateReposSection
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// Phase 1 lands internally: without this gate a hotfix cut from main would
-    /// expose private tracking before the menu bar has any answer for a private
-    /// repo (phase 3). Flipped on in phase 2.
-    @ViewBuilder
-    private var privateReposSection: some View {
-        if settingsStore.settings.enablePrivateRepos {
-            GroupBox("Private repositories") {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Signing in above uses a public-only scope and powers the repo picker. To track a private repository, paste a fine-grained token here instead.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        SecureField("github_pat_…", text: $patInput)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Save") { savePAT() }
-                            .disabled(patInput.isEmpty)
-                        Button("Remove") { removePAT() }
-                            .disabled(!KeychainTokenStore.hasGitHubPAT())
-                    }
-                    if repoAccess.isPATDead {
-                        // Distinct from the generic not-found copy: after the
-                        // latch the ambient fallback 404s, which would otherwise
-                        // blame the repository rather than the token.
-                        Text("Your private-repo token was revoked or expired — save a new one to resume tracking private repositories.")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    } else if let patStatus {
-                        Text(patStatus)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text("Give the token Read access to Metadata, Contents, Issues, Pull requests and Actions. If the repository belongs to an organization, set the token's resource owner to that organization — a token owned by your personal account cannot see it, and the failure looks exactly like \"not found\".")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(6)
-            }
+    /// GitHub answers 404 for a private repo you can't see, exactly as it does
+    /// for one that doesn't exist — so the add flow has to guess, and guess
+    /// usefully. Which advice is right depends entirely on whether a token is
+    /// already in play.
+    private func addFailureMessage(for error: Error, owner: String, name: String) -> String {
+        guard case GitHubError.notFoundOrPrivate = error else {
+            return GitHubError.userMessage(for: error)
         }
+        guard settingsStore.settings.enablePrivateRepos else {
+            return GitHubError.userMessage(for: error)
+        }
+        if repoAccess.isPATDead {
+            return "Can't see \(owner)/\(name). Your private repo token was revoked or expired — save a new one under GitHub below."
+        }
+        if !KeychainTokenStore.hasGitHubPAT() {
+            return "Can't see \(owner)/\(name). If it's private, add a fine-grained token under GitHub below and try again."
+        }
+        return "Can't see \(owner)/\(name) with your saved token. Check the token grants access to this repository — and if it belongs to an organization, that the token's resource owner is that organization, not your personal account."
     }
 
     private func savePAT() {
@@ -157,9 +136,10 @@ struct SettingsView: View {
             repoStore.clearAllETags()
             repoAccess.resetTokenState()
             patInput = ""
+            hasSavedPAT = true
             validatePAT()
         } catch {
-            patStatus = GitHubError.userMessage(for: error)
+            patStatus = .warning(GitHubError.userMessage(for: error))
         }
     }
 
@@ -168,6 +148,7 @@ struct SettingsView: View {
         repoStore.clearAllETags()
         repoAccess.resetTokenState()
         patInput = ""
+        hasSavedPAT = false
         patStatus = nil
     }
 
@@ -179,9 +160,15 @@ struct SettingsView: View {
         Task {
             do {
                 let login = try await gitHubClient.fetchAuthenticatedLogin(token: token)
-                await MainActor.run { patStatus = "Token active for \(login)." }
+                await MainActor.run { patStatus = .success("Token active for \(login).") }
+            } catch GitHubError.unauthorized {
+                // The generic auth copy ("GitHub authorization is required")
+                // blames the app's sign-in, which isn't what failed.
+                await MainActor.run {
+                    patStatus = .warning("GitHub rejected that token. Check it hasn't expired or been revoked, and that it's a fine-grained token.")
+                }
             } catch {
-                await MainActor.run { patStatus = GitHubError.userMessage(for: error) }
+                await MainActor.run { patStatus = .warning(GitHubError.userMessage(for: error)) }
             }
         }
     }
@@ -434,7 +421,7 @@ struct SettingsView: View {
                     if isLoadingRepos {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text("Load Public Repos")
+                        Text(settingsStore.settings.enablePrivateRepos ? "Load Repos" : "Load Public Repos")
                     }
                 }
                 .disabled(isLoadingRepos || authState.isBusy)
@@ -444,6 +431,26 @@ struct SettingsView: View {
 
             if let deviceCode {
                 DeviceCodePanel(deviceCode: deviceCode)
+            }
+
+            // Private-repo token lives here rather than in a section of its own:
+            // it is one more way to authorize, not a different kind of repo. The
+            // Add field above takes any repo, public or private.
+            if settingsStore.settings.enablePrivateRepos {
+                Divider()
+                HStack(spacing: 8) {
+                    SecureField("Private repo token (github_pat_…)", text: $patInput)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Save") { savePAT() }
+                        .disabled(patInput.isEmpty)
+                    Button("Remove") { removePAT() }
+                        .disabled(!hasSavedPAT)
+                }
+                if repoAccess.isPATDead {
+                    SettingsMessageView(message: .warning("Private repo token was revoked or expired. Save a new one to resume tracking private repositories."))
+                } else if let patStatus {
+                    SettingsMessageView(message: patStatus)
+                }
             }
 
             if case .failed(let message) = authState {
@@ -631,7 +638,7 @@ struct SettingsView: View {
                 }
             } catch {
                 await MainActor.run {
-                    validationMessage = .warning(GitHubError.userMessage(for: error))
+                    validationMessage = .warning(addFailureMessage(for: error, owner: owner, name: name))
                     isValidating = false
                 }
             }

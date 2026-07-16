@@ -91,6 +91,15 @@ final class GitHubRepoAccess {
             } catch GitHubError.notFoundOrPrivate {
                 if let repoID { doubleFailedRepoIDs.insert(repoID) }
                 throw GitHubError.notFoundOrPrivate
+            } catch GitHubError.unauthorized {
+                // The PAT is revoked or expired. Latch it, but report
+                // notFoundOrPrivate rather than letting the 401 escape: the
+                // ambient token already proved the repo is unreachable, and a
+                // raw 401 here surfaces as "GitHub authorization is required",
+                // which blames the app's sign-in instead of the token that
+                // actually failed.
+                patIsDead = true
+                throw GitHubError.notFoundOrPrivate
             }
         }
         // GitHubError.rateLimited matches no catch clause and propagates

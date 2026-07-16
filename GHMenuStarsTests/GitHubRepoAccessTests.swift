@@ -339,4 +339,38 @@ final class GitHubRepoAccessTests: XCTestCase {
         XCTAssertEqual(repoStore.trackedRepos[0].lastForks, 7)
         XCTAssertFalse(repoStore.trackedRepos[0].isPrivate)
     }
+
+    func testDeadPATOnTheRetryPathReportsNotFoundAndLatches() async {
+        // The real-world shape: user is signed in with OAuth (scope public_repo,
+        // so it 404s on a private repo) and their PAT has been revoked. The
+        // ladder goes ambient -> 404 -> PAT -> 401. That 401 must not escape as
+        // an auth error: the ambient token already proved the repo is
+        // unreachable, and blaming "GitHub authorization" sends the user to
+        // re-do the app's sign-in, which is not what failed.
+        var calls = 0
+        MockURLProtocol.handler = { _ in
+            calls += 1
+            return calls == 1
+                ? .init(statusCode: 404, data: Data("{}".utf8))   // OAuth can't see it
+                : .init(statusCode: 401, data: Data("{}".utf8))   // PAT is revoked
+        }
+        let access = makeAccess(pat: "revoked-pat", ambient: "oauth")
+        let repoID = UUID()
+
+        do {
+            _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: repoID)
+            XCTFail("expected notFoundOrPrivate")
+        } catch GitHubError.notFoundOrPrivate {
+            XCTAssertTrue(access.isPATDead, "a 401 on the retry must latch the PAT dead")
+        } catch {
+            XCTFail("expected notFoundOrPrivate, got \(error) — a raw 401 here shows generic auth copy")
+        }
+
+        // Latched: the next attempt must not spend a call on the dead token.
+        MockURLProtocol.requestedAuthorizations = []
+        do { _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: false, repoID: repoID) }
+        catch {}
+        XCTAssertEqual(tokens, ["Bearer oauth"])
+    }
+
 }
