@@ -25,8 +25,7 @@ final class GitHubRepoAccessTests: XCTestCase {
         return GitHubRepoAccess(
             client: GitHubClient(session: URLSession(configuration: configuration)),
             patProvider: { pat },
-            ambientProvider: { ambient },
-            privateAccessEnabled: { true }
+            ambientProvider: { ambient }
         )
     }
 
@@ -252,7 +251,7 @@ final class GitHubRepoAccessTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let client = GitHubClient(session: URLSession(configuration: configuration))
-        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" }, privateAccessEnabled: { true })
+        let access = GitHubRepoAccess(client: client, patProvider: { "pat" }, ambientProvider: { "oauth" })
         let repoStore = TrackedRepoStore(
             defaults: UserDefaults(suiteName: "GHMenuStarsTests.\(UUID().uuidString)")!,
             legacyDefaults: nil
@@ -370,8 +369,7 @@ final class GitHubRepoAccessTests: XCTestCase {
     /// for a password while never appearing on any request.
     private func makeCountingAccess(
         pat: String?,
-        ambient: String?,
-        privateEnabled: Bool = true
+        ambient: String?
     ) -> (GitHubRepoAccess, () -> Int) {
         var patReads = 0
         let configuration = URLSessionConfiguration.ephemeral
@@ -379,8 +377,7 @@ final class GitHubRepoAccessTests: XCTestCase {
         let access = GitHubRepoAccess(
             client: GitHubClient(session: URLSession(configuration: configuration)),
             patProvider: { patReads += 1; return pat },
-            ambientProvider: { ambient },
-            privateAccessEnabled: { privateEnabled }
+            ambientProvider: { ambient }
         )
         return (access, { patReads })
     }
@@ -429,18 +426,5 @@ final class GitHubRepoAccessTests: XCTestCase {
         XCTAssertEqual(patReads(), 1, "read only once the ambient attempt proved a token was needed")
     }
 
-    func testFlagOffNeverReadsThePATAtAll() async {
-        // Flag off must mean the feature does not exist: a build cut from main
-        // may not consult a stored PAT for any reason.
-        MockURLProtocol.responses = ["/repos/o/n": .init(statusCode: 404, data: Data("{}".utf8))]
-        let (access, patReads) = makeCountingAccess(pat: "pat", ambient: "oauth", privateEnabled: false)
-
-        do {
-            _ = try await access.fetchRepo(owner: "o", name: "n", etag: nil, knownPrivate: true, repoID: UUID())
-        } catch {}
-
-        XCTAssertEqual(patReads(), 0, "the flag must gate token resolution, not just Settings copy")
-        XCTAssertFalse(tokens.contains("Bearer pat"))
-    }
 
 }

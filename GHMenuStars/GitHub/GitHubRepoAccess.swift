@@ -26,7 +26,6 @@ final class GitHubRepoAccess {
     private let client: GitHubClient
     private let patProvider: () -> String?
     private let ambientProvider: () -> String?
-    private let privateAccessEnabled: () -> Bool
 
     /// A revoked or expired PAT is dead for every repo, not one. In-memory only:
     /// never persist auth state that can be cheaply re-derived. Cleared by
@@ -54,13 +53,11 @@ final class GitHubRepoAccess {
         client: GitHubClient,
         patProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubPAT() },
         ambientProvider: @escaping () -> String? = { KeychainTokenStore.loadGitHubOAuthToken() },
-        privateAccessEnabled: @escaping () -> Bool = { false },
         now: @escaping () -> Date = { Date() }
     ) {
         self.client = client
         self.patProvider = patProvider
         self.ambientProvider = ambientProvider
-        self.privateAccessEnabled = privateAccessEnabled
         self.now = now
     }
 
@@ -80,13 +77,13 @@ final class GitHubRepoAccess {
     /// Reads the PAT from the Keychain — and *only* when a private repo is
     /// genuinely in play.
     ///
-    /// This is deliberately a function, not a stored property: reading it eagerly
-    /// made every public-repo poll touch the private-token Keychain item, which
-    /// asks the user for their password to do something the app didn't need to
-    /// do. The flag gate is part of the same contract — with the feature off,
-    /// a stored token must never be consulted for any reason.
+    /// Deliberately a function, not a stored property: reading it eagerly made
+    /// every public-repo poll touch the private-token Keychain item, asking the
+    /// user for their password to do something the app didn't need to do. Every
+    /// caller below is on a branch that has already established a token is the
+    /// only thing that can answer.
     private func loadPATIfPermitted() -> String? {
-        guard privateAccessEnabled(), !patIsDead else { return nil }
+        guard !patIsDead else { return nil }
         if let cachedPAT { return cachedPAT }
         let token = patProvider()
         cachedPAT = token

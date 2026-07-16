@@ -170,10 +170,6 @@ struct AppSettings: Codable, Equatable {
     var selectedMenuBarRepoID: UUID?
     var repoTrendRange: RepoTrendRange = .all
     var maintainerRadarActivityWindow: MaintainerRadarActivityWindow = .oneDay
-    /// Phase 1 lands internally: the PAT section stays hidden so a hotfix cut
-    /// from main can't expose private-repo tracking before the menu bar has any
-    /// answer for a private repo (phase 3). Flipped on in phase 2.
-    var enablePrivateRepos: Bool = false
     /// Whether a private-repo token is stored. Presence is not a secret, and
     /// keeping it here means the UI never reads the Keychain just to decide
     /// whether to show a Remove button — that read prompts for a password.
@@ -194,7 +190,6 @@ struct AppSettings: Codable, Equatable {
         case selectedMenuBarRepoID
         case repoTrendRange
         case maintainerRadarActivityWindow
-        case enablePrivateRepos
         case hasPrivateRepoToken
         case commitActivityWindow
     }
@@ -217,7 +212,6 @@ struct AppSettings: Codable, Equatable {
         selectedMenuBarRepoID = try container.decodeIfPresent(UUID.self, forKey: .selectedMenuBarRepoID)
         repoTrendRange = try container.decodeIfPresent(RepoTrendRange.self, forKey: .repoTrendRange) ?? .all
         maintainerRadarActivityWindow = try container.decodeIfPresent(MaintainerRadarActivityWindow.self, forKey: .maintainerRadarActivityWindow) ?? .oneDay
-        enablePrivateRepos = try container.decodeIfPresent(Bool.self, forKey: .enablePrivateRepos) ?? false
         hasPrivateRepoToken = try container.decodeIfPresent(Bool.self, forKey: .hasPrivateRepoToken) ?? false
         commitActivityWindow = try container.decodeIfPresent(CommitActivityWindow.self, forKey: .commitActivityWindow) ?? .sevenDays
     }

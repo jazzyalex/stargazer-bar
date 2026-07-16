@@ -131,9 +131,6 @@ struct SettingsView: View {
         guard case GitHubError.notFoundOrPrivate = error else {
             return GitHubError.userMessage(for: error)
         }
-        guard settingsStore.settings.enablePrivateRepos else {
-            return GitHubError.userMessage(for: error)
-        }
         if repoAccess.isPATDead {
             return "Can't see \(owner)/\(name). Your private repo token was revoked or expired."
         }
@@ -144,7 +141,7 @@ struct SettingsView: View {
     }
 
     private var needsTokenToProceed: Bool {
-        settingsStore.settings.enablePrivateRepos && repoNeedingToken != nil
+        repoNeedingToken != nil
     }
 
     private var patStatusText: String {
@@ -479,7 +476,7 @@ struct SettingsView: View {
                     if isLoadingRepos {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text(settingsStore.settings.enablePrivateRepos ? "Load Repos" : "Load Public Repos")
+                        Text("Load Repos")
                     }
                 }
                 .disabled(isLoadingRepos || authState.isBusy)
@@ -495,7 +492,7 @@ struct SettingsView: View {
             // moment a private repo actually fails — a permanent second input
             // competes with the Add field above, which already takes any repo.
             // This is only a place to see and remove a token that exists.
-            if settingsStore.settings.enablePrivateRepos, settingsStore.settings.hasPrivateRepoToken {
+            if settingsStore.settings.hasPrivateRepoToken {
                 Divider()
                 HStack(spacing: 8) {
                     if repoAccess.isPATDead {
@@ -712,7 +709,6 @@ struct SettingsView: View {
                     // fix this: a 404 with no working token. Not for a typo the
                     // user can see, and not when a good token already failed.
                     if case GitHubError.notFoundOrPrivate = error,
-                       settingsStore.settings.enablePrivateRepos,
                        !settingsStore.settings.hasPrivateRepoToken || repoAccess.isPATDead {
                         repoNeedingToken = (owner, name, source)
                     }
@@ -912,8 +908,7 @@ struct SettingsView: View {
     }
 
     private func loadPrivateReposIfAvailable(client: GitHubClient) async -> [GitHubRepoSummary] {
-        guard settingsStore.settings.enablePrivateRepos,
-              let pat = KeychainTokenStore.loadGitHubPAT() else {
+        guard let pat = KeychainTokenStore.loadGitHubPAT() else {
             return []
         }
         // Best-effort: a revoked PAT must not take the public picker down with it.

@@ -1124,29 +1124,6 @@ final class ServiceLogicTests: XCTestCase {
     }
 
 
-    func testPrivateReposFlagDefaultsOffAndSurvivesLegacyDecode() throws {
-        // Fresh settings: the flag must be off, or a hotfix cut from main would
-        // expose the PAT section before the menu bar has any private-repo answer.
-        XCTAssertFalse(AppSettings().enablePrivateRepos)
-
-        // Settings written by a build predating the flag must decode, not throw:
-        // SettingsStore falls back to defaults on any decode error, which would
-        // silently reset every setting the user has.
-        // These keys are decoded non-optionally (SettingsStore.swift:158-167), so
-        // omitting any of them throws keyNotFound before the flag is consulted.
-        let legacy = Data("""
-        {"refreshInterval":"tenMinutes","hideDockIcon":true,"notifyOnStarIncrease":true,
-         "playSoundOnStarIncrease":false,"animateOnStarIncrease":true,
-         "gitHubOAuthClientID":"","menuBarDisplayMode":"selectedRepoStars"}
-        """.utf8)
-        let decoded = try JSONDecoder().decode(AppSettings.self, from: legacy)
-        XCTAssertFalse(decoded.enablePrivateRepos)
-
-        var enabled = AppSettings()
-        enabled.enablePrivateRepos = true
-        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(enabled))
-        XCTAssertTrue(round.enablePrivateRepos)
-    }
 
 
     func testTrackedRepoDecodesLegacyJSONWithoutIsPrivate() throws {

@@ -6,7 +6,7 @@
 
 <p>
   <strong>GitHub stars in your macOS menu bar.</strong><br>
-  A tiny native app for watching multiple public repositories' stars and<br>
+  A tiny native app for watching your repositories — public and private —<br>
   release downloads without keeping GitHub open.
 </p>
 
@@ -29,7 +29,7 @@
 
 ---
 
-Stargazer Bar is an open-source macOS GitHub stars menu bar app for maintainers who want lightweight launch or release telemetry across public repositories. It works as a small GitHub release download counter too: stars stay in the menu bar, release downloads live in the dropdown, and the app reads GitHub directly without a backend.
+Stargazer Bar is an open-source macOS GitHub stars menu bar app for maintainers who want lightweight launch or release telemetry. Public repositories are measured by stars; private ones — which have none — are measured by what needs you: a failing build, an unanswered issue, a new pull request. It works as a small GitHub release download counter too: the headline number stays in the menu bar, detail lives in the dropdown, and the app reads GitHub directly without a backend.
 
 ## Install
 
@@ -46,12 +46,13 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
 ## Features
 
 - ⭐ &nbsp;Live star counts for multiple public repos in your menu bar — no browser tab required
+- 🔒 &nbsp;Private repos too: track what needs you, with a 30-day commit chart counted across every branch
 - 📦 &nbsp;Release download totals from GitHub's latest releases API page (up to 100 releases)
 - 📈 &nbsp;Per-repo star and fork trend charts directly in the menu
 - 🧭 &nbsp;Maintainer radar for CI status, recent commits, new PRs/issues, and unanswered issues
 - 🖼️ &nbsp;Copy milestone text or a square share image when a repo passes a rounded download/star mark
 - 🔔 &nbsp;Per-repository star sounds, so each tracked project can have its own update cue
-- 🔑 &nbsp;Track any public repo manually without a GitHub account; sign-in only powers the repo picker
+- 🔑 &nbsp;Track any public repo without a GitHub account; sign-in powers the repo picker, and a read-only fine-grained token unlocks private repos
 - 🔄 &nbsp;Sparkle auto-updates, EdDSA-signed and notarized
 - 🔒 &nbsp;Private by default — no backend, no telemetry, Keychain-stored tokens
 - 🪶 &nbsp;Native Apple silicon app, designed to stay out of the way

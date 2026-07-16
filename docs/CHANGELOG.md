@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.6.0] - 2026-07-15
+
+### Features
+
+- **Track private repositories.** Add a private repo the same way you add any other — paste `owner/repo` or its URL and press Add. If it needs access, Stargazer Bar asks for a fine-grained token right then, with a button to create one on GitHub, and picks up the add where it left off.
+
+  Private repos don't have stars, so they're measured by what actually moves: **what needs you** — a failing build, an unanswered issue, a new pull request — shown in the menu bar as a count with a check or an alert. Stars tell you someone else did something while you weren't looking; your own commits can't do that, but a red build can.
+
+  The dropdown adds a **30-day commit chart** so you can see whether a project is moving or stalled, and commits are counted **across every branch** — not just the default one. A repo whose work lives on a feature branch used to look completely idle.
+
+- **Menu bar counters for commits and attention.** Two new options under Settings → Menu Bar → Counter: *Selected repo needs me* and *Selected repo commits*, with a commit window of 24 hours, 7 days, or 30 days. Picking a repo now always shows that repo's own headline — stars for public, needs-me for private.
+
+### Fixes
+
+- Saving a GitHub token no longer deletes the old one before storing the new one — a failed save could previously leave you with no token at all.
+- A single unreadable stored repository no longer wipes the whole tracked list; the rest survive, and the original data is kept for recovery.
+- A failed refresh no longer reports as a successful check. Authentication failures, deleted repositories and network errors are now recorded and shown, instead of a fresh timestamp sitting on top of stale numbers.
+- "CI failing" now says when it failed. A workflow that broke months ago no longer reads the same as one that broke minutes ago.
+- Settings scrolls, so longer content is no longer cut off mid-sentence.
+
+### Privacy
+
+- Your private-repo token lives in its own Keychain entry, separate from GitHub sign-in, and is only ever read when a private repository is actually being checked — never while tracking public ones. It's sent only to `api.github.com`, and read-only access is all Stargazer Bar asks for.
+- Private repositories never produce a shareable milestone image, and never contribute to total-star counts.
+- Still no backend and no telemetry.
+
 ## [0.5.2] - 2026-07-13
 
 ### Features
