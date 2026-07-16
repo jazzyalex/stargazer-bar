@@ -1442,16 +1442,17 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(RepoPollingService.classify(GitHubError.server(500), isPATDead: false), .server)
     }
 
-    func testPrivateSelectedRepoShowsCommitsNotStarZero() {
-        // A private repo in the menu bar is the entire reason to tolerate the
-        // token, the Keychain prompt and the resource-owner trap. A star mode
-        // renders "star 0" — a number never fetched, about a metric it lacks.
+    func testPrivateSelectedRepoShowsNeedsMeNotStarZero() {
+        // A star mode renders "star 0" for a private repo: a number never
+        // fetched, about a metric it doesn't have.
         var priv = TrackedRepo(owner: "o", name: "secret", source: .manual, isPrivate: true)
         priv.lastStars = 0
-        priv.commitActivity = [
-            CommitDayCount(date: Date().addingTimeInterval(-2 * 86_400), count: 9),
-            CommitDayCount(date: Date().addingTimeInterval(-1 * 86_400), count: 17)
-        ]
+        priv.maintainerRadar = RepoMaintainerRadar(
+            openPullRequests: 5, newPullRequests: 1, newIssues: 2, unansweredIssues: 0,
+            recentCommits: 26, activityWindow: .oneDay, latestFailedWorkflow:
+                RepoWorkflowFailure(name: "ci", url: "https://example.com", failedAt: Date()),
+            workflowChecked: true, checkedAt: Date()
+        )
         var settings = AppSettings()
         settings.menuBarDisplayMode = .selectedRepoStars
         settings.selectedMenuBarRepoID = priv.id
@@ -1459,7 +1460,29 @@ final class ServiceLogicTests: XCTestCase {
         let value = MenuBarDisplayResolver.value(repos: [priv], settings: settings)
 
         XCTAssertNotEqual(value.symbolName, "star.fill")
-        XCTAssertEqual(value.text, "26", "commits are what a private repo actually has")
+        // 1 new PR + 2 new issues + 1 red build. Not a score — a queue depth.
+        XCTAssertEqual(value.text, "4")
+    }
+
+    func testNeedsMeGlyphDistinguishesClearFromWaiting() {
+        var repo = TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true)
+        repo.maintainerRadar = RepoMaintainerRadar(
+            openPullRequests: 0, newPullRequests: 0, newIssues: 0, unansweredIssues: 0,
+            recentCommits: 12, activityWindow: .oneDay, latestFailedWorkflow: nil,
+            workflowChecked: true, checkedAt: Date()
+        )
+        var settings = AppSettings()
+        settings.menuBarDisplayMode = .selectedRepoNeedsMe
+        settings.selectedMenuBarRepoID = repo.id
+
+        // Nothing waiting: a check, not an alarm.
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [repo], settings: settings).symbolName, "checkmark.circle")
+        XCTAssertEqual(MenuBarDisplayResolver.value(repos: [repo], settings: settings).text, "0")
+
+        repo.maintainerRadar?.latestFailedWorkflow = RepoWorkflowFailure(name: "ci", url: "u", failedAt: Date())
+        let alerting = MenuBarDisplayResolver.value(repos: [repo], settings: settings)
+        XCTAssertEqual(alerting.symbolName, "exclamationmark.circle.fill")
+        XCTAssertEqual(alerting.text, "1", "a red build is one thing that wants you")
     }
 
     func testSelectedRepoCommitsModeCountsTheLastSevenDays() {
@@ -1544,7 +1567,13 @@ final class ServiceLogicTests: XCTestCase {
         )
         XCTAssertEqual(
             MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoStars),
-            .selectedRepoCommits
+            .selectedRepoNeedsMe,
+            "a private repo defaults to what it can tell you that you don't already know"
+        )
+        XCTAssertEqual(
+            MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoCommits),
+            .selectedRepoCommits,
+            "commits stays if deliberately chosen"
         )
     }
 

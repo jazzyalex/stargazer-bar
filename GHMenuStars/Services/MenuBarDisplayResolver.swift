@@ -18,14 +18,14 @@ enum MenuBarDisplayResolver {
         // metric the repo doesn't have. Show what a private repo actually
         // measures instead: what needs attention.
         if let selected, selected.isPrivate, settings.menuBarDisplayMode.isStarMode {
-            let value = selected.commitActivity.map {
-                CommitActivityBuilder.total($0, since: settings.commitActivityWindow.startDate())
-            }
+            let value = selected.maintainerRadar?.attentionCount
             return MenuBarDisplayValue(
-                symbolName: "chevron.left.forwardslash.chevron.right",
+                symbolName: (selected.maintainerRadar?.attentionCount ?? 0) > 0
+                    ? "exclamationmark.circle.fill"
+                    : "checkmark.circle",
                 text: formatted(value),
                 accessibilityLabel: accessibility(
-                    metric: "commits in the last \(settings.commitActivityWindow.displayName)",
+                    metric: "items needing attention",
                     repoName: selected.displayName,
                     value: value
                 )
@@ -84,6 +84,23 @@ enum MenuBarDisplayResolver {
                     value: value
                 )
             )
+        case .selectedRepoNeedsMe:
+            // Not a score — a queue depth. Stars work in a menu bar because
+            // they're news: someone else acted while you weren't looking. Your
+            // own commits aren't news, you were there. This counts the things
+            // that arrived for you: a red build, an unanswered issue, a new PR.
+            let value = selected?.maintainerRadar?.attentionCount
+            return MenuBarDisplayValue(
+                symbolName: (selected?.maintainerRadar?.attentionCount ?? 0) > 0
+                    ? "exclamationmark.circle.fill"
+                    : "checkmark.circle",
+                text: formatted(value),
+                accessibilityLabel: accessibility(
+                    metric: "items needing attention",
+                    repoName: selected?.displayName,
+                    value: value
+                )
+            )
         case .totalDownloads:
             let value = total(repos.map(\.lastDownloads))
             return MenuBarDisplayValue(
@@ -113,7 +130,15 @@ enum MenuBarDisplayResolver {
         if isPrivate {
             // Downloads is respected as a deliberate choice; anything else lands
             // on commits, the one metric a private repo always has.
-            return current == .selectedRepoDownloads ? current : .selectedRepoCommits
+            // Commits and downloads are respected as deliberate choices;
+            // anything else lands on "needs me" — the only private-repo signal
+            // that reports something you didn't already do yourself.
+            switch current {
+            case .selectedRepoDownloads, .selectedRepoCommits:
+                return current
+            default:
+                return .selectedRepoNeedsMe
+            }
         }
         return current.requiresSelectedRepo ? current : .selectedRepoStars
     }
