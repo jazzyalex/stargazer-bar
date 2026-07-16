@@ -123,24 +123,18 @@ enum MenuBarDisplayResolver {
     /// selection entirely, so leaving one in place made the radio button look
     /// broken. And a private repo has no stars — only commits are guaranteed to
     /// be real — so a star mode there shows a number that was never fetched.
+    /// The mode to land on when the user picks a repo for the menu bar.
+    ///
+    /// One global mode cannot be right for two kinds of repo at once: a public
+    /// repo's headline is stars, a private repo's is what needs you. So picking
+    /// a repo lands on *that repo's* headline. Downloads is the one deliberate
+    /// choice carried across, because it means the same thing for both.
     static func modeAfterSelecting(
         isPrivate: Bool,
         current: MenuBarDisplayMode
     ) -> MenuBarDisplayMode {
-        if isPrivate {
-            // Downloads is respected as a deliberate choice; anything else lands
-            // on commits, the one metric a private repo always has.
-            // Commits and downloads are respected as deliberate choices;
-            // anything else lands on "needs me" — the only private-repo signal
-            // that reports something you didn't already do yourself.
-            switch current {
-            case .selectedRepoDownloads, .selectedRepoCommits:
-                return current
-            default:
-                return .selectedRepoNeedsMe
-            }
-        }
-        return current.requiresSelectedRepo ? current : .selectedRepoStars
+        if current == .selectedRepoDownloads { return current }
+        return isPrivate ? .selectedRepoNeedsMe : .selectedRepoStars
     }
 
     static func selectedRepo(in repos: [TrackedRepo], id: UUID?) -> TrackedRepo? {

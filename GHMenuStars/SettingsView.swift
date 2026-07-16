@@ -108,12 +108,18 @@ struct SettingsView: View {
     }
 
     private var repositoryTab: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            repositorySection
-            menuBarSection
-            accountSection
+        // Scrolls rather than clips. This window is a fixed 520x580 and content
+        // has outgrown it three times now — each time truncating its own help
+        // text mid-sentence. A taller window just moves the next overflow.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                repositorySection
+                menuBarSection
+                accountSection
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

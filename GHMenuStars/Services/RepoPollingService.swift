@@ -215,13 +215,19 @@ final class RepoPollingService {
             // 30 days of commit dates, fetched once: the chart buckets them by
             // day and the menu bar counts a 7-day slice of the same data, so
             // neither surface costs an extra request.
-            async let commitDates: [Date]? = gitHubClient.fetchCrossBranchCommitDates(
-                owner: repo.owner,
-                name: repo.name,
-                since: checkedAt.addingTimeInterval(-30 * 86_400),
-                now: checkedAt,
-                optionalAuthToken: authToken
-            )
+            // Private repos only. This walks every branch touched in 30 days and
+            // pages through each — on a busy public repo that's dozens of
+            // requests per poll to compute a number nobody looks at, because a
+            // public repo's headline is stars.
+            async let commitDates: [Date]? = isPrivate
+                ? gitHubClient.fetchCrossBranchCommitDates(
+                    owner: repo.owner,
+                    name: repo.name,
+                    since: checkedAt.addingTimeInterval(-30 * 86_400),
+                    now: checkedAt,
+                    optionalAuthToken: authToken
+                )
+                : nil
             async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,

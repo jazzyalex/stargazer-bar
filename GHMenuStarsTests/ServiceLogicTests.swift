@@ -1544,18 +1544,29 @@ final class ServiceLogicTests: XCTestCase {
 
 
     func testSelectingARepoAlwaysLandsOnAModeThatShowsIt() {
-        // Total-* modes ignore the selected repo entirely, so leaving one in
-        // place made the radio button look broken: you click it, nothing moves.
         for mode in MenuBarDisplayMode.allCases {
+            // Total-* modes ignore the selected repo, so leaving one in place
+            // made the radio look broken: you click it, nothing moves.
             let publicMode = MenuBarDisplayResolver.modeAfterSelecting(isPrivate: false, current: mode)
             XCTAssertTrue(publicMode.requiresSelectedRepo,
                           "picking a repo from \(mode) must land somewhere that shows it")
 
             let privateMode = MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: mode)
             XCTAssertTrue(privateMode.requiresSelectedRepo)
-            // A private repo has no stars, so a star mode would render a number
-            // that was never fetched.
-            XCTAssertFalse(privateMode.isStarMode, "private repos must never land on a star mode")
+            XCTAssertFalse(privateMode.isStarMode, "private repos have no stars to show")
+        }
+    }
+
+    func testSwitchingBackToAPublicRepoRestoresStars() {
+        // The regression: needsMe.requiresSelectedRepo is true, so "keep the
+        // current mode if it shows a repo" kept needs-me forever. Selecting a
+        // public repo silently stopped showing its stars — the app's whole point.
+        for privateOnlyMode in [MenuBarDisplayMode.selectedRepoNeedsMe, .selectedRepoCommits] {
+            XCTAssertEqual(
+                MenuBarDisplayResolver.modeAfterSelecting(isPrivate: false, current: privateOnlyMode),
+                .selectedRepoStars,
+                "a public repo's headline is stars, whatever the private repo left behind"
+            )
         }
     }
 
@@ -1571,9 +1582,9 @@ final class ServiceLogicTests: XCTestCase {
             "a private repo defaults to what it can tell you that you don't already know"
         )
         XCTAssertEqual(
-            MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoCommits),
-            .selectedRepoCommits,
-            "commits stays if deliberately chosen"
+            MenuBarDisplayResolver.modeAfterSelecting(isPrivate: true, current: .selectedRepoDownloads),
+            .selectedRepoDownloads,
+            "downloads means the same thing for both kinds, so it carries across"
         )
     }
 

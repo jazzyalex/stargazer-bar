@@ -232,6 +232,11 @@ final class GitHubClient {
     /// still bounding a pathological outlier. Only paid once, in the background.
     static let trendBackfillPageLimitAuthenticated = 500
 
+    /// Page cap per branch for the commit window: 20 pages = 2,000 commits in 30
+    /// days on one branch. Past that the exact figure stops meaning anything in a
+    /// menu bar, and the cap stops a pathological repo from stalling a poll.
+    static let commitPageLimit = 20
+
     private let session: URLSession
     private let tokenProvider: () -> String?
     private let optionalTokenProvider: () -> String?
@@ -588,18 +593,28 @@ final class GitHubClient {
             // history, so summing per-ref counts multiplies the same commits.
             var seen: [String: Date] = [:]
             for ref in refs.sorted() {
-                let commits: GitHubHTTPResult<[GitHubCommitDate]> = try await request(
-                    path: Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
-                        URLQueryItem(name: "sha", value: ref),
-                        URLQueryItem(name: "since", value: Self.iso8601String(from: since)),
-                        URLQueryItem(name: "per_page", value: "100")
-                    ]),
-                    etag: nil,
-                    requiresAuth: false,
-                    optionalAuthToken: optionalAuthToken
-                )
-                for commit in commits.value where seen[commit.sha] == nil {
-                    seen[commit.sha] = commit.commit.author.date
+                // Follow pages. A single per_page=100 request silently caps at
+                // exactly 100, so a branch with 137 commits reported "100" — a
+                // number that looks real and is wrong, which is worse than an
+                // obvious failure.
+                var path: String? = Self.path("/repos/\(owner)/\(name)/commits", queryItems: [
+                    URLQueryItem(name: "sha", value: ref),
+                    URLQueryItem(name: "since", value: Self.iso8601String(from: since)),
+                    URLQueryItem(name: "per_page", value: "100")
+                ])
+                var pages = 0
+                while let currentPath = path, pages < Self.commitPageLimit {
+                    let commits: GitHubHTTPResult<[GitHubCommitDate]> = try await request(
+                        path: currentPath,
+                        etag: nil,
+                        requiresAuth: false,
+                        optionalAuthToken: optionalAuthToken
+                    )
+                    for commit in commits.value where seen[commit.sha] == nil {
+                        seen[commit.sha] = commit.commit.author.date
+                    }
+                    path = commits.nextPagePath
+                    pages += 1
                 }
             }
             return Array(seen.values).sorted()

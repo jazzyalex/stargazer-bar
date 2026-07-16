@@ -680,4 +680,38 @@ final class GitHubModelTests: XCTestCase {
         XCTAssertFalse(repos[0].isPrivate)
     }
 
+
+    func testCrossBranchCommitsFollowPagesRatherThanCappingAt100() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = GitHubClient(session: URLSession(configuration: configuration))
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-06-14T12:00:00Z")!
+        let since = formatter.date(from: "2026-06-13T12:00:00Z")!
+
+        func page(_ shas: [String]) -> Data {
+            Data(("[" + shas.map { #"{"sha":"\#($0)","commit":{"author":{"date":"2026-06-14T09:00:00Z"}}}"# }.joined(separator: ",") + "]").utf8)
+        }
+
+        MockURLProtocol.responses = [
+            "/repos/o/n/activity?time_period=day&per_page=100": MockURLProtocol.Response(
+                data: Data(#"[{"activity_type":"push","ref":"refs/heads/main","timestamp":"2026-06-14T09:00:00Z"}]"#.utf8)
+            ),
+            // A full page means "there may be more" — and there is.
+            "/repos/o/n/commits?sha=main&since=2026-06-13T12:00:00Z&per_page=100": MockURLProtocol.Response(
+                headers: ["Link": #"<https://api.github.com/repos/o/n/commits?sha=main&since=2026-06-13T12:00:00Z&per_page=100&page=2>; rel="next""#],
+                data: page((1...100).map { "sha\($0)" })
+            ),
+            "/repos/o/n/commits?sha=main&since=2026-06-13T12:00:00Z&per_page=100&page=2": MockURLProtocol.Response(
+                data: page((101...137).map { "sha\($0)" })
+            )
+        ]
+
+        let dates = await client.fetchCrossBranchCommitDates(owner: "o", name: "n", since: since, now: now)
+
+        // Without following the Link header this reports exactly 100: a number
+        // that looks plausible and is simply wrong.
+        XCTAssertEqual(dates?.count, 137)
+    }
+
 }
