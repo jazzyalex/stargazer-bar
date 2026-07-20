@@ -362,12 +362,6 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertTrue(StarSoundThreshold.ten.isMet(by: 10))
         XCTAssertFalse(StarSoundThreshold.hundred.isMet(by: 99))
         XCTAssertTrue(StarSoundThreshold.hundred.isMet(by: 100))
-
-        XCTAssertFalse(StarSoundThreshold.one.isMet(starsDelta: 0, downloadsDelta: 2, downloads: 9))
-        XCTAssertTrue(StarSoundThreshold.one.isMet(starsDelta: 0, downloadsDelta: 1, downloads: 10))
-        XCTAssertFalse(StarSoundThreshold.ten.isMet(starsDelta: 0, downloadsDelta: 30, downloads: 90))
-        XCTAssertTrue(StarSoundThreshold.ten.isMet(starsDelta: 0, downloadsDelta: 20, downloads: 100))
-        XCTAssertTrue(StarSoundThreshold.hundred.isMet(starsDelta: 100, downloadsDelta: 0, downloads: 0))
     }
 
     func testStarAskPromptTriggerQualifiesOnlyForMeaningfulGrowth() {
@@ -1525,11 +1519,7 @@ final class ServiceLogicTests: XCTestCase {
         try store.upsertTrackedRepo(TrackedRepo(owner: "o", name: "n", source: .manual, isPrivate: true))
         XCTAssertEqual(store.trackedRepos.first?.isPrivate, true)
     }
-    func testPrivateRepoZeroesTheStarCueButLeavesDownloadsAlone() {
-        // The suppression must key off the metric, not the code block: the sound
-        // and celebration paths both fire on download milestones too, so gating
-        // the whole block on isPrivate would silently kill download cues that
-        // private repos are entitled to.
+    func testPrivateRepoZeroesTheStarCue() {
         let starDelta = RepoDelta(starsDelta: 5, downloadsDelta: 0)
         let downloadDelta = RepoDelta(starsDelta: 0, downloadsDelta: 50)
 
@@ -1537,18 +1527,26 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(RepoPollingService.cueStarsDelta(starDelta, isPrivate: true), 0,
                        "a private repo's star delta must not drive any cue")
         XCTAssertEqual(RepoPollingService.cueStarsDelta(downloadDelta, isPrivate: true), 0)
+    }
 
-        // Downloads still reach the sound threshold on a private repo.
+    func testDownloadsNeverDriveSoundOrCelebrationCues() {
+        // Cues are star-only. A download-only refresh must stay silent and still,
+        // no matter how large the download delta is.
+        let downloadDelta = RepoDelta(starsDelta: 0, downloadsDelta: 5_000)
+
+        let cueStars = RepoPollingService.cueStarsDelta(downloadDelta, isPrivate: false)
+        XCTAssertEqual(cueStars, 0)
+        XCTAssertFalse(RepoPollingService.shouldPresentCues(cueStars: cueStars),
+                       "a download-only delta must not sound or pulse")
+        XCTAssertFalse(StarSoundThreshold.one.isMet(by: cueStars))
+
+        // A single star still does.
+        let starDelta = RepoDelta(starsDelta: 1, downloadsDelta: 0)
         XCTAssertTrue(
-            StarSoundThreshold.one.isMet(
-                starsDelta: RepoPollingService.cueStarsDelta(downloadDelta, isPrivate: true),
-                downloadsDelta: downloadDelta.downloadsDelta,
-                downloads: 50
-            ),
-            "download sounds must survive for private repos"
+            RepoPollingService.shouldPresentCues(
+                cueStars: RepoPollingService.cueStarsDelta(starDelta, isPrivate: false)
+            )
         )
-        // And the celebration pulse is a download event too.
-        XCTAssertTrue(downloadDelta.hasCelebrationIncrease)
     }
 
     func testPrivateRepoDoesNotRecordAStarNotification() throws {
@@ -1570,7 +1568,7 @@ final class ServiceLogicTests: XCTestCase {
         )
 
         // markNotified is the observable trace of a star notification firing.
-        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5)
         XCTAssertNil(repoStore.trackedRepos[0].lastNotifiedStars,
                      "a private repo must not fire — or record — a star notification")
     }
@@ -1593,7 +1591,7 @@ final class ServiceLogicTests: XCTestCase {
             animationCoordinator: AnimationCoordinator()
         )
 
-        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5)
         XCTAssertEqual(repoStore.trackedRepos[0].lastNotifiedStars, 5, "public behaviour must be unchanged")
     }
 
@@ -1688,7 +1686,7 @@ final class ServiceLogicTests: XCTestCase {
         // A delta that would trigger the prompt. If the guard is missing this
         // blocks on a modal and the suite hangs; with it, the status is never
         // written because the prompt never ran.
-        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5, downloads: 0)
+        service.handle(delta: RepoDelta(starsDelta: 5, downloadsDelta: 0), repoID: repoID, stars: 5)
         XCTAssertEqual(repoStore.trackedRepos[0].starAskPromptStatus, .notShown,
                        "no prompt may be presented during a test run")
     }

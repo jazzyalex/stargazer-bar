@@ -269,7 +269,7 @@ final class RepoPollingService {
                 commitActivity: resolvedCommitActivity
             )
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
-                handle(delta: delta, repoID: repo.id, stars: stars, downloads: downloads)
+                handle(delta: delta, repoID: repo.id, stars: stars)
             }
             if let latestRateLimitState, latestRateLimitState.isLimited {
                 repoStore.updateRateLimit(latestRateLimitState)
@@ -372,15 +372,22 @@ final class RepoPollingService {
     ///
     /// Zero for a private repo: its stars are never fetched, and a collaborator
     /// starring it is not something to celebrate in a menu bar built around
-    /// public reach. Suppression has to key off the *metric* like this — the
-    /// sound and celebration blocks below also fire on download milestones, so
-    /// gating those blocks on `isPrivate` would silently kill download cues that
-    /// private repos are entitled to.
+    /// public reach.
     nonisolated static func cueStarsDelta(_ delta: RepoDelta, isPrivate: Bool) -> Int {
         isPrivate ? 0 : delta.starsDelta
     }
 
-    func handle(delta: RepoDelta, repoID: UUID, stars: Int, downloads: Int) {
+    /// Whether a refresh earns a notification, sound, or menu bar pulse.
+    ///
+    /// Stars only. Release downloads move on their own schedule and would make
+    /// the menu bar chatter on a busy repo, so they update the counts silently
+    /// — the one exception being the star-ask prompt, which treats a download
+    /// surge as a good moment to ask for a star.
+    nonisolated static func shouldPresentCues(cueStars: Int) -> Bool {
+        cueStars > 0
+    }
+
+    func handle(delta: RepoDelta, repoID: UUID, stars: Int) {
         guard delta.hasCelebrationIncrease else { return }
         let settings = settingsStore.settings
         guard !settings.isMuted else { return }
@@ -389,24 +396,21 @@ final class RepoPollingService {
         guard repoStore.trackedRepos.first(where: { $0.id == repoID })?.isMuted != true else { return }
         let isPrivateRepo = repoStore.trackedRepos.first(where: { $0.id == repoID })?.isPrivate == true
         let cueStars = Self.cueStarsDelta(delta, isPrivate: isPrivateRepo)
-        if cueStars > 0,
-           settings.notifyOnStarIncrease,
-           repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {
-            notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
-            repoStore.markNotified(repoID: repoID, stars: stars, downloads: nil)
-        }
-        if settings.playSoundOnStarIncrease,
-           settings.celebrationMode != .off,
-           settings.starSoundThreshold.isMet(
-                starsDelta: cueStars,
-                downloadsDelta: delta.downloadsDelta,
-                downloads: downloads
-           ),
-           let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) {
-            soundService.play(repo.starSound)
-        }
-        if settings.celebrationMode != .off {
-            animationCoordinator.pulse(mode: settings.celebrationMode)
+        if Self.shouldPresentCues(cueStars: cueStars) {
+            if settings.notifyOnStarIncrease,
+               repoStore.trackedRepos.first(where: { $0.id == repoID })?.lastNotifiedStars != stars {
+                notificationService.notifyStarIncrease(delta: delta.starsDelta, stars: stars)
+                repoStore.markNotified(repoID: repoID, stars: stars, downloads: nil)
+            }
+            if settings.playSoundOnStarIncrease,
+               settings.celebrationMode != .off,
+               settings.starSoundThreshold.isMet(by: cueStars),
+               let repo = repoStore.trackedRepos.first(where: { $0.id == repoID }) {
+                soundService.play(repo.starSound)
+            }
+            if settings.celebrationMode != .off {
+                animationCoordinator.pulse(mode: settings.celebrationMode)
+            }
         }
         presentStarAskIfNeeded(delta: delta, repoID: repoID)
     }
