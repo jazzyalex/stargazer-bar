@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2026-07-20
+
+### Fixes
+
+- **The menu bar no longer celebrates downloads.** Milestone sounds and the menu bar animation now fire for stars only. A repo with active releases used to pulse on every single new download and chime its star sound at each download milestone, which made the celebration meaningless for the thing it was named after. The sound milestone options are now simply 1+, 10+, or 100+ stars.
+
 ## [0.7.0] - 2026-07-16
 
 ### Features
