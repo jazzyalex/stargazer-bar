@@ -5,6 +5,47 @@
         <link>https://github.com/jazzyalex/stargazer-bar</link>
         <description>Stargazer Bar release feed.</description>
         <item>
+            <title>0.7.1</title>
+            <pubDate>Mon, 20 Jul 2026 17:28:21 -0700</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<style>
+.rn { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 13px; line-height: 1.55; color: #1d1d1f; -webkit-font-smoothing: antialiased; padding: 2px; }
+.rn h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 2px; }
+.rn h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #86868b; margin: 18px 0 6px; }
+.rn h3.hl { color: #0071e3; }
+.rn ul { margin: 0; padding-left: 18px; }
+.rn li { margin: 5px 0; }
+.rn ul.highlights li { margin: 9px 0; }
+.rn strong { font-weight: 650; }
+.rn code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 5px; }
+.rn a { color: #0071e3; text-decoration: none; }
+.rn .more { color: #86868b; font-size: 12px; margin-top: 16px; }
+@media (prefers-color-scheme: dark) {
+  .rn { color: #f5f5f7; }
+  .rn h3 { color: #98989d; }
+  .rn h3.hl { color: #2997ff; }
+  .rn code { background: rgba(255,255,255,0.13); }
+  .rn a { color: #2997ff; }
+}
+</style>
+<div class="rn">
+<h2>What's New in 0.7.1</h2>
+<h3>Fixes</h3>
+<ul>
+<li><strong>The menu bar no longer celebrates downloads.</strong> Milestone sounds and the menu bar animation now fire for stars only. A repo with active releases used to pulse on every single new download and chime its star sound at each download milestone, which made the celebration meaningless for the thing it was named after. The sound milestone options are now simply 1+, 10+, or 100+ stars.</li>
+<li><strong>Your saved GitHub tokens can no longer be lost while being upgraded.</strong> When Stargazer Bar moved your tokens into their new single Keychain item, it removed the old entries even if writing the new one had failed — which could leave you with no stored token at all. The old entries are now removed only after the new item is confirmed written, and only for tokens that actually made it across.</li>
+<li><strong>Fewer Keychain password prompts.</strong> Startup and background refreshes now read your credentials through a path that cannot show a password dialog under any circumstance, and the token upgrade above no longer runs during launch — it waits for a deliberate action like Refresh or Reconnect. If you have seen a Keychain prompt on startup after an update, this release also records what it found at launch so the cause can be pinned down; please report it if it recurs.</li>
+</ul>
+<p class="more">If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
+<p class="more">Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.7.1">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.7.1</a></p>
+</div>
+]]></description>
+            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.7.1/Stargazer-Bar-0.7.1.zip" length="3724746" type="application/octet-stream" sparkle:edSignature="s472dohXD9YD6RYjfn11s8rnU23Ue6P0kurSKInRpylDZ/xhVwo0LFhTsiGICfHaeSNlbPNMykkMm27+at/ADA=="/>
+        </item>
+        <item>
             <title>0.7.0</title>
             <pubDate>Thu, 16 Jul 2026 14:40:10 -0700</pubDate>
             <sparkle:version>15</sparkle:version>
@@ -97,44 +138,6 @@
 </div>
 ]]></description>
             <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.6.0/Stargazer-Bar-0.6.0.zip" length="3665489" type="application/octet-stream" sparkle:edSignature="c2sFPljHfPbyW4dslDxKegR2P2OsNwujiWoyDZKJdu3b4Z1PgIXHgvjeup5eDDPsnyhdPLpa+PMVJkcR4NC0Dg=="/>
-        </item>
-        <item>
-            <title>0.5.2</title>
-            <pubDate>Mon, 13 Jul 2026 12:08:21 -0700</pubDate>
-            <sparkle:version>13</sparkle:version>
-            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<style>
-.rn { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 13px; line-height: 1.55; color: #1d1d1f; -webkit-font-smoothing: antialiased; padding: 2px; }
-.rn h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 2px; }
-.rn h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #86868b; margin: 18px 0 6px; }
-.rn h3.hl { color: #0071e3; }
-.rn ul { margin: 0; padding-left: 18px; }
-.rn li { margin: 5px 0; }
-.rn ul.highlights li { margin: 9px 0; }
-.rn strong { font-weight: 650; }
-.rn code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 5px; }
-.rn a { color: #0071e3; text-decoration: none; }
-.rn .more { color: #86868b; font-size: 12px; margin-top: 16px; }
-@media (prefers-color-scheme: dark) {
-  .rn { color: #f5f5f7; }
-  .rn h3 { color: #98989d; }
-  .rn h3.hl { color: #2997ff; }
-  .rn code { background: rgba(255,255,255,0.13); }
-  .rn a { color: #2997ff; }
-}
-</style>
-<div class="rn">
-<h2>What's New in 0.5.2</h2>
-<h3>Features</h3>
-<ul>
-<li><strong>Spike Radar</strong> in the per-repository trend chart: days of unusually fast star growth are now marked with a pip on the star line, so bursts stand out at a glance instead of hiding in a smooth cumulative curve. A new <strong>Highlights</strong> section under the chart calls out the biggest single-day star gain and the hottest 7-day stretch. Everything is computed from history already on your Mac — no extra network calls, no new permissions.</li>
-</ul>
-<p class="more">If Stargazer Bar helps, please <a href="https://github.com/jazzyalex/stargazer-bar">star it on GitHub</a> so other maintainers can find it.</p>
-<p class="more">Full release notes: <a href="https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2">https://github.com/jazzyalex/stargazer-bar/releases/tag/v0.5.2</a></p>
-</div>]]></description>
-            <enclosure url="https://github.com/jazzyalex/stargazer-bar/releases/download/v0.5.2/Stargazer-Bar-0.5.2.zip" length="3537857" type="application/octet-stream" sparkle:edSignature="sSKerqwG4sAMi8lvNmlnDOCxyz4F7rX5lIvkxmnZjV+e+GiDE9+4mRplnqc28rVGyJsXUmBDfRM+dlap1AnJBw=="/>
         </item>
     </channel>
 </rss>
