@@ -111,6 +111,114 @@ struct KeychainTokenStore {
         /// release it — the item's ACL doesn't trust this binary (post-update
         /// signature change, or a token created by a differently-signed build).
         case accessDenied
+
+        /// Safe for logs: a constant per case — never the token itself.
+        var diagnosticLabel: String {
+            switch self {
+            case .found: return "found"
+            case .absent: return "absent"
+            case .accessDenied: return "accessDenied"
+            }
+        }
+    }
+
+    /// A read-only view over one keychain item. It holds only the
+    /// `copyMatching` seam — no update/add/delete closures exist on this type —
+    /// so any code path built on it is *structurally* incapable of writing,
+    /// deleting, or showing keychain UI. `GitHubCredentialStore.loadSilently()`
+    /// is composed exclusively of these, which is what makes its "never shows
+    /// keychain UI" contract hold by construction rather than by convention.
+    struct SilentReader {
+        typealias SetInteractionAllowed = (Bool) -> OSStatus
+
+        let service: String
+        var account: String = "github-oauth"
+        /// Seam for SecKeychainSetUserInteractionAllowed, so the refuse-to-read
+        /// branch below is testable.
+        var setUserInteractionAllowed: SetInteractionAllowed = { allowed in
+            SecKeychainSetUserInteractionAllowed(allowed)
+        }
+        var copyMatching: CopyMatching = SecItemCopyMatching
+
+        /// A read that never shows UI, and reports *why* there was no token.
+        ///
+        /// The LAContext/kSecUseAuthenticationUISkip flags below do NOT silence
+        /// the file-based keychain's ACL password dialog — SecItemCopyMatching
+        /// still blocks on it (verified on macOS 15). The only switch that
+        /// actually works for the login keychain is the process-global one, so
+        /// the read is bracketed by SecKeychainSetUserInteractionAllowed under
+        /// a lock — and refuses to read at all if that switch cannot be
+        /// confirmed off.
+        func outcome() throws -> SilentLoadOutcome {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne
+            ]
+            let context = LAContext()
+            context.interactionNotAllowed = true
+            query[kSecUseAuthenticationContext as String] = context
+            query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUISkip
+
+            // If an interactive read may be mid-dialog, don't queue behind a
+            // prompt the user could stare at for minutes — serve the last token
+            // this store successfully read. Contention with other *silent*
+            // reads is not an exit condition: those hold the lock for
+            // microseconds, so blocking is correct and never turns a stored
+            // token into a false nil.
+            let key = KeychainTokenStore.lastKnownKey(service: service, account: account)
+            KeychainTokenStore.stateLock.lock()
+            let dialogMayBeUp = KeychainTokenStore.interactiveReadsInFlight > 0
+            let lastKnown = KeychainTokenStore.lastKnownTokens[key]
+            KeychainTokenStore.stateLock.unlock()
+            if dialogMayBeUp {
+                if let lastKnown { return .found(lastKnown) }
+                return .accessDenied
+            }
+
+            KeychainTokenStore.interactionLock.lock()
+            defer { KeychainTokenStore.interactionLock.unlock() }
+
+            // If interaction cannot be confirmed disabled, the read is not
+            // guaranteed silent — refuse to attempt it rather than risk the
+            // password dialog. (Previously this status was ignored.)
+            guard setUserInteractionAllowed(false) == errSecSuccess else {
+                if let lastKnown { return .found(lastKnown) }
+                return .accessDenied
+            }
+            defer { _ = setUserInteractionAllowed(true) }
+
+            var result: AnyObject?
+            let status = copyMatching(query as CFDictionary, &result)
+            switch status {
+            case errSecItemNotFound:
+                KeychainTokenStore.forgetToken(key: key)
+                return .absent
+            case errSecInteractionNotAllowed, errSecAuthFailed:
+                return .accessDenied
+            case errSecSuccess:
+                guard let data = result as? Data, let token = String(data: data, encoding: .utf8) else {
+                    throw GitHubError.transport("Keychain read failed: \(status)")
+                }
+                KeychainTokenStore.rememberToken(token, key: key)
+                return .found(token)
+            default:
+                throw GitHubError.transport("Keychain read failed: \(status)")
+            }
+        }
+
+        /// Token-free outcome label for diagnostics; an unexpected read error
+        /// maps to "error" rather than surfacing status codes to callers.
+        func diagnosticLabel() -> String {
+            (try? outcome())?.diagnosticLabel ?? "error"
+        }
+    }
+
+    /// This store's read-only view — see `SilentReader`.
+    var silentReader: SilentReader {
+        SilentReader(service: service, account: account, copyMatching: copyMatching)
     }
 
     func loadToken(allowUserInteraction: Bool = true) throws -> String? {
@@ -157,73 +265,38 @@ struct KeychainTokenStore {
     }
 
     /// A read that never shows UI, and reports *why* there was no token.
-    ///
-    /// The LAContext/kSecUseAuthenticationUISkip flags below do NOT silence the
-    /// file-based keychain's ACL password dialog — SecItemCopyMatching still
-    /// blocks on it (verified on macOS 15). The only switch that actually works
-    /// for the login keychain is the process-global one, so the read is
-    /// bracketed by SecKeychainSetUserInteractionAllowed under a lock.
+    /// The implementation lives on `SilentReader` so the silent path can be
+    /// composed of read-only values; this is a convenience delegation.
     func silentLoadOutcome() throws -> SilentLoadOutcome {
-        var query = baseReadQuery()
-        let context = LAContext()
-        context.interactionNotAllowed = true
-        query[kSecUseAuthenticationContext as String] = context
-        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUISkip
-
-        // If an interactive read may be mid-dialog, don't queue behind a
-        // prompt the user could stare at for minutes — serve the last token
-        // this store successfully read. Contention with other *silent* reads
-        // is not an exit condition: those hold the lock for microseconds, so
-        // blocking is correct and never turns a stored token into a false nil.
-        Self.stateLock.lock()
-        let dialogMayBeUp = Self.interactiveReadsInFlight > 0
-        let lastKnown = Self.lastKnownTokens[lastKnownKey]
-        Self.stateLock.unlock()
-        if dialogMayBeUp {
-            if let lastKnown { return .found(lastKnown) }
-            return .accessDenied
-        }
-
-        Self.interactionLock.lock()
-        SecKeychainSetUserInteractionAllowed(false)
-        defer {
-            SecKeychainSetUserInteractionAllowed(true)
-            Self.interactionLock.unlock()
-        }
-
-        var result: AnyObject?
-        let status = copyMatching(query as CFDictionary, &result)
-        switch status {
-        case errSecItemNotFound:
-            forgetLastKnownToken()
-            return .absent
-        case errSecInteractionNotAllowed, errSecAuthFailed:
-            return .accessDenied
-        case errSecSuccess:
-            guard let data = result as? Data, let token = String(data: data, encoding: .utf8) else {
-                throw GitHubError.transport("Keychain read failed: \(status)")
-            }
-            rememberLastKnownToken(token)
-            return .found(token)
-        default:
-            throw GitHubError.transport("Keychain read failed: \(status)")
-        }
+        try silentReader.outcome()
     }
 
-    private var lastKnownKey: String {
+    fileprivate static func lastKnownKey(service: String, account: String) -> String {
         service + "\u{1F}" + account
     }
 
+    fileprivate static func rememberToken(_ token: String, key: String) {
+        stateLock.lock()
+        lastKnownTokens[key] = token
+        stateLock.unlock()
+    }
+
+    fileprivate static func forgetToken(key: String) {
+        stateLock.lock()
+        lastKnownTokens[key] = nil
+        stateLock.unlock()
+    }
+
+    private var lastKnownKey: String {
+        Self.lastKnownKey(service: service, account: account)
+    }
+
     private func rememberLastKnownToken(_ token: String) {
-        Self.stateLock.lock()
-        Self.lastKnownTokens[lastKnownKey] = token
-        Self.stateLock.unlock()
+        Self.rememberToken(token, key: lastKnownKey)
     }
 
     private func forgetLastKnownToken() {
-        Self.stateLock.lock()
-        Self.lastKnownTokens[lastKnownKey] = nil
-        Self.stateLock.unlock()
+        Self.forgetToken(key: lastKnownKey)
     }
 
     /// For user-initiated actions only: reads silently when possible, and when

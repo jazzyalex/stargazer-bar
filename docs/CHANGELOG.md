@@ -6,6 +6,10 @@
 
 - **The menu bar no longer celebrates downloads.** Milestone sounds and the menu bar animation now fire for stars only. A repo with active releases used to pulse on every single new download and chime its star sound at each download milestone, which made the celebration meaningless for the thing it was named after. The sound milestone options are now simply 1+, 10+, or 100+ stars.
 
+- **Your saved GitHub tokens can no longer be lost while being upgraded.** When Stargazer Bar moved your tokens into their new single Keychain item, it removed the old entries even if writing the new one had failed — which could leave you with no stored token at all. The old entries are now removed only after the new item is confirmed written, and only for tokens that actually made it across.
+
+- **Fewer Keychain password prompts.** Startup and background refreshes now read your credentials through a path that cannot show a password dialog under any circumstance, and the token upgrade above no longer runs during launch — it waits for a deliberate action like Refresh or Reconnect. If you have seen a Keychain prompt on startup after an update, this release also records what it found at launch so the cause can be pinned down; please report it if it recurs.
+
 ## [0.7.0] - 2026-07-16
 
 ### Features

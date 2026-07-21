@@ -1228,11 +1228,29 @@ final class ServiceLogicTests: XCTestCase {
     /// account), modelling enough SecItem semantics for the credential store.
     private final class InMemoryKeychain {
         private var storage: [String: Data] = [:]
+        /// Every mutation attempted through the seams, e.g. "update:<service>",
+        /// "add:<service>", "delete:<service>" — so tests can assert the silent
+        /// path never even *tries* to write.
+        private(set) var mutationLog: [String] = []
+        /// Services whose reads deny with errSecAuthFailed — the stale-ACL
+        /// post-update state, exactly what the silent bracket maps to
+        /// `.accessDenied`.
+        var deniedReadServices: Set<String> = []
+        /// Services whose update/add fail, simulating an unwritable item.
+        var failingWriteServices: Set<String> = []
+
+        /// Call after seeding fixtures so assertions see only the mutations
+        /// made by the code under test.
+        func resetMutationLog() { mutationLog = [] }
 
         private func key(_ query: [String: Any]) -> String {
             let service = query[kSecAttrService as String] as? String ?? ""
             let account = query[kSecAttrAccount as String] as? String ?? ""
             return service + "\u{1F}" + account
+        }
+
+        private func service(_ query: [String: Any]) -> String {
+            query[kSecAttrService as String] as? String ?? ""
         }
 
         func store(service: String, account: String) -> KeychainTokenStore {
@@ -1241,7 +1259,12 @@ final class ServiceLogicTests: XCTestCase {
                 account: account,
                 updateItem: { [weak self] query, attributes in
                     guard let self else { return errSecInteractionNotAllowed }
-                    let key = self.key(query as! [String: Any])
+                    let dict = query as! [String: Any]
+                    self.mutationLog.append("update:\(self.service(dict))")
+                    if self.failingWriteServices.contains(self.service(dict)) {
+                        return errSecWrPerm
+                    }
+                    let key = self.key(dict)
                     guard self.storage[key] != nil else { return errSecItemNotFound }
                     if let data = (attributes as! [String: Any])[kSecValueData as String] as? Data {
                         self.storage[key] = data
@@ -1251,6 +1274,10 @@ final class ServiceLogicTests: XCTestCase {
                 addItem: { [weak self] attributes in
                     guard let self else { return errSecInteractionNotAllowed }
                     let dict = attributes as! [String: Any]
+                    self.mutationLog.append("add:\(self.service(dict))")
+                    if self.failingWriteServices.contains(self.service(dict)) {
+                        return errSecWrPerm
+                    }
                     let key = self.key(dict)
                     if self.storage[key] != nil { return errSecDuplicateItem }
                     self.storage[key] = (dict[kSecValueData as String] as? Data) ?? Data()
@@ -1258,12 +1285,18 @@ final class ServiceLogicTests: XCTestCase {
                 },
                 deleteItem: { [weak self] query in
                     guard let self else { return errSecInteractionNotAllowed }
-                    let key = self.key(query as! [String: Any])
+                    let dict = query as! [String: Any]
+                    self.mutationLog.append("delete:\(self.service(dict))")
+                    let key = self.key(dict)
                     return self.storage.removeValue(forKey: key) == nil ? errSecItemNotFound : errSecSuccess
                 },
                 copyMatching: { [weak self] query, result in
                     guard let self else { return errSecInteractionNotAllowed }
-                    let key = self.key(query as! [String: Any])
+                    let dict = query as! [String: Any]
+                    if self.deniedReadServices.contains(self.service(dict)) {
+                        return errSecAuthFailed
+                    }
+                    let key = self.key(dict)
                     guard let data = self.storage[key] else { return errSecItemNotFound }
                     result?.pointee = data as AnyObject
                     return errSecSuccess
@@ -1308,18 +1341,157 @@ final class ServiceLogicTests: XCTestCase {
         XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "keep-oauth", pat: "new-pat"))
     }
 
-    func testCredentialStoreMigratesLegacyItemsThenDeletesThem() throws {
+    func testInteractiveLoadMigratesLegacyItemsThenDeletesThem() throws {
         let keychain = InMemoryKeychain()
         let store = makeCredentialStore(keychain)
         // Seed the two legacy items; leave the combined item absent.
         try store.legacyOAuth.saveToken("legacy-oauth")
         try store.legacyPAT.saveToken("legacy-pat")
 
-        // First silent load migrates.
-        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat"))
+        // The first *interactive* load migrates — migration writes are a
+        // user-action-path concern, never a silent-path one.
+        XCTAssertEqual(
+            store.loadRequestingAccessIfNeeded(),
+            GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat")
+        )
         // Combined item now holds both, legacy items are gone.
         XCTAssertEqual(store.combined.hasToken(), true)
         XCTAssertNil(try store.legacyOAuth.loadToken(allowUserInteraction: false))
+        XCTAssertNil(try store.legacyPAT.loadToken(allowUserInteraction: false))
+        // Subsequent silent loads are served by the combined item.
+        XCTAssertEqual(store.loadSilently(), GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat"))
+    }
+
+    func testSilentLoadReturnsLegacyTokensWithoutAnyWritesWhenCombinedAccessDenied() throws {
+        // The reported-bug shape: a combined item whose ACL no longer trusts
+        // the binary (post-update) plus readable legacy items. The old code
+        // reacted by *writing* (SecItemUpdate on the denied item — the one
+        // call that can raise the password dialog at launch) and deleting the
+        // legacy items. The silent path must instead return what it could
+        // read and touch nothing.
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.combined.saveToken(#"{"oauth":"stale"}"#)
+        try store.legacyOAuth.saveToken("legacy-oauth")
+        try store.legacyPAT.saveToken("legacy-pat")
+        keychain.deniedReadServices = [store.combined.service]
+        keychain.resetMutationLog()
+
+        XCTAssertEqual(
+            store.loadSilently(),
+            GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat")
+        )
+        XCTAssertEqual(keychain.mutationLog, [])
+    }
+
+    func testSilentLoadDoesNotMigrateLegacyItems() throws {
+        // Combined absent + legacy present: the silent path returns the
+        // tokens but defers the migration write to the next user action.
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.legacyOAuth.saveToken("legacy-oauth")
+        try store.legacyPAT.saveToken("legacy-pat")
+        keychain.resetMutationLog()
+
+        XCTAssertEqual(
+            store.loadSilently(),
+            GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat")
+        )
+        XCTAssertEqual(keychain.mutationLog, [])
+        XCTAssertEqual(try store.legacyOAuth.loadToken(allowUserInteraction: false), "legacy-oauth")
+        XCTAssertEqual(try store.legacyPAT.loadToken(allowUserInteraction: false), "legacy-pat")
+        XCTAssertFalse(store.combined.hasToken())
+    }
+
+    func testSilentLoadIssuesNoWritesWhenNothingStored() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+
+        XCTAssertNil(store.loadSilently())
+        XCTAssertEqual(keychain.mutationLog, [])
+    }
+
+    func testInteractiveMigrationKeepsLegacyItemsWhenCombinedWriteFails() throws {
+        // SAFETY: the legacy items are the only durable copy of the tokens
+        // until the combined write is confirmed. A failed write must leave
+        // them untouched so a later attempt can still migrate.
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.legacyOAuth.saveToken("legacy-oauth")
+        try store.legacyPAT.saveToken("legacy-pat")
+        keychain.failingWriteServices = [store.combined.service]
+
+        XCTAssertEqual(
+            store.loadRequestingAccessIfNeeded(),
+            GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat")
+        )
+        XCTAssertEqual(try store.legacyOAuth.loadToken(allowUserInteraction: false), "legacy-oauth")
+        XCTAssertEqual(try store.legacyPAT.loadToken(allowUserInteraction: false), "legacy-pat")
+        XCTAssertFalse(store.combined.hasToken())
+
+        // Once writes recover, a later interactive load completes migration.
+        keychain.failingWriteServices = []
+        XCTAssertEqual(
+            store.loadRequestingAccessIfNeeded(),
+            GitHubCredentials(oauth: "legacy-oauth", pat: "legacy-pat")
+        )
+        XCTAssertTrue(store.combined.hasToken())
+        XCTAssertNil(try store.legacyOAuth.loadToken(allowUserInteraction: false))
+        XCTAssertNil(try store.legacyPAT.loadToken(allowUserInteraction: false))
+    }
+
+    func testSilentReaderRefusesToReadWhenInteractionCannotBeDisabled() throws {
+        // If the process-global interaction switch cannot be confirmed off,
+        // a SecItemCopyMatching could block on the password dialog — so the
+        // reader must not attempt it at all.
+        var copyMatchingCalled = false
+        let reader = KeychainTokenStore.SilentReader(
+            service: "silent-reader-guard",
+            account: "github",
+            setUserInteractionAllowed: { _ in errSecInteractionNotAllowed },
+            copyMatching: { _, _ in
+                copyMatchingCalled = true
+                return errSecSuccess
+            }
+        )
+
+        XCTAssertEqual(try reader.outcome(), .accessDenied)
+        XCTAssertFalse(copyMatchingCalled)
+    }
+
+    func testSilentDiagnosticsReportPerStoreOutcomeWithoutTokenMaterial() throws {
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.legacyOAuth.saveToken("secret-oauth-token")
+        keychain.deniedReadServices = [store.combined.service]
+        keychain.resetMutationLog()
+
+        let diagnostics = store.silentDiagnostics()
+        XCTAssertEqual(diagnostics.combined, "accessDenied")
+        XCTAssertEqual(diagnostics.legacyOAuth, "found")
+        XCTAssertEqual(diagnostics.legacyPAT, "absent")
+        XCTAssertFalse(diagnostics.description.contains("secret-oauth-token"))
+        // Gathering diagnostics is itself a silent-path activity: no writes.
+        XCTAssertEqual(keychain.mutationLog, [])
+    }
+
+    func testMigrationDeletesOnlyLegacySlotsItActuallyCarriedOver() throws {
+        // One legacy item readable, the other access-denied: the denied one
+        // was never migrated, so deleting it would destroy its token.
+        let keychain = InMemoryKeychain()
+        let store = makeCredentialStore(keychain)
+        try store.legacyOAuth.saveToken("legacy-oauth")
+        try store.legacyPAT.saveToken("legacy-pat")
+        keychain.deniedReadServices = [store.legacyOAuth.service]
+
+        XCTAssertEqual(
+            store.loadRequestingAccessIfNeeded(),
+            GitHubCredentials(oauth: nil, pat: "legacy-pat")
+        )
+
+        keychain.deniedReadServices = []
+        // The unreadable OAuth item survives; the migrated PAT item is retired.
+        XCTAssertEqual(try store.legacyOAuth.loadToken(allowUserInteraction: false), "legacy-oauth")
         XCTAssertNil(try store.legacyPAT.loadToken(allowUserInteraction: false))
     }
 

@@ -64,6 +64,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         pollingService.start()
 
+        // Evidence for the "keychain prompt on launch after an update" report
+        // (docs/BACKLOG.md): record what the silent credential reads see at
+        // launch. Token-free labels only; silent reads cannot prompt.
+        DispatchQueue.global(qos: .utility).async {
+            GitHubCredentialStore.logLaunchSilentDiagnostics()
+        }
+
 #if DEBUG
         if ProcessInfo.processInfo.environment["GH_MENU_STARS_SHOW_GROWTH_PROMPT"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
