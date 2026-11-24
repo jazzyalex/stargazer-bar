@@ -175,6 +175,12 @@ struct StatusMenuBuilder {
         submenu.addItem(NSMenuItem.separator())
         addMaintainerRadarItems(to: submenu, for: repo, target: target)
         submenu.addItem(NSMenuItem.separator())
+        if pollingService.stargazerTracking != nil {
+            let stargazers = actionItem("Stargazers…", #selector(StatusItemController.openStargazers(_:)), target,
+                                        representedObject: repo.id)
+            stargazers.image = NSImage(systemSymbolName: "person.2", accessibilityDescription: nil)
+            submenu.addItem(stargazers)
+        }
         // The share factory refuses private repos, so building this for one
         // yields a submenu whose every action is dead. Omit it instead.
         if !repo.isPrivate {

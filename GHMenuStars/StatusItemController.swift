@@ -15,6 +15,7 @@ final class StatusItemController: NSObject {
     private var lengthUpdateScheduled = false
     private var copyFeedbackWindow: NSWindow?
     private var copyFeedbackDismissal: DispatchWorkItem?
+    private let stargazersWindow = StargazersWindow()
 
     var isAvailable: Bool { statusItem?.button != nil }
 
@@ -159,6 +160,12 @@ final class StatusItemController: NSObject {
             repoAccess: pollingService.repoAccess,
             updaterController: updaterController
         )
+    }
+
+    @objc func openStargazers(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID else { return }
+        stargazersWindow.show(repoID: id, repoStore: repoStore, polling: pollingService,
+                              openSettings: { [weak self] in self?.openSettings() })
     }
 
     @objc func checkForUpdates() {

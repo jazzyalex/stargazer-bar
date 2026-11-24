@@ -44,6 +44,8 @@ final class GitHubRepoAccess {
     /// re-reading the Keychain on every poll is pointless traffic — and on an
     /// unsigned/ad-hoc build each read can re-prompt. Cleared by resetTokenState().
     private var cachedPAT: String??
+    private(set) var credentialGeneration: UInt64 = 0
+    var credentialsDidChange: (() -> Void)?
 
     /// How long a double-404 verdict stands before the ladder retries. Long
     /// enough that a dead repo isn't costing two calls a poll, short enough that
@@ -77,6 +79,12 @@ final class GitHubRepoAccess {
         patIsDead = false
         doubleFailedAt.removeAll()
         cachedPAT = nil
+        credentialGeneration &+= 1
+        credentialsDidChange?()
+    }
+
+    func credentialSource(_ token: String) -> String {
+        cachedPAT.flatMap { $0 } == token ? "pat" : "oauth"
     }
 
     /// Reads the PAT from the Keychain — and *only* when a private repo is

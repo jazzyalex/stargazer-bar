@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0] - 2026-11-23
+
+### Features
+
+- **Browse the people who starred your repository.** Open **Stargazers** from a repository’s menu to see the accounts GitHub returns, their public names and bios, and available links such as a website, LinkedIn, or X. Load star totals for the visible accounts to see how many stars their public repositories have received.
+- **See which stargazers disappear between checks.** The first verified list establishes a local baseline. The **Disappeared** tab shows the last-known username and the interval when an account disappeared from the list. A username change keeps the same account ID. A disappearance can also reflect account deletion, suspension, or a change in visibility.
+- **Agent Sessions checks all three GitHub sources.** REST and GraphQL must return the same account IDs, and the complete star-history total must agree with the list size. The window shows GitHub’s reported star count when it differs from the account count.
+
 ## [0.7.1] - 2026-07-20
 
 ### Fixes

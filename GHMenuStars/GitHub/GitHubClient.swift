@@ -40,16 +40,33 @@ enum GitHubError: Error, Equatable {
 }
 
 struct GitHubRepoResponse: Decodable, Equatable {
+    struct Owner: Decodable, Equatable { let id: Int64 }
+    struct Permissions: Decodable, Equatable {
+        let admin: Bool?
+        let maintain: Bool?
+        let push: Bool?
+        let triage: Bool?
+
+        var verifiesAccess: Bool { [admin, maintain, push, triage].contains(true) }
+    }
+
     var fullName: String
     var stargazersCount: Int
     var forksCount: Int
     var `private`: Bool
+    var id: Int64? = nil
+    var owner: Owner? = nil
+    var permissions: Permissions? = nil
+    var visibility: String? = nil
+    var createdAt: Date? = nil
 
     enum CodingKeys: String, CodingKey {
         case fullName = "full_name"
         case stargazersCount = "stargazers_count"
         case forksCount = "forks_count"
         case `private`
+        case id, owner, permissions, visibility
+        case createdAt = "created_at"
     }
 }
 
@@ -111,6 +128,7 @@ struct GitHubFork: Decodable, Equatable {
 
 struct GitHubAuthenticatedUser: Decodable, Equatable {
     var login: String
+    var id: Int64? = nil
 }
 
 private struct GitHubRepoActivity: Decodable {
@@ -220,6 +238,7 @@ struct GitHubHTTPResult<T> {
     var rateLimitState: RateLimitState?
     var nextPagePath: String?
     var lastPagePath: String?
+    var linkHeader: String? = nil
 }
 
 final class GitHubClient {
@@ -248,6 +267,9 @@ final class GitHubClient {
     private let tokenProvider: () -> String?
     private let optionalTokenProvider: () -> String?
     private let decoder: JSONDecoder
+    private let throttleLock = NSLock()
+    private var throttle: RateLimitState?
+    private var secondaryDelay: TimeInterval = 30
 
     init(
         session: URLSession = .shared,
@@ -390,13 +412,17 @@ final class GitHubClient {
     /// reliably for a fine-grained PAT, so promising a repo count in the UI
     /// would be promising something we can't know.
     func fetchAuthenticatedLogin(token: String) async throws -> String {
+        try await fetchAuthenticatedUser(token: token).login
+    }
+
+    func fetchAuthenticatedUser(token: String) async throws -> GitHubAuthenticatedUser {
         let result: GitHubHTTPResult<GitHubAuthenticatedUser> = try await request(
             path: "/user",
             etag: nil,
             requiresAuth: false,
             optionalAuthToken: token
         )
-        return result.value.login
+        return result.value
     }
 
     /// Lists the private repos a fine-grained PAT can reach.
@@ -757,17 +783,29 @@ final class GitHubClient {
         return ["action_required", "failure", "startup_failure", "timed_out"].contains(conclusion)
     }
 
-    private func request<T: Decodable>(
+    func request<T: Decodable>(
         path: String,
         etag: String?,
         requiresAuth: Bool,
         accept: String = "application/vnd.github+json",
-        optionalAuthToken: String? = nil
+        optionalAuthToken: String? = nil,
+        strict: Bool = false,
+        jsonBody: Data? = nil
     ) async throws -> GitHubHTTPResult<T> {
+        try Task.checkCancellation()
+        if let throttle = activeThrottle() { throw GitHubError.rateLimited(throttle) }
         guard let url = URL(string: "https://api.github.com\(path)") else {
             throw GitHubError.transport("Invalid URL")
         }
         var request = URLRequest(url: url)
+        if let jsonBody {
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = jsonBody
+        }
+        if strict {
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+        }
         request.setValue(accept, forHTTPHeaderField: "Accept")
         request.setValue("GHMenuStars/0.1", forHTTPHeaderField: "User-Agent")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
@@ -775,7 +813,7 @@ final class GitHubClient {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
         if requiresAuth {
-            guard let token = tokenProvider() else {
+            guard let token = optionalAuthToken ?? tokenProvider() else {
                 throw GitHubError.missingToken
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -785,7 +823,7 @@ final class GitHubClient {
 
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: strict ? RejectGitHubRedirects() : nil)
         } catch {
             throw GitHubError.transport(error.localizedDescription)
         }
@@ -794,6 +832,13 @@ final class GitHubClient {
             throw GitHubError.transport("Missing HTTP response")
         }
         let rate = RateLimitState.from(headers: http.allHeaderFields)
+        let limited = observeRateLimit(http, data: data, rate: rate)
+        if let limited, !(200..<300).contains(http.statusCode) {
+            throw GitHubError.rateLimited(limited)
+        }
+        if strict, (200..<300).contains(http.statusCode), http.statusCode != 200 {
+            throw GitHubError.server(http.statusCode)
+        }
         switch http.statusCode {
         case 200..<300:
             do {
@@ -801,9 +846,10 @@ final class GitHubClient {
                 return GitHubHTTPResult(
                     value: value,
                     etag: http.value(forHTTPHeaderField: "ETag"),
-                    rateLimitState: rate,
+                    rateLimitState: limited ?? rate,
                     nextPagePath: Self.pagePath(from: http, relation: "next"),
-                    lastPagePath: Self.pagePath(from: http, relation: "last")
+                    lastPagePath: Self.pagePath(from: http, relation: "last"),
+                    linkHeader: http.value(forHTTPHeaderField: "Link")
                 )
             } catch {
                 throw GitHubError.decoding
@@ -825,6 +871,38 @@ final class GitHubClient {
         default:
             throw GitHubError.server(http.statusCode)
         }
+    }
+
+    func activeThrottle() -> RateLimitState? {
+        throttleLock.lock()
+        defer { throttleLock.unlock() }
+        return throttle.flatMap { $0.isLimited ? $0 : nil }
+    }
+
+    private func observeRateLimit(_ response: HTTPURLResponse, data: Data, rate: RateLimitState?) -> RateLimitState? {
+        let status = response.statusCode
+        let retryAfter = response.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+        let secondary = status == 429 || (status == 403 && (retryAfter != nil ||
+            String(decoding: data, as: UTF8.self).localizedCaseInsensitiveContains("secondary rate limit")))
+        guard rate?.isLimited == true || secondary else { return nil }
+        throttleLock.lock()
+        defer { throttleLock.unlock() }
+        let delay: TimeInterval
+        if secondary {
+            secondaryDelay = min(secondaryDelay * 2, 3600)
+            delay = retryAfter.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil } ?? secondaryDelay
+        } else {
+            delay = 60
+        }
+        let now = Date()
+        let reset = secondary ? max(now.addingTimeInterval(delay), rate?.remaining == 0 ? rate?.resetAt ?? now : now)
+            : rate?.resetAt ?? now.addingTimeInterval(delay)
+        if !secondary, let resource = response.value(forHTTPHeaderField: "X-RateLimit-Resource"), resource != "core" {
+            return RateLimitState(limit: rate?.limit, remaining: 0, resetAt: reset)
+        }
+        let state = RateLimitState(limit: rate?.limit, remaining: 0, resetAt: max(reset, throttle?.resetAt ?? now))
+        throttle = state
+        return state
     }
 
     private static func pagePath(from response: HTTPURLResponse, relation: String) -> String? {
@@ -865,7 +943,7 @@ final class GitHubClient {
         return components.queryItems?.first(where: { $0.name == "page" })?.value.flatMap(Int.init)
     }
 
-    private static func linkHeaderEntries(from header: String) -> [String] {
+    static func linkHeaderEntries(from header: String) -> [String] {
         var entries: [String] = []
         var current = ""
         var isInsideURL = false
@@ -896,14 +974,21 @@ final class GitHubClient {
         return entries
     }
 
-    private static func path(_ path: String, queryItems: [URLQueryItem]) -> String {
+    static func path(_ path: String, queryItems: [URLQueryItem]) -> String {
         var components = URLComponents()
         components.path = path
-        components.queryItems = queryItems
+        if !queryItems.isEmpty { components.queryItems = queryItems }
         return components.string ?? path
     }
 
     private static func iso8601String(from date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
+    }
+}
+
+private final class RejectGitHubRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

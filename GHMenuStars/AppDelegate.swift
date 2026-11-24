@@ -23,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ambientProvider: { GitHubCredentialStore.loadOAuthTokenSilently() },
         hasStoredPAT: { [settingsStore] in settingsStore.settings.hasPrivateRepoToken }
     )
+    private lazy var stargazerTracking = StargazerTrackingService(
+        store: .standard, client: gitHubClient, repoStore: repoStore, access: repoAccess
+    )
     private lazy var pollingService = RepoPollingService(
         repoStore: repoStore,
         settingsStore: settingsStore,
@@ -30,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         repoAccess: repoAccess,
         notificationService: NotificationService(),
         soundService: SoundService(),
-        animationCoordinator: animationCoordinator
+        animationCoordinator: animationCoordinator,
+        stargazerTracking: stargazerTracking
     )
     private let animationCoordinator = AnimationCoordinator()
     private var statusItemController: StatusItemController?

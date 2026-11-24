@@ -12,6 +12,7 @@ final class TrackedRepoStore: ObservableObject {
     @Published private(set) var trackedRepos: [TrackedRepo]
     @Published private(set) var lastDelta: RepoDelta?
     @Published private(set) var rateLimitState: RateLimitState?
+    var onUntrack: ((UUID) -> Void)?
 
     private let defaults: UserDefaults
     private let reposKey = "GHMenuStars.TrackedRepos.v1"
@@ -33,10 +34,12 @@ final class TrackedRepoStore: ObservableObject {
     }
 
     func setTrackedRepo(_ repo: TrackedRepo) {
+        let removed = trackedRepos.filter { $0.id != repo.id }
         trackedRepos = [repo]
         lastDelta = nil
         rateLimitState = nil
         saveAll()
+        removed.forEach { onUntrack?($0.id) }
     }
 
     func upsertTrackedRepo(_ repo: TrackedRepo) throws {
@@ -86,6 +89,7 @@ final class TrackedRepoStore: ObservableObject {
     func removeTrackedRepo(id: UUID) {
         trackedRepos.removeAll { $0.id == id }
         saveAll()
+        onUntrack?(id)
     }
 
     func moveTrackedRepos(fromOffsets source: IndexSet, toOffset destination: Int) {

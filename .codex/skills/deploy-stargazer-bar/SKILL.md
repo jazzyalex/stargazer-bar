@@ -112,6 +112,6 @@ If GitHub Pages propagation is slow, rerun verification before treating it as a 
 ## Failure Handling
 
 - If the build number is not greater than the previous release, bump `CURRENT_PROJECT_VERSION` before deploying and commit that change.
-- If appcast publication fails, inspect `dist/updates/appcast.xml`, `docs/appcast.xml`, GitHub Pages status, and the release asset URLs.
+- If appcast publication fails, inspect `updates/appcast.xml` in the release output directory printed by the script, `docs/appcast.xml`, GitHub Pages status, and the release asset URLs.
 - If notarization fails, inspect the `notarytool` output and `tools/release/notary-auth.sh`; do not publish unsigned or unstapled artifacts.
 - Rollback only after identifying whether the failure is local packaging, GitHub release assets, appcast content, GitHub Pages propagation, or Homebrew cask update.

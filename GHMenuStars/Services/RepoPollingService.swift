@@ -29,6 +29,7 @@ enum StarAskPromptTrigger: Equatable {
 final class RepoPollingService {
     let gitHubClient: GitHubClient
     let repoAccess: GitHubRepoAccess
+    let stargazerTracking: StargazerTrackingService?
 
     private let repoStore: TrackedRepoStore
     private let settingsStore: SettingsStore
@@ -45,7 +46,8 @@ final class RepoPollingService {
         repoAccess: GitHubRepoAccess,
         notificationService: NotificationService,
         soundService: SoundService,
-        animationCoordinator: AnimationCoordinator
+        animationCoordinator: AnimationCoordinator,
+        stargazerTracking: StargazerTrackingService? = nil
     ) {
         self.repoStore = repoStore
         self.settingsStore = settingsStore
@@ -54,11 +56,12 @@ final class RepoPollingService {
         self.notificationService = notificationService
         self.soundService = soundService
         self.animationCoordinator = animationCoordinator
+        self.stargazerTracking = stargazerTracking
     }
 
     func start() {
         scheduleTimer()
-        refreshNow()
+        refreshNow(manual: false)
     }
 
     func stop() {
@@ -66,7 +69,7 @@ final class RepoPollingService {
         timer = nil
     }
 
-    func refreshNow() {
+    func refreshNow(manual: Bool = true) {
         guard !isRefreshing else { return }
         let repos = repoStore.trackedRepos
         guard !repos.isEmpty else { return }
@@ -77,16 +80,18 @@ final class RepoPollingService {
         }
 
         isRefreshing = true
+        stargazerTracking?.beginRefresh()
         Task {
             defer {
                 Task { @MainActor in
                     self.isRefreshing = false
+                    self.stargazerTracking?.endRefresh()
                     self.scheduleTimer()
                 }
             }
             for repo in repos {
                 if let rate = self.repoStore.rateLimitState, rate.isLimited { break }
-                await refresh(repo: repo)
+                await refresh(repo: repo, manual: manual)
             }
         }
     }
@@ -101,10 +106,12 @@ final class RepoPollingService {
         }
 
         isRefreshing = true
+        stargazerTracking?.beginRefresh()
         Task {
             defer {
                 Task { @MainActor in
                     self.isRefreshing = false
+                    self.stargazerTracking?.endRefresh()
                     self.scheduleTimer()
                 }
             }
@@ -115,7 +122,7 @@ final class RepoPollingService {
     private func scheduleTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: nextRefreshInterval(), repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.refreshNow() }
+            Task { @MainActor in self?.refreshNow(manual: false) }
         }
     }
 
@@ -131,7 +138,9 @@ final class RepoPollingService {
     // internal, not private: both refreshNow() entries spawn a detached Task and
     // return, so a test awaiting them would race the work and assert against
     // nothing. Tests await this directly.
-    func refresh(repo: TrackedRepo) async {
+    func refresh(repo: TrackedRepo, manual: Bool = true) async {
+        let credentialGeneration = repoAccess.credentialGeneration
+        var reachedIdentityCheck = false
         do {
             var repoETag = repo.etagRepo
             var releasesETag = repo.etagReleases
@@ -141,6 +150,7 @@ final class RepoPollingService {
             let isPrivate: Bool
             let authToken: String?
             let didFlipVisibility: Bool
+            var observerMetadata: GitHubHTTPResult<GitHubRepoResponse>?
             do {
                 let repoETagForRequest = repo.lastForks == nil ? nil : repo.etagRepo
                 let outcome = try await repoAccess.fetchRepo(
@@ -152,6 +162,7 @@ final class RepoPollingService {
                 )
                 switch outcome {
                 case .fetched(let repoResult, let fetchedPrivate, let token):
+                    observerMetadata = repoResult
                     isPrivate = fetchedPrivate
                     authToken = token
                     didFlipVisibility = fetchedPrivate != repo.isPrivate
@@ -174,6 +185,7 @@ final class RepoPollingService {
             let downloads: Int
             var latestRelease: LatestReleaseSummary?
             var recentReleases: RecentReleasesSummary?
+            var releasesError: Error?
             do {
                 let releasesResult = try await gitHubClient.fetchReleases(
                     owner: repo.owner,
@@ -193,8 +205,19 @@ final class RepoPollingService {
                 downloads = repo.lastDownloads ?? 0
                 latestRelease = nil
                 recentReleases = nil
+            } catch GitHubError.rateLimited(let state) {
+                throw GitHubError.rateLimited(state)
+            } catch {
+                downloads = repo.lastDownloads ?? 0
+                releasesError = error
             }
 
+            let identityCheck = await stargazerTracking?.verify(repo: repo, metadata: observerMetadata,
+                token: authToken, generation: credentialGeneration, rate: latestRateLimitState, manual: manual) ?? .skipped
+            reachedIdentityCheck = true
+            if let releasesError { throw releasesError }
+            let throttle = repoStore.rateLimitState ?? latestRateLimitState
+            let canFetchExtras = throttle?.isLimited != true
             let checkedAt = Date()
             let activityWindow = settingsStore.settings.maintainerRadarActivityWindow
             let effectiveRelease = latestRelease ?? repo.latestRelease
@@ -204,13 +227,14 @@ final class RepoPollingService {
             }
             // Private repos: the stargazer/fork walk is the bulk of the per-poll
             // request budget, and it would be counting something never shown.
-            async let trendPoints: [RepoTrendPoint]? = isPrivate
+            async let trendPoints: [RepoTrendPoint]? = isPrivate || !canFetchExtras
                 ? nil
                 : fetchTrendPointsIfNeeded(
                     for: repo,
                     stars: stars,
                     forks: forks,
-                    checkedAt: checkedAt
+                    checkedAt: checkedAt,
+                    identityCheck: identityCheck
                 )
             // 30 days of commit dates, fetched once: the chart buckets them by
             // day and the menu bar counts a 7-day slice of the same data, so
@@ -219,7 +243,7 @@ final class RepoPollingService {
             // pages through each — on a busy public repo that's dozens of
             // requests per poll to compute a number nobody looks at, because a
             // public repo's headline is stars.
-            async let commitDates: [Date]? = isPrivate
+            async let commitDates: [Date]? = isPrivate && canFetchExtras
                 ? gitHubClient.fetchCrossBranchCommitDates(
                     owner: repo.owner,
                     name: repo.name,
@@ -228,7 +252,7 @@ final class RepoPollingService {
                     optionalAuthToken: authToken
                 )
                 : nil
-            async let maintainerRadar = gitHubClient.fetchMaintainerRadar(
+            async let maintainerRadar = canFetchExtras ? gitHubClient.fetchMaintainerRadar(
                 owner: repo.owner,
                 name: repo.name,
                 activityWindow: activityWindow,
@@ -241,7 +265,7 @@ final class RepoPollingService {
                 // the headline, and /commits alone reports 0 on a repo whose work
                 // lives on a feature branch.
                 crossBranchCommits: isPrivate
-            )
+            ) : nil
             let resolvedCommitDates = await commitDates
             let resolvedCommitActivity = resolvedCommitDates.map {
                 CommitActivityBuilder.buckets(
@@ -252,7 +276,7 @@ final class RepoPollingService {
             }
             let resolvedTrendPoints = await trendPoints
             let resolvedMaintainerRadar = await maintainerRadar
-            let radarSnapshot = resolvedMaintainerRadar.hasData ? resolvedMaintainerRadar : nil
+            let radarSnapshot = resolvedMaintainerRadar.flatMap { $0.hasData ? $0 : nil }
             let snapshot = RepoSnapshot(
                 stars: stars,
                 releaseDownloads: downloads,
@@ -268,21 +292,26 @@ final class RepoPollingService {
                 isPrivate: isPrivate,
                 commitActivity: resolvedCommitActivity
             )
+            let finalThrottle = gitHubClient.activeThrottle() ?? repoStore.rateLimitState ?? throttle
             if let delta = repoStore.apply(snapshot: snapshot, to: repo.id) {
                 handle(delta: delta, repoID: repo.id, stars: stars)
             }
-            if let latestRateLimitState, latestRateLimitState.isLimited {
-                repoStore.updateRateLimit(latestRateLimitState)
+            if let finalThrottle, finalThrottle.isLimited {
+                repoStore.updateRateLimit(finalThrottle)
             }
         } catch GitHubError.rateLimited(let state) {
             repoStore.updateRateLimit(state)
             repoStore.markRefreshFailed(repoID: repo.id, failure: .rateLimited)
+            stargazerTracking?.recordFailure(GitHubError.rateLimited(state), repoID: repo.id)
         } catch {
             // Previously every failure called markChecked, which stamps
             // lastCheckedAt — so a revoked token, a deleted repo and an offline
             // machine all looked like a fresh successful check sitting on top of
             // stale data. Record what actually happened instead.
             repoStore.markRefreshFailed(repoID: repo.id, failure: Self.classify(error, isPATDead: repoAccess.isPATDead))
+            if !reachedIdentityCheck && credentialGeneration == repoAccess.credentialGeneration {
+                stargazerTracking?.recordFailure(error, repoID: repo.id)
+            }
         }
     }
 
@@ -310,12 +339,12 @@ final class RepoPollingService {
         for repo: TrackedRepo,
         stars: Int,
         forks: Int,
-        checkedAt: Date
+        checkedAt: Date,
+        identityCheck: StargazerTrackingService.CheckResult
     ) async -> [RepoTrendPoint]? {
         guard shouldRefreshTrend(for: repo, stars: stars, forks: forks, checkedAt: checkedAt) else {
             return nil
         }
-
         do {
             // Incremental path: an established all-time curve only needs the
             // events added since the last successful check, which is a handful of
@@ -324,7 +353,7 @@ final class RepoPollingService {
                repo.trendRange == .all,
                !isFlatTrend(repo.trendPoints),
                let since = repo.lastSuccessfulCheckAt {
-                async let starDates = gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name, since: since, maxPages: GitHubClient.trendPageLimit)
+                async let starDates = trendStarDates(for: repo, since: since, limit: GitHubClient.trendPageLimit, identityCheck: identityCheck)
                 async let forkDates = gitHubClient.fetchForkDates(owner: repo.owner, name: repo.name, since: since, maxPages: GitHubClient.trendPageLimit)
                 let (newStarDates, newForkDates) = try await (starDates, forkDates)
                 return RepoTrendBuilder.extend(
@@ -339,7 +368,7 @@ final class RepoPollingService {
 
             // Full backfill: first time, or the stored curve is empty/degenerate.
             let pageLimit = gitHubClient.trendBackfillPageLimit()
-            async let starDates = gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name, maxPages: pageLimit)
+            async let starDates = trendStarDates(for: repo, since: nil, limit: pageLimit, identityCheck: identityCheck)
             async let forkDates = gitHubClient.fetchForkDates(owner: repo.owner, name: repo.name, maxPages: pageLimit)
             let (resolvedStarDates, resolvedForkDates) = try await (starDates, forkDates)
             return RepoTrendBuilder.points(
@@ -353,6 +382,14 @@ final class RepoPollingService {
         } catch {
             return nil
         }
+    }
+
+    private func trendStarDates(for repo: TrackedRepo, since: Date?, limit: Int,
+                                identityCheck: StargazerTrackingService.CheckResult) async throws -> [Date] {
+        if case .observed(let dates) = identityCheck {
+            return dates.filter { date in since.map { date >= $0 } ?? true }
+        }
+        return try await gitHubClient.fetchStargazerDates(owner: repo.owner, name: repo.name, since: since, maxPages: limit)
     }
 
     private func shouldRefreshTrend(for repo: TrackedRepo, stars: Int, forks: Int, checkedAt: Date) -> Bool {

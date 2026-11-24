@@ -101,16 +101,16 @@ sys.exit(1)
 PY
 }
 
-sparkle_key_file() {
+prepare_sparkle_key_file() {
   if [[ -n "$SPARKLE_ED_KEY_FILE" ]]; then
-    printf '%s\n' "$SPARKLE_ED_KEY_FILE"
+    SPARKLE_KEY_FILE="$SPARKLE_ED_KEY_FILE"
     return 0
   fi
 
   SPARKLE_TEMP_KEY_FILE=$(mktemp)
   chmod 600 "$SPARKLE_TEMP_KEY_FILE"
   security find-generic-password -w -s "https://sparkle-project.org" -a "$SPARKLE_ACCOUNT" > "$SPARKLE_TEMP_KEY_FILE"
-  printf '%s\n' "$SPARKLE_TEMP_KEY_FILE"
+  SPARKLE_KEY_FILE="$SPARKLE_TEMP_KEY_FILE"
 }
 
 verify_dmg() {
@@ -195,12 +195,6 @@ TAG=${TAG:-v$VERSION}
 BUILD_NUMBER=$(project_value CURRENT_PROJECT_VERSION)
 DMG_BASENAME="${APP_NAME}-${VERSION}.dmg"
 ZIP_BASENAME="${APP_NAME}-${VERSION}.zip"
-DIST="$ROOT/dist"
-APP="$DIST/${APP_BUNDLE_NAME}.app"
-DMG="$DIST/$DMG_BASENAME"
-ZIP="$DIST/$ZIP_BASENAME"
-NOTARY_ZIP="$DIST/${APP_NAME}-${VERSION}-notary.zip"
-UPDATES_DIR="$DIST/updates"
 DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/${DMG_BASENAME}"
 RELEASE_URL="https://github.com/${REPO}/releases/download/${TAG}/${ZIP_BASENAME}"
 
@@ -215,8 +209,6 @@ if [[ "$UPDATE_CASK" == "1" ]]; then
   CASK_REPO="$CASK_REPO" APP_BUNDLE_NAME="$APP_BUNDLE_NAME" "$ROOT/tools/release/update-homebrew-cask.sh" --preflight
 fi
 
-rm -rf "$DIST"
-
 if [[ -n "$(git status --porcelain)" ]]; then
   red "Working tree must be clean before release."
   git status --short
@@ -229,7 +221,8 @@ if [[ "$(git branch --show-current)" != "main" ]]; then
 fi
 
 git fetch origin main:refs/remotes/origin/main --quiet
-if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+RELEASE_COMMIT=$(git rev-parse HEAD)
+if [[ "$RELEASE_COMMIT" != "$(git rev-parse origin/main)" ]]; then
   red "Local main is not synced with origin/main."
   exit 2
 fi
@@ -309,7 +302,14 @@ if [[ "$SKIP_CONFIRM" != "1" ]]; then
 fi
 
 echo "==> Building release app"
-mkdir -p "$DIST"
+mkdir -p "$ROOT/dist"
+DIST=$(mktemp -d "$ROOT/dist/release-$VERSION.XXXXXX")
+APP="$DIST/${APP_BUNDLE_NAME}.app"
+DMG="$DIST/$DMG_BASENAME"
+ZIP="$DIST/$ZIP_BASENAME"
+NOTARY_ZIP="$DIST/${APP_NAME}-${VERSION}-notary.zip"
+UPDATES_DIR="$DIST/updates"
+echo "Output: $DIST"
 xattr -w com.apple.xcode.CreatedByBuildSystem true "$DIST" 2>/dev/null || true
 xcodebuild \
   -project "$PROJECT" \
@@ -403,7 +403,7 @@ SPARKLE_ARGS=(
   --download-url-prefix "https://github.com/${REPO}/releases/download/${TAG}/" \
   --embed-release-notes \
 )
-SPARKLE_KEY_FILE=$(sparkle_key_file)
+prepare_sparkle_key_file
 SPARKLE_ARGS+=(--ed-key-file "$SPARKLE_KEY_FILE")
 "$SPARKLE_BIN" "${SPARKLE_ARGS[@]}" "$UPDATES_DIR"
 
@@ -432,11 +432,16 @@ fi
 
 echo "==> Creating GitHub release"
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+  if [[ "$ALLOW_EXISTING_RELEASE" != "1" ]]; then
+    red "Release already exists: $TAG"
+    exit 2
+  fi
   gh release upload "$TAG" "$DMG" "$DMG.sha256" "$ZIP" "$ZIP.sha256" --repo "$REPO" --clobber
   gh release edit "$TAG" --repo "$REPO" --notes-file "$NOTES_TXT"
 else
   gh release create "$TAG" "$DMG" "$DMG.sha256" "$ZIP" "$ZIP.sha256" \
     --repo "$REPO" \
+    --target "$RELEASE_COMMIT" \
     --title "$DISPLAY_NAME $VERSION" \
     --notes-file "$NOTES_TXT"
 fi

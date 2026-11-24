@@ -67,9 +67,19 @@ Grab the signed, notarized Apple silicon DMG from the [latest release](https://g
   <a href="docs/assets/track-any-public-repo.png"><img src="docs/assets/track-any-public-repo.png" alt="Stargazer Bar submenu for a non-owned public repository (steipete/CodexBar) showing the all-time trend, latest release, last 30 days, and maintainer radar" width="260"></a>
 </div>
 
+## Stargazers
+
+Open the app’s menu, select a tracked repository, and choose **Stargazers…**. **Current** shows a scrollable list and loads public names and bios as accounts come into view. Select an account for details and any profile links they published on GitHub, or use **Load visible star totals** to compare stars received across the accounts in view. The summaries use GitHub data and arithmetic.
+
+**Disappeared** shows each account’s last-known handle and the interval from when it was last seen to the first complete check that found it missing. Unstarring, account deletion, suspension, or visibility changes can explain a disappearance. A star removed and restored between checks leaves no record.
+
+Checks run on launch, through **Check Now**, and on the configured 10-minute, hourly, or daily schedule while the app is running. The first successful check establishes a baseline. GitHub restricts identity lists to repository admins and collaborators. An incomplete check keeps the last valid snapshot and its history. [GitHub stargazer access policy](https://github.blog/changelog/2026-09-04-new-api-endpoint-provides-privacy-safe-star-history-data/)
+
+If two walks of the stargazer list agree but differ from GitHub’s reported star count, **Current** shows both counts. Agent Sessions requires additional checks before saving any snapshot. The GraphQL list must contain the same account IDs as REST, and the complete star-history total must match the list size. A passing cross-check establishes a baseline for visible accounts. Later checks repeat the verification before recording changes. If verification fails, the existing baseline and history remain available.
+
 ## Privacy
 
-The app stores tracked repository metadata and settings locally in `UserDefaults`. Optional GitHub OAuth tokens are stored in Keychain. There is **no backend and no telemetry**. The only non-GitHub network activity is optional Sparkle update checking.
+The app stores tracked repository metadata and settings locally in `UserDefaults`. Stargazer snapshots and up to 90 days of disappearances are stored in local Application Support. Author profiles are cached in memory. GitHub credentials are stored in Keychain. There is **no backend and no telemetry**. The app fetches data from GitHub, and optional Sparkle update checking uses the release feed. Profile links open in your browser when clicked.
 
 ## Build from source
 
@@ -116,7 +126,7 @@ To test the full local release path without publishing or modifying `docs/appcas
 VERSION=0.2 tools/release/test-release-path.sh
 ```
 
-This builds the Release app, signs with Developer ID, packages a DMG and Sparkle ZIP, checksums them, renders release notes, and generates a signed Sparkle appcast under `dist/release-path-test`. It notarizes when credentials are configured; set `REQUIRE_NOTARY=1` to fail the test if notarization is unavailable.
+This builds the Release app, signs with Developer ID, packages a DMG and Sparkle ZIP, checksums them, renders release notes, and generates a signed Sparkle appcast in a new `dist/release-path-test.*` directory. It notarizes when credentials are configured. Set `REQUIRE_NOTARY=1` to fail the test if notarization is unavailable.
 
 </details>
 

@@ -44,7 +44,7 @@ Usage:
   VERSION=X.Y.Z tools/release/test-release-path.sh
 
 Builds, Developer-ID signs, packages, checksums, generates release notes, and
-generates a signed Sparkle appcast locally under dist/release-path-test.
+generates a signed Sparkle appcast locally under a new dist/release-path-test.* directory.
 It does not create GitHub releases, push commits, or modify docs/appcast.xml.
 
 Environment:
@@ -96,16 +96,16 @@ sys.exit(1)
 PY
 }
 
-sparkle_key_file() {
+prepare_sparkle_key_file() {
   if [[ -n "$SPARKLE_ED_KEY_FILE" ]]; then
-    printf '%s\n' "$SPARKLE_ED_KEY_FILE"
+    SPARKLE_KEY_FILE="$SPARKLE_ED_KEY_FILE"
     return 0
   fi
 
   SPARKLE_TEMP_KEY_FILE=$(mktemp)
   chmod 600 "$SPARKLE_TEMP_KEY_FILE"
   security find-generic-password -w -s "https://sparkle-project.org" -a "$SPARKLE_ACCOUNT" > "$SPARKLE_TEMP_KEY_FILE"
-  printf '%s\n' "$SPARKLE_TEMP_KEY_FILE"
+  SPARKLE_KEY_FILE="$SPARKLE_TEMP_KEY_FILE"
 }
 
 verify_dmg() {
@@ -173,7 +173,8 @@ fi
 
 TAG=${TAG:-${TAG_PREFIX}${VERSION}}
 BUILD_NUMBER=$(project_value CURRENT_PROJECT_VERSION)
-DIST="$ROOT/dist/release-path-test"
+mkdir -p "$ROOT/dist"
+DIST=$(mktemp -d "$ROOT/dist/release-path-test.XXXXXX")
 BUILD_DIR="$DIST/build"
 UPDATES_DIR="$DIST/updates"
 APP="$BUILD_DIR/${APP_BUNDLE_NAME}.app"
@@ -245,7 +246,6 @@ Sparkle   : $SPARKLE_BIN
 Output    : $DIST
 EOF
 
-rm -rf "$DIST"
 mkdir -p "$BUILD_DIR" "$UPDATES_DIR"
 xattr -w com.apple.xcode.CreatedByBuildSystem true "$BUILD_DIR" 2>/dev/null || true
 
@@ -326,7 +326,7 @@ SPARKLE_ARGS=(
   --download-url-prefix "https://github.com/${REPO}/releases/download/${TAG}/"
   --embed-release-notes
 )
-SPARKLE_KEY_FILE=$(sparkle_key_file)
+prepare_sparkle_key_file
 SPARKLE_ARGS+=(--ed-key-file "$SPARKLE_KEY_FILE")
 if ! run_with_timeout 180 "$SPARKLE_BIN" "${SPARKLE_ARGS[@]}" "$UPDATES_DIR"; then
   red "Sparkle appcast generation failed or timed out."

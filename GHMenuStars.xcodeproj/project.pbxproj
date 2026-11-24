@@ -56,6 +56,12 @@
 		10000000000000000000002E /* TrendAnomalyDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* TrendAnomalyDetectorTests.swift */; };
 		B66CAF03D3A4F29D5508C52A /* GitHubRepoAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */; };
 		D6892747A8F06607E95FD440 /* GitHubRepoAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0B31C2E7A2036CBD4AF588 /* GitHubRepoAccess.swift */; };
+		AB002C5F356714199DC18700 /* StargazersWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18700 /* StargazersWindow.swift */; };
+		AB002C5F356714199DC18701 /* GitHubStargazers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18701 /* GitHubStargazers.swift */; };
+		AB002C5F356714199DC18702 /* StargazerTrackingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18702 /* StargazerTrackingService.swift */; };
+		AB002C5F356714199DC18703 /* StargazerHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18703 /* StargazerHistoryStore.swift */; };
+		AB002C5F356714199DC18704 /* StargazerTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18704 /* StargazerTrackingTests.swift */; };
+		AB002C5F356714199DC18705 /* GitHubStargazerCrossCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB001C5F356714199DC18705 /* GitHubStargazerCrossCheck.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,6 +128,12 @@
 		8E0B31C2E7A2036CBD4AF588 /* GitHubRepoAccess.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GitHubRepoAccess.swift; sourceTree = "<group>"; };
 		B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GitHubRepoAccessTests.swift; sourceTree = "<group>"; };
 		E181AB10E7F3C7DA847B510A /* MockURLProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18700 /* StargazersWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StargazersWindow.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18701 /* GitHubStargazers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStargazers.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18702 /* StargazerTrackingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StargazerTrackingService.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18703 /* StargazerHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StargazerHistoryStore.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18704 /* StargazerTrackingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StargazerTrackingTests.swift; sourceTree = "<group>"; };
+		AB001C5F356714199DC18705 /* GitHubStargazerCrossCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStargazerCrossCheck.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -163,6 +175,7 @@
 				200000000000000000000005 /* StatusMenuBuilder.swift */,
 				200000000000000000000006 /* PreferencesWindow.swift */,
 				200000000000000000000007 /* SettingsView.swift */,
+				AB001C5F356714199DC18700 /* StargazersWindow.swift */,
 				700000000000000000000003 /* Models */,
 				700000000000000000000004 /* GitHub */,
 				700000000000000000000005 /* Persistence */,
@@ -197,6 +210,8 @@
 				20000000000000000000000E /* RepoURLParser.swift */,
 				20000000000000000000000F /* ReleaseDownloadAggregator.swift */,
 				200000000000000000000010 /* GitHubClient.swift */,
+				AB001C5F356714199DC18701 /* GitHubStargazers.swift */,
+				AB001C5F356714199DC18705 /* GitHubStargazerCrossCheck.swift */,
 				200000000000000000000011 /* DeviceFlowClient.swift */,
 				200000000000000000000021 /* GitHubOAuthConfiguration.swift */,
 				200000000000000000000029 /* LatestReleaseSummaryBuilder.swift */,
@@ -211,6 +226,7 @@
 			children = (
 				200000000000000000000012 /* SettingsStore.swift */,
 				200000000000000000000013 /* TrackedRepoStore.swift */,
+				AB001C5F356714199DC18703 /* StargazerHistoryStore.swift */,
 				200000000000000000000014 /* KeychainTokenStore.swift */,
 				200000000000000000000030 /* RepoDirectoryStore.swift */,
 				20000000000000000000002F /* GitHubCredentialStore.swift */,
@@ -222,6 +238,7 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000015 /* RepoPollingService.swift */,
+				AB001C5F356714199DC18702 /* StargazerTrackingService.swift */,
 				200000000000000000000016 /* NotificationService.swift */,
 				200000000000000000000017 /* SoundService.swift */,
 				200000000000000000000018 /* AnimationCoordinator.swift */,
@@ -243,6 +260,7 @@
 				20000000000000000000001C /* ServiceLogicTests.swift */,
 				20000000000000000000002E /* TrendAnomalyDetectorTests.swift */,
 				B8EB010B55DAC7EC178B04EA /* GitHubRepoAccessTests.swift */,
+				AB001C5F356714199DC18704 /* StargazerTrackingTests.swift */,
 				86A71FC3C91FE32349E6A972 /* Support */,
 			);
 			path = GHMenuStarsTests;
@@ -387,6 +405,7 @@
 				100000000000000000000005 /* StatusMenuBuilder.swift in Sources */,
 				100000000000000000000006 /* PreferencesWindow.swift in Sources */,
 				100000000000000000000007 /* SettingsView.swift in Sources */,
+				AB002C5F356714199DC18700 /* StargazersWindow.swift in Sources */,
 				100000000000000000000008 /* RepoSource.swift in Sources */,
 				100000000000000000000009 /* RefreshInterval.swift in Sources */,
 				10000000000000000000000A /* TrackedRepo.swift in Sources */,
@@ -398,13 +417,17 @@
 				10000000000000000000000E /* RepoURLParser.swift in Sources */,
 				10000000000000000000000F /* ReleaseDownloadAggregator.swift in Sources */,
 				100000000000000000000010 /* GitHubClient.swift in Sources */,
+				AB002C5F356714199DC18701 /* GitHubStargazers.swift in Sources */,
+				AB002C5F356714199DC18705 /* GitHubStargazerCrossCheck.swift in Sources */,
 				100000000000000000000011 /* DeviceFlowClient.swift in Sources */,
 				100000000000000000000012 /* SettingsStore.swift in Sources */,
 				100000000000000000000013 /* TrackedRepoStore.swift in Sources */,
+				AB002C5F356714199DC18703 /* StargazerHistoryStore.swift in Sources */,
 				100000000000000000000014 /* KeychainTokenStore.swift in Sources */,
 				100000000000000000000030 /* RepoDirectoryStore.swift in Sources */,
 				10000000000000000000002F /* GitHubCredentialStore.swift in Sources */,
 				100000000000000000000015 /* RepoPollingService.swift in Sources */,
+				AB002C5F356714199DC18702 /* StargazerTrackingService.swift in Sources */,
 				100000000000000000000016 /* NotificationService.swift in Sources */,
 				100000000000000000000017 /* SoundService.swift in Sources */,
 				100000000000000000000018 /* AnimationCoordinator.swift in Sources */,
@@ -433,6 +456,7 @@
 				10000000000000000000001C /* ServiceLogicTests.swift in Sources */,
 				10000000000000000000002E /* TrendAnomalyDetectorTests.swift in Sources */,
 				B66CAF03D3A4F29D5508C52A /* GitHubRepoAccessTests.swift in Sources */,
+				AB002C5F356714199DC18704 /* StargazerTrackingTests.swift in Sources */,
 				0FC155E6E018B9F533055053 /* MockURLProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -570,14 +594,14 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GHMenuStars/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.7.1;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar;
 				PRODUCT_MODULE_NAME = GHMenuStars;
 				PRODUCT_NAME = "Stargazer Bar";
@@ -594,14 +618,14 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GHMenuStars/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.7.1;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzyalex.StargazerBar;
 				PRODUCT_MODULE_NAME = GHMenuStars;
 				PRODUCT_NAME = "Stargazer Bar";

@@ -313,7 +313,7 @@ struct SettingsView: View {
                 repoPendingDeletion = nil
             }
         } message: { _ in
-            Text("It will be removed from Stargazer Bar. You can add it again later.")
+            Text("The repository and its local stargazer history will be removed from Stargazer Bar. You can add the repository again later.")
         }
     }
 
@@ -973,6 +973,7 @@ struct SettingsView: View {
                 )
                 try GitHubCredentialStore.standard().setOAuth(token.accessToken)
                 await MainActor.run {
+                    repoAccess.resetTokenState()
                     authState = .connected
                     deviceCode = nil
                     refreshDirectory(interactive: true)
